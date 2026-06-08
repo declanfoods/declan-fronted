@@ -1,1 +1,1 @@
-export { LandingRoute } from './routes/LandingRoute';
+export { LandingPage } from './page/LandingPage';

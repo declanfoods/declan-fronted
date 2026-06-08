@@ -5,7 +5,7 @@ import manFoodImg from "@/app/assets/manfood.webp";
 
 
 
-export function LandingRoute() {
+export function LandingPage() {
   return (
     <main className="relative min-h-screen bg-white overflow-hidden">
 
