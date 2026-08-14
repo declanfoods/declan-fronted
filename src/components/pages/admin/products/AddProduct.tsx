@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, HelpCircle, Camera, ChevronDown, Send, X } from 'lucide-react';
+import { ArrowLeft, HelpCircle, ChevronDown, Send } from 'lucide-react';
 import { adminProductApi, type AdminProductCategory } from '../../../../app/lib/adminProductApi';
+import AdminImageUpload from '../../../admin/AdminImageUpload';
 
-const units = ['Per kg', 'Per unit', 'Per pack', 'Per litre', 'satchet'];
 
 export default function AddProduct() {
   const navigate = useNavigate();
@@ -13,7 +13,7 @@ export default function AddProduct() {
   const [categoryId, setCategoryId] = useState('');
   const [basePrice, setBasePrice] = useState('');
   const [discount, setDiscount] = useState('');
-  const [unit, setUnit] = useState('Per kg');
+  const [unit, setUnit] = useState('');
   const [stockQty, setStockQty] = useState('');
   const [imageUrl, setImageUrl] = useState('');
   const [featured, setFeatured] = useState(false);
@@ -79,31 +79,11 @@ export default function AddProduct() {
 
         <div>
           <p className="mb-2 text-sm font-semibold text-gray-700">Product Media</p>
-          {imageUrl ? (
-            <div className="relative h-40 w-full overflow-hidden rounded-2xl">
-              <img src={imageUrl} alt="Preview" className="h-full w-full object-cover" />
-              <button
-                type="button"
-                onClick={() => setImageUrl('')}
-                className="absolute right-2 top-2 flex h-7 w-7 items-center justify-center rounded-full bg-black/60 text-white"
-              >
-                <X size={14} />
-              </button>
-            </div>
-          ) : (
-            <div className="flex h-40 w-full flex-col items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-gray-200 text-center">
-              <Camera size={24} className="text-gray-400" />
-              <span className="px-8 text-sm font-semibold text-gray-700">
-                Paste an image URL below to preview
-              </span>
-              <span className="text-xs text-gray-400">Cloudinary upload wiring coming soon</span>
-            </div>
-          )}
-          <input
+          <AdminImageUpload
             value={imageUrl}
-            onChange={(e) => setImageUrl(e.target.value)}
-            placeholder="https://res.cloudinary.com/.../image.png"
-            className="mt-2 w-full rounded-xl border border-gray-200 px-4 py-3 text-sm text-gray-800 outline-none placeholder:text-gray-400 focus:border-primary"
+            onChange={setImageUrl}
+            heightClassName="h-40"
+            helperText="Tap to upload high-quality images of your food product"
           />
         </div>
 
@@ -170,23 +150,15 @@ export default function AddProduct() {
                 className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-sm text-gray-800 outline-none placeholder:text-gray-400"
               />
             </div>
-            <div>
-              <label className="mb-1 block text-xs text-gray-500">Unit</label>
-              <div className="relative">
-                <select
-                  value={unit}
-                  onChange={(e) => setUnit(e.target.value)}
-                  className="w-full appearance-none rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-sm text-gray-800 outline-none"
-                >
-                  {units.map((u) => (
-                    <option key={u} value={u}>
-                      {u}
-                    </option>
-                  ))}
-                </select>
-                <ChevronDown size={14} className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-gray-400" />
-              </div>
-            </div>
+           <div>
+  <label className="mb-1 block text-xs text-gray-500">Unit</label>
+  <input
+    value={unit}
+    onChange={(e) => setUnit(e.target.value)}
+    placeholder="e.g. kg, satchet, pack"
+    className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-sm text-gray-800 outline-none placeholder:text-gray-400"
+  />
+</div>
             <div>
               <label className="mb-1 block text-xs text-gray-500">Stock Qty</label>
               <input

@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, MoreVertical, Camera, X, Check, EyeOff, Clock } from 'lucide-react';
+import { ArrowLeft, MoreVertical, Check, EyeOff, Clock } from 'lucide-react';
 import { adminProductApi, type AdminProduct } from '../../../../app/lib/adminProductApi';
+import AdminImageUpload from '../../../admin/AdminImageUpload';
 
 type Visibility = 'Published' | 'Hidden' | 'Scheduled';
 
@@ -137,30 +138,7 @@ export default function EditProduct() {
           <div className="mb-2 flex items-center justify-between">
             <p className="text-sm font-semibold text-gray-700">Product Images</p>
           </div>
-          <div className="flex gap-3">
-            {imageUrl ? (
-              <div className="relative h-20 w-20 overflow-hidden rounded-xl">
-                <img src={imageUrl} alt={name} className="h-full w-full object-cover" />
-                <button
-                  type="button"
-                  onClick={() => setImageUrl('')}
-                  className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full bg-red-500 text-white"
-                >
-                  <X size={12} />
-                </button>
-              </div>
-            ) : (
-              <span className="flex h-20 w-20 items-center justify-center rounded-xl border-2 border-dashed border-gray-200 text-gray-400">
-                <Camera size={18} />
-              </span>
-            )}
-          </div>
-          <input
-            value={imageUrl}
-            onChange={(e) => setImageUrl(e.target.value)}
-            placeholder="Image URL"
-            className="mt-2 w-full rounded-xl border border-gray-200 px-4 py-2.5 text-sm text-gray-800 outline-none placeholder:text-gray-400 focus:border-primary"
-          />
+          <AdminImageUpload value={imageUrl} onChange={setImageUrl} compact />
         </div>
 
         <div>

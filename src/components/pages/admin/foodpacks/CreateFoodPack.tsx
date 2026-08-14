@@ -1,37 +1,127 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, MoreVertical, Camera, Plus, Minus, Search, Star, Eye, Rocket } from 'lucide-react';
+import { ArrowLeft, MoreVertical, Plus, Minus, Search, Star, Eye, Rocket, X } from 'lucide-react';
+import {
+  adminFoodPackApi,
+  type FoodPackCategory,
+} from '../../../../app/lib/adminFoodPackApi';
+import { adminProductApi, type AdminProduct } from '../../../../app/lib/adminProductApi';
+import AdminImageUpload from '../../../admin/AdminImageUpload';
 
 type SelectedProduct = {
+  productId: string;
   name: string;
   price: number;
-  unit: string;
+  scale: string;
   qty: number;
   img: string;
 };
 
-const initialProducts: SelectedProduct[] = [
-  { name: 'Thai Jasmine Rice', price: 14500, unit: '/ unit', qty: 2, img: 'https://images.unsplash.com/photo-1586201375761-83865001e31c?w=200' },
-  { name: 'Premium Veg Oil (3L)', price: 3500, unit: '/ unit', qty: 1, img: 'https://images.unsplash.com/photo-1474979266404-7eaacbcd87c5?w=200' },
-];
-
 export default function CreateFoodPack() {
   const navigate = useNavigate();
+  const [categories, setCategories] = useState<FoodPackCategory[]>([]);
+  const [categoryId, setCategoryId] = useState('');
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
-  const [products, setProducts] = useState(initialProducts);
-  const [sellingPrice, setSellingPrice] = useState(28000);
+  const [imageUrl, setImageUrl] = useState('');
+
+  const [productSearch, setProductSearch] = useState('');
+  const [searchResults, setSearchResults] = useState<AdminProduct[]>([]);
+  const [searching, setSearching] = useState(false);
+  const [selectedProducts, setSelectedProducts] = useState<SelectedProduct[]>([]);
+
+  const [sellingPrice, setSellingPrice] = useState(0);
   const [featured, setFeatured] = useState(true);
   const [visible, setVisible] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState('');
 
-  const bundleValue = products.reduce((sum, p) => sum + p.price * p.qty, 0);
+  useEffect(() => {
+    adminFoodPackApi
+      .getCategories()
+      .then((res) => setCategories(res.data.data.categories))
+      .catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    if (!productSearch) {
+      setSearchResults([]);
+      return;
+    }
+    setSearching(true);
+    const timeout = setTimeout(() => {
+      adminProductApi
+        .getProducts({ search: productSearch, limit: 6 })
+        .then((res) => setSearchResults(res.data.data.products))
+        .catch(() => setSearchResults([]))
+        .finally(() => setSearching(false));
+    }, 350);
+    return () => clearTimeout(timeout);
+  }, [productSearch]);
+
+  const bundleValue = selectedProducts.reduce((sum, p) => sum + p.price * p.qty, 0);
   const savings = bundleValue - sellingPrice;
   const savingsPct = bundleValue ? Math.round((savings / bundleValue) * 100) : 0;
 
-  const updateQty = (name: string, delta: number) => {
-    setProducts((prev) =>
-      prev.map((p) => (p.name === name ? { ...p, qty: Math.max(0, p.qty + delta) } : p))
+  const addProduct = (product: AdminProduct) => {
+    if (selectedProducts.some((p) => p.productId === product.id)) return;
+    setSelectedProducts((prev) => [
+      ...prev,
+      {
+        productId: product.id,
+        name: product.name,
+        price: Number(product.price),
+        scale: product.scale,
+        qty: 1,
+        img: product.imageUrls?.[0] ?? '',
+      },
+    ]);
+    setProductSearch('');
+    setSearchResults([]);
+  };
+
+  const removeProduct = (productId: string) => {
+    setSelectedProducts((prev) => prev.filter((p) => p.productId !== productId));
+  };
+
+  const updateQty = (productId: string, delta: number) => {
+    setSelectedProducts((prev) =>
+      prev.map((p) =>
+        p.productId === productId ? { ...p, qty: Math.max(1, p.qty + delta) } : p
+      )
     );
+  };
+
+  const handlePublish = async () => {
+    setError('');
+
+    if (!name || !description || selectedProducts.length === 0 || !sellingPrice) {
+      setError('Please fill in pack name, description, at least one product, and selling price.');
+      return;
+    }
+
+    setSubmitting(true);
+    try {
+      await adminFoodPackApi.createFoodPack({
+        name,
+        description,
+        price: sellingPrice,
+        categoryId: categoryId || undefined,
+        items: selectedProducts.map((p) => ({
+          productId: p.productId,
+          quantity: p.qty,
+          quantityUnit: p.scale,
+        })),
+        imageUrls: imageUrl ? [imageUrl] : [],
+        featuredPack: featured,
+        visibleToCustomers: visible,
+      });
+      navigate('/admin/food-packs');
+    } catch (err: any) {
+      setError(err.response?.data?.message ?? 'Failed to create food pack.');
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -47,14 +137,20 @@ export default function CreateFoodPack() {
       </header>
 
       <main className="flex-1 space-y-5 px-5 pt-5">
+        {error && (
+          <p className="rounded-xl bg-red-50 px-4 py-3 text-sm font-medium text-red-600">
+            {error}
+          </p>
+        )}
+
         <div>
           <p className="mb-2 text-sm font-semibold text-gray-700">Banner Image</p>
-          <label className="flex h-36 w-full cursor-pointer flex-col items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-gray-200 text-center">
-            <input type="file" accept="image/*" className="hidden" />
-            <Camera size={22} className="text-gray-400" />
-            <span className="text-sm font-semibold text-gray-700">Upload Banner Image</span>
-            <span className="text-xs text-gray-400">16:9 ratio, Max 5MB</span>
-          </label>
+          <AdminImageUpload
+            value={imageUrl}
+            onChange={setImageUrl}
+            heightClassName="h-36"
+            helperText="Upload Banner Image"
+          />
         </div>
 
         <div>
@@ -79,42 +175,94 @@ export default function CreateFoodPack() {
         </div>
 
         <div>
+          <label className="mb-2 block text-sm font-semibold text-gray-700">Category</label>
+          <select
+            value={categoryId}
+            onChange={(e) => setCategoryId(e.target.value)}
+            className="w-full appearance-none rounded-xl border border-gray-200 px-4 py-3 text-sm text-gray-700 outline-none focus:border-primary"
+          >
+            <option value="">No category</option>
+            {categories.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.name}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div>
           <div className="mb-2 flex items-center justify-between">
             <p className="text-sm font-semibold text-gray-700">Product Selection</p>
-            <button type="button" className="flex items-center gap-1 text-sm font-semibold text-primary">
-              <Plus size={14} />
-              Add Products
-            </button>
           </div>
-          <div className="mb-3 flex items-center gap-2 rounded-full bg-gray-100 px-4 py-2.5">
-            <Search size={16} className="text-gray-400" />
-            <input
-              placeholder="Search available inventory..."
-              className="w-full bg-transparent text-sm text-gray-700 outline-none placeholder:text-gray-400"
-            />
+          <div className="relative mb-3">
+            <div className="flex items-center gap-2 rounded-full bg-gray-100 px-4 py-2.5">
+              <Search size={16} className="text-gray-400" />
+              <input
+                value={productSearch}
+                onChange={(e) => setProductSearch(e.target.value)}
+                placeholder="Search available inventory..."
+                className="w-full bg-transparent text-sm text-gray-700 outline-none placeholder:text-gray-400"
+              />
+            </div>
+            {productSearch && (
+              <div className="absolute z-10 mt-1 w-full rounded-xl border border-gray-100 bg-white shadow-lg">
+                {searching && <p className="p-3 text-sm text-gray-400">Searching...</p>}
+                {!searching && searchResults.length === 0 && (
+                  <p className="p-3 text-sm text-gray-400">No products found.</p>
+                )}
+                {!searching &&
+                  searchResults.map((product) => (
+                    <button
+                      key={product.id}
+                      type="button"
+                      onClick={() => addProduct(product)}
+                      className="flex w-full items-center gap-3 p-3 text-left hover:bg-gray-50"
+                    >
+                      {product.imageUrls?.[0] && (
+                        <img
+                          src={product.imageUrls[0]}
+                          alt={product.name}
+                          className="h-9 w-9 rounded-lg object-cover"
+                        />
+                      )}
+                      <div className="flex-1">
+                        <p className="text-sm font-semibold text-gray-800">{product.name}</p>
+                        <p className="text-xs text-gray-400">₦{Number(product.price).toLocaleString()}</p>
+                      </div>
+                      <Plus size={16} className="text-primary" />
+                    </button>
+                  ))}
+              </div>
+            )}
           </div>
 
           <div className="space-y-2">
-            {products.map((p) => (
-              <div key={p.name} className="flex items-center gap-3 rounded-xl border border-gray-100 p-2.5">
-                <img src={p.img} alt={p.name} className="h-11 w-11 rounded-lg object-cover" />
+            {selectedProducts.map((p) => (
+              <div key={p.productId} className="flex items-center gap-3 rounded-xl border border-gray-100 p-2.5">
+                {p.img && <img src={p.img} alt={p.name} className="h-11 w-11 rounded-lg object-cover" />}
                 <div className="flex-1">
                   <p className="text-sm font-semibold text-gray-800">{p.name}</p>
                   <p className="text-xs text-gray-400">
-                    ₦{p.price.toLocaleString()} {p.unit}
+                    ₦{p.price.toLocaleString()} / {p.scale}
                   </p>
                 </div>
                 <div className="flex items-center gap-3 rounded-full bg-[#F3F7EE] px-2 py-1">
-                  <button type="button" onClick={() => updateQty(p.name, -1)} className="text-primary">
+                  <button type="button" onClick={() => updateQty(p.productId, -1)} className="text-primary">
                     <Minus size={14} />
                   </button>
                   <span className="w-4 text-center text-sm font-bold text-gray-800">{p.qty}</span>
-                  <button type="button" onClick={() => updateQty(p.name, 1)} className="text-primary">
+                  <button type="button" onClick={() => updateQty(p.productId, 1)} className="text-primary">
                     <Plus size={14} />
                   </button>
                 </div>
+                <button type="button" onClick={() => removeProduct(p.productId)} className="text-red-400">
+                  <X size={16} />
+                </button>
               </div>
             ))}
+            {selectedProducts.length === 0 && (
+              <p className="text-sm text-gray-400">Search and add products to build this pack.</p>
+            )}
           </div>
         </div>
 
@@ -131,7 +279,7 @@ export default function CreateFoodPack() {
                 <span className="mr-1 text-white/80">₦</span>
                 <input
                   type="number"
-                  value={sellingPrice}
+                  value={sellingPrice || ''}
                   onChange={(e) => setSellingPrice(Number(e.target.value))}
                   className="w-full bg-transparent text-white outline-none"
                 />
@@ -190,19 +338,12 @@ export default function CreateFoodPack() {
 
         <button
           type="button"
-          className="flex w-full items-center justify-center gap-2 rounded-full border-2 border-primary py-3.5 text-sm font-semibold text-primary"
-        >
-          <Eye size={16} />
-          Preview Pack
-        </button>
-
-        <button
-          type="button"
-          onClick={() => navigate('/admin/food-packs')}
-          className="flex w-full items-center justify-center gap-2 rounded-full bg-primary py-4 text-sm font-semibold text-white"
+          disabled={submitting}
+          onClick={handlePublish}
+          className="flex w-full items-center justify-center gap-2 rounded-full bg-primary py-4 text-sm font-semibold text-white disabled:opacity-60"
         >
           <Rocket size={16} />
-          Publish Food Pack
+          {submitting ? 'Publishing...' : 'Publish Food Pack'}
         </button>
       </main>
     </div>
