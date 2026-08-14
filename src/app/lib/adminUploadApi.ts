@@ -8,36 +8,46 @@ interface ApiResponse<T> {
   data: T;
 }
 
-// The backend's exact response shape for /api/v1/files isn't documented yet,
-// so we defensively read whichever of these fields comes back.
+interface UploadedFile {
+  id: string;
+  uploadServiceId: string;
+  url: string;
+  createdAt: string;
+}
+
 interface UploadResponseData {
-  url?: string;
-  imageUrl?: string;
-  fileUrl?: string;
-  secure_url?: string;
-  [key: string]: unknown;
+  files: UploadedFile[];
 }
 
 export const uploadApi = {
   uploadFile: (file: File) => {
     const formData = new FormData();
+
+    // Backend expects "files"
     formData.append('files', file);
 
-    return api.post<ApiResponse<UploadResponseData>>('/api/v1/files', formData, {
-      headers: {
-        // Let the browser set the multipart boundary itself — overriding
-        // the axios instance's default 'application/json' header.
-        'Content-Type': undefined,
-      },
-    });
+    return api.post<ApiResponse<UploadResponseData>>(
+      '/api/v1/files',
+      formData,
+      {
+        headers: {
+          'Content-Type': undefined,
+        },
+      }
+    );
   },
 
   uploadFiles: async (files: File[]) => {
-    const results = await Promise.all(files.map((file) => uploadApi.uploadFile(file)));
-    return results.map((res) => extractUploadedUrl(res.data.data));
+    const results = await Promise.all(
+      files.map((file) => uploadApi.uploadFile(file))
+    );
+
+    return results
+      .map((res) => extractUploadedUrl(res.data.data))
+      .filter(Boolean);
   },
 };
 
 export function extractUploadedUrl(data: UploadResponseData): string {
-  return data.url ?? data.imageUrl ?? data.fileUrl ?? data.secure_url ?? '';
+  return data?.files?.[0]?.url ?? '';
 }
