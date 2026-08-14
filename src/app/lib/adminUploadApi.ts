@@ -21,7 +21,7 @@ interface UploadResponseData {
 export const uploadApi = {
   uploadFile: (file: File) => {
     const formData = new FormData();
-    formData.append('files', files);
+    formData.append('files', file);
 
     return api.post<ApiResponse<UploadResponseData>>('/api/v1/files', formData, {
       headers: {
