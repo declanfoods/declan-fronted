@@ -88,7 +88,7 @@ export default function UpdateStatus() {
             <p className="text-xs font-semibold tracking-wide text-gray-400">ORDER REFERENCE</p>
             <p className="text-lg font-bold text-gray-900">#{id?.slice(0, 8)}</p>
           </div>
-          {order && <StatusPill label={order.status} dot />}
+          {order && <StatusPill label={order.orderStatus} dot />}
         </div>
 
         <div className="rounded-2xl bg-white p-4 shadow-sm">
