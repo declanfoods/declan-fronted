@@ -41,7 +41,9 @@ export default function OrdersList() {
     try {
       const status = filters.find((f) => f.label === activeFilter)?.status;
       const res = await adminOrderApi.getOrders({ status });
+
       setOrders(res.data.data.orders);
+      
     } catch (err: any) {
       setError(err.response?.data?.message ?? 'Failed to load orders.');
     } finally {
@@ -114,13 +116,13 @@ export default function OrdersList() {
                   className="flex items-center gap-3 text-left"
                 >
                   <span className="flex h-11 w-11 items-center justify-center rounded-full bg-[#F3F7EE] text-sm font-bold text-primary-dark">
-                    {(order.customer?.name ?? 'C').slice(0, 2).toUpperCase()}
+                    {(order.customer?.fullname ?? 'C').slice(0, 2).toUpperCase()}
                   </span>
                   <div>
                     <p className="font-bold text-gray-900">
-                      {order.customer?.name ?? 'Customer'}
+                      {order.customer?.fullname ?? 'Customer'}
                     </p>
-                    <p className="text-xs text-gray-400">#{order.id.slice(0, 8)}</p>
+                    <p className="text-xs text-gray-400">#{order.orderNumber.toUpperCase()}</p>
                   </div>
                 </button>
                 <button
@@ -137,18 +139,18 @@ export default function OrdersList() {
                 <div>
                   <p className="text-xs text-gray-400">Amount</p>
                   <div className="flex items-center gap-2">
-                    <p className="font-bold text-gray-900">{formatAmount(order.totalAmount)}</p>
+                    <p className="font-bold text-gray-900">{formatAmount(order.amount)}</p>
                     {order.paymentStatus && <StatusPill label={order.paymentStatus} />}
                   </div>
                 </div>
                 <div className="text-right">
                   <p className="text-xs text-gray-400">Items</p>
-                  <p className="font-bold text-gray-900">{order.items?.length ?? 0} Items</p>
+                  <p className="font-bold text-gray-900">{order.numberOfItems} Items</p>
                 </div>
               </div>
 
               <div className="mt-3 flex items-center justify-between border-t border-gray-100 pt-3">
-                <StatusPill label={order.status} dot />
+                <StatusPill label={order.orderStatus} dot />
                 <p className="text-xs text-gray-400">{formatTime(order.createdAt)}</p>
               </div>
 

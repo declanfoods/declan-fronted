@@ -56,7 +56,7 @@ export default function Orders() {
         const res = await orderApi.getOrders({
           page: pastPage,
           limit: PAGE_SIZE,
-          status: 'DELIVERED',
+          // status: 'DELIVERED',
         });
         setPastOrders(res.data.data.orders);
         setPastTotalPages(res.data.data.pagination.totalPages);

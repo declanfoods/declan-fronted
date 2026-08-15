@@ -6,8 +6,9 @@ import SplashLoader from '../../ui/SplashLoader';
 import { formatNaira } from '../../data/products';
 import { cartApi, type Cart } from '../../../app/lib/cartApi';
 import { paymentApi, type PaymentMethod } from '../../../app/lib/paymentApi';
-import { userApi, type UserProfile } from '../../../app/lib/userApi';
+import { userApi, type DeliveryAddress, type UserProfile } from '../../../app/lib/userApi';
 import { orderApi } from '../../../app/lib/orderApi';
+import { add } from 'date-fns';
 
 
 
@@ -17,6 +18,7 @@ export default function Checkout() {
   const [cart, setCart] = useState<Cart | null>(null);
   const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([]);
   const [profile, setProfile] = useState<UserProfile | null>(null);
+  const [deliveryAddresses, setDeliveryAddresses] = useState<DeliveryAddress[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
@@ -28,10 +30,11 @@ export default function Checkout() {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [cartRes, payRes, profileRes] = await Promise.allSettled([
+        const [cartRes, payRes, profileRes, deliveryAddressResponse] = await Promise.allSettled([
           cartApi.getCart(),
           paymentApi.getPaymentMethods(),
           userApi.getProfileOverview(),
+          userApi.getDeliveryAddresses()
         ]);
 
         if (cartRes.status === 'fulfilled') {
@@ -45,6 +48,10 @@ export default function Checkout() {
         }
         if (profileRes.status === 'fulfilled') {
           setProfile(profileRes.value.data.data);
+        }
+
+        if (deliveryAddressResponse.status === 'fulfilled') {
+          setDeliveryAddresses(deliveryAddressResponse.value.data.data.deliveryAddresses)
         }
       } catch {
         setError('Failed to load checkout.');
@@ -108,9 +115,9 @@ export default function Checkout() {
       </div>
     );
   }
-
-  const address = profile?.deliveryAddresses?.[0];
-
+  
+  const address = deliveryAddresses[0];
+  
   return (
     <div className="min-h-screen bg-white">
       {/* Top bar */}

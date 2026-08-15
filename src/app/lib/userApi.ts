@@ -66,6 +66,19 @@ export interface ReferralsMetrics {
   referrals: ReferralPerson[];
 }
 
+
+export interface DeliveryAddress {
+  id: string;
+  nameOfCustomer: string;
+  addressLine: string;
+  state: string;
+  country: string;
+  emailAddress: string
+}
+
+export interface GetDeliveryAddressResponse {
+  deliveryAddresses: DeliveryAddress[]
+}
 // ─── Generic API wrapper ──────────────────────────────────
 
 interface ApiResponse<T> {
@@ -79,6 +92,9 @@ interface ApiResponse<T> {
 // ─── API calls ────────────────────────────────────────────
 
 export const userApi = {
+  getDeliveryAddresses: () => 
+    api.get<ApiResponse<GetDeliveryAddressResponse>>('api/v1/delivery-addresses'),
+  
   getProfileOverview: () =>
     api.get<ApiResponse<UserProfile>>('/api/v1/users/profile-overview'),
 
