@@ -13,32 +13,35 @@ export type AdminOrderStatus =
 
 export interface AdminOrderCustomer {
   id?: string;
-  name?: string;
-  phone?: string;
-  email?: string;
-}
-
-export interface AdminOrderItem {
-  id?: string;
-  name?: string;
-  quantity?: number;
-  price?: number | string;
-  imageUrls?: string[];
+  fullname?: string;
+  isGuestUser?: boolean;
+  profilePicture?: string | null;
 }
 
 export interface AdminOrder {
   id: string;
   orderNumber?: string;
-  status: AdminOrderStatus;
-  totalAmount?: number | string;
-  paymentStatus?: string;
-  createdAt?: string;
+  orderStatus: AdminOrderStatus;
+  amount?: number | string;
+  paid?: boolean;
+
   customer?: AdminOrderCustomer;
+
   deliveryAddress?: string;
-  items?: AdminOrderItem[];
+
+  numberOfItems?: number;
+
+  placedAt?: string;
+
+  paymentMethod?: {
+    id?: string;
+    title?: string;
+    description?: string;
+  };
+
   rider?: {
     id: string;
-    name: string;
+    fullname: string;
   } | null;
 }
 
@@ -113,16 +116,23 @@ export interface AdminOrderDetails {
   orderStatus: AdminOrderStatus;
   estimatedDelivery: string;
   orderTimeline: AdminOrderTimeline[];
+
   customer: AdminOrderDetailsCustomer;
+
   deliveryRider: {
     id: string;
     fullname?: string;
     name?: string;
   } | null;
+
   orderItems: AdminOrderDetailsItem[];
+
   orderSummary: AdminOrderDetailsSummary;
+
   payment: AdminOrderPayment;
+
   createdAt?: string;
+
   [key: string]: unknown;
 }
 
