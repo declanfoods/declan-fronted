@@ -11,8 +11,12 @@ const filters: { label: string; status?: AdminOrderStatus }[] = [
   { label: 'Pending', status: 'PENDING' },
   { label: 'Processing', status: 'PROCESSING' },
   { label: 'Assigned', status: 'ASSIGNED' },
+  { label: 'Picked Up', status: 'PICKED_UP' },
   { label: 'In Transit', status: 'IN_TRANSIT' },
+  { label: 'Code Exchanged', status: 'CODE_EXCHANGED' },
   { label: 'Delivered', status: 'DELIVERED' },
+  { label: 'Completed', status: 'COMPLETED' },
+  { label: 'Cancelled', status: 'CANCELLED' },
 ];
 
 function formatAmount(amount: unknown) {
@@ -150,7 +154,7 @@ export default function OrdersList() {
               </div>
 
               <div className="mt-3 flex items-center justify-between border-t border-gray-100 pt-3">
-                <StatusPill label={order.status} dot />
+                <StatusPill label={order.status ?? "Unknown"} dot />
                 <p className="text-xs text-gray-400">{formatTime(order.createdAt)}</p>
               </div>
 

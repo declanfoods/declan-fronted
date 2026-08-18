@@ -10,19 +10,30 @@ const toneClasses: Record<Tone, string> = {
 };
 
 const statusTone: Record<string, Tone> = {
+  // Payment statuses
   paid: 'green',
+  unpaid: 'red',
+  pending: 'amber',
+  failed: 'red',
+
+  // Order statuses
+  processing: 'amber',
+  assigned: 'green',
+  picked_up: 'amber',
+  in_transit: 'amber',
+  code_exchanged: 'amber',
   delivered: 'green',
+  completed: 'green',
+  cancelled: 'red',
+
+  // General statuses
   confirmed: 'green',
   active: 'green',
   available: 'green',
   published: 'green',
   'ready for pickup': 'green',
-  pending: 'amber',
   preparing: 'amber',
   scheduled: 'amber',
-  unpaid: 'red',
-  cancelled: 'red',
-  failed: 'red',
   'out of stock': 'red',
   hidden: 'gray',
   inactive: 'gray',
@@ -31,14 +42,22 @@ const statusTone: Record<string, Tone> = {
 };
 
 type StatusPillProps = {
-  label: string;
+  label?: string | null;
   tone?: Tone;
   className?: string;
   dot?: boolean;
 };
 
-export default function StatusPill({ label, tone, className, dot }: StatusPillProps) {
-  const resolvedTone = tone ?? statusTone[label.toLowerCase()] ?? 'gray';
+export default function StatusPill({
+  label,
+  tone,
+  className,
+  dot,
+}: StatusPillProps) {
+  const normalizedLabel = String(label ?? '').toLowerCase();
+
+  const resolvedTone =
+    tone ?? statusTone[normalizedLabel] ?? 'gray';
 
   return (
     <span
@@ -59,7 +78,8 @@ export default function StatusPill({ label, tone, className, dot }: StatusPillPr
           )}
         />
       )}
-      {label}
+
+      {label || 'Unknown'}
     </span>
   );
 }
