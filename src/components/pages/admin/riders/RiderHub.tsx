@@ -35,7 +35,7 @@ export default function RiderHub() {
     setLoading(true);
     try {
       const res = await adminRiderApi.getDeliveryRiders();
-      const list = Array.isArray(res.data.data) ? res.data.data : res.data.data.deliveryRiders;
+      const list = Array.isArray(res.data.data) ? res.data.data : res.data.data.riders;
       const found = list.find((r) => r.id === id) ?? null;
       setRider(found);
       if (!found) setError('Rider not found.');
