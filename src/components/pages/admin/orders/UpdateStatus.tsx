@@ -1,19 +1,25 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { X, MoreVertical, ArrowRight } from 'lucide-react';
-import { adminOrderApi, type AdminOrder } from '../../../../app/lib/adminOrderApi';
-import StatusPill from '../../../admin/StatusPill';
+import { X, MoreVertical, ArrowRight, Bell } from 'lucide-react';
+import { adminOrderApi, type AdminOrder, type AdminOrderStatus } from '../../../../app/lib/adminOrderApi';
 
-const allStatuses = [
-  'PENDING',
-  'PROCESSING',
-  'ASSIGNED',
-  'PICKED_UP',
-  'IN_TRANSIT',
-  'CODE_EXCHANGED',
-  'DELIVERED',
-  'COMPLETED',
-  'CANCELLED',
+// The real order lifecycle (per Declan Foods ops):
+// 1. PENDING       -> admin marks as PROCESSING (only admin-triggered step)
+// 2. PROCESSING    -> admin assigns a rider -> ASSIGNED
+// 3. ASSIGNED      -> rider picks up the order -> PICKED_UP -> IN_TRANSIT (automatic, rider app)
+// 4. IN_TRANSIT    -> rider exchanges code at customer's door -> CODE_EXCHANGED (automatic, rider app)
+// 5. CODE_EXCHANGED-> customer pays, rider confirms -> DELIVERED (automatic, rider app)
+// 6. DELIVERED     -> COMPLETED
+// Everything past "Processing" happens on the rider's device, not here.
+const stages: { key: AdminOrderStatus; label: string; auto?: boolean }[] = [
+  { key: 'PENDING', label: 'Pending' },
+  { key: 'PROCESSING', label: 'Confirmed / Processing' },
+  { key: 'ASSIGNED', label: 'Rider Assigned' },
+  { key: 'PICKED_UP', label: 'Picked Up', auto: true },
+  { key: 'IN_TRANSIT', label: 'In Transit', auto: true },
+  { key: 'CODE_EXCHANGED', label: 'Code Exchanged', auto: true },
+  { key: 'DELIVERED', label: 'Delivered', auto: true },
+  { key: 'COMPLETED', label: 'Completed' },
 ];
 
 export default function UpdateStatus() {
@@ -23,6 +29,7 @@ export default function UpdateStatus() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [updating, setUpdating] = useState(false);
+  const [notify, setNotify] = useState(true);
 
   const fetchOrder = async () => {
     if (!id) return;
@@ -41,6 +48,8 @@ export default function UpdateStatus() {
     fetchOrder();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
+
+  const currentIndex = stages.findIndex((s) => s.key === order?.status);
 
   const handleMarkProcessing = async () => {
     if (!id) return;
@@ -86,43 +95,104 @@ export default function UpdateStatus() {
         <div className="flex items-center justify-between rounded-2xl bg-white p-4 shadow-sm">
           <div>
             <p className="text-xs font-semibold tracking-wide text-gray-400">ORDER REFERENCE</p>
-            <p className="text-lg font-bold text-gray-900">#{id?.slice(0, 8)}</p>
+            <p className="text-lg font-bold text-gray-900">
+              {order?.orderNumber ?? `#${id?.slice(0, 8)}`}
+            </p>
           </div>
-          {order && <StatusPill label={order.orderStatus} dot />}
+          <span className="rounded-full bg-[#F3F7EE] px-3 py-1 text-xs font-semibold text-primary-dark">
+            Priority Handling
+          </span>
         </div>
 
         <div className="rounded-2xl bg-white p-4 shadow-sm">
-          <p className="mb-3 text-xs font-semibold tracking-wide text-gray-400">ALL STAGES</p>
-          <div className="flex flex-wrap gap-2">
-            {allStatuses.map((s) => (
-              <span
-                key={s}
-                className={`rounded-full px-3 py-1.5 text-xs font-semibold ${
-                  order?.status === s
-                    ? 'bg-primary text-white'
-                    : 'bg-gray-100 text-gray-400'
-                }`}
-              >
-                {s.replace('_', ' ')}
-              </span>
-            ))}
-          </div>
-          <p className="mt-3 text-xs text-gray-400">
-            Only the "processing" transition has a dedicated endpoint right now — the button
-            below wires to it. Once the other stage-transition endpoints are available I can wire
-            "Move to Next Stage" for every step.
-          </p>
+          {stages.map((stage, idx) => {
+            const done = currentIndex >= 0 && idx < currentIndex;
+            const isCurrent = idx === currentIndex;
+            const upcoming = currentIndex >= 0 ? idx > currentIndex : true;
+
+            return (
+              <div key={stage.key}>
+                <div className="flex items-center gap-3 py-2">
+                  <span
+                    className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[10px] font-bold ${
+                      done
+                        ? 'bg-primary text-white'
+                        : isCurrent
+                        ? 'border-2 border-primary bg-white'
+                        : 'bg-gray-100 text-gray-300'
+                    }`}
+                  >
+                    {done ? '✓' : isCurrent ? <span className="h-2.5 w-2.5 rounded-full bg-primary" /> : ''}
+                  </span>
+                  <div className="flex flex-1 items-center justify-between">
+                    <p
+                      className={`text-sm font-bold ${
+                        done || isCurrent ? 'text-primary' : 'text-gray-300'
+                      }`}
+                    >
+                      {stage.label}
+                    </p>
+                    <p className="text-xs text-gray-400">
+                      {done ? 'Completed' : isCurrent ? 'In progress' : upcoming ? 'Upcoming' : ''}
+                    </p>
+                  </div>
+                </div>
+
+                {isCurrent && stage.key === 'PENDING' && (
+                  <div className="ml-10 mb-3 mt-1">
+                    <button
+                      type="button"
+                      disabled={updating}
+                      onClick={handleMarkProcessing}
+                      className="flex w-full items-center justify-center gap-2 rounded-full bg-primary py-3 text-sm font-semibold text-white disabled:opacity-60"
+                    >
+                      {updating ? 'Updating...' : 'Move to Processing'}
+                      <ArrowRight size={16} />
+                    </button>
+                  </div>
+                )}
+
+                {isCurrent && stage.key === 'PROCESSING' && (
+                  <div className="ml-10 mb-3 mt-1">
+                    <button
+                      type="button"
+                      onClick={() => navigate(`/admin/orders/${id}/assign-rider`)}
+                      className="flex w-full items-center justify-center gap-2 rounded-full bg-primary py-3 text-sm font-semibold text-white"
+                    >
+                      Assign a Rider
+                      <ArrowRight size={16} />
+                    </button>
+                  </div>
+                )}
+
+                {isCurrent && stage.auto && (
+                  <p className="ml-10 mb-3 mt-1 text-xs text-gray-400">
+                    This step updates automatically from the rider&apos;s app — no admin action
+                    needed.
+                  </p>
+                )}
+              </div>
+            );
+          })}
         </div>
 
-        <button
-          type="button"
-          disabled={updating}
-          onClick={handleMarkProcessing}
-          className="flex w-full items-center justify-center gap-2 rounded-full bg-primary py-3.5 text-sm font-semibold text-white disabled:opacity-60"
-        >
-          {updating ? 'Updating...' : 'Mark Order as Processing'}
-          <ArrowRight size={16} />
-        </button>
+        <div className="flex items-center justify-between rounded-2xl bg-white p-4 shadow-sm">
+          <div className="flex items-center gap-2">
+            <Bell size={16} className="text-gray-400" />
+            <p className="text-sm font-semibold text-gray-800">Notify Customer</p>
+          </div>
+          <button
+            type="button"
+            onClick={() => setNotify((v) => !v)}
+            className={`h-6 w-11 rounded-full transition-colors ${notify ? 'bg-primary' : 'bg-gray-200'}`}
+          >
+            <span
+              className={`block h-5 w-5 translate-y-0.5 rounded-full bg-white shadow transition-transform ${
+                notify ? 'translate-x-5' : 'translate-x-0.5'
+              }`}
+            />
+          </button>
+        </div>
       </main>
     </div>
   );

@@ -1,7 +1,11 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, MoreVertical, Search, Pencil, Plus } from 'lucide-react';
+import { ArrowLeft, MoreVertical, Search, Pencil, Plus, SlidersHorizontal } from 'lucide-react';
 import AdminBottomNav from '../../../admin/AdminBottomNav';
+import AdminFilterSheet, {
+  emptyFilterState,
+  type ProductFilterState,
+} from '../../../admin/AdminFilterSheet';
 import {
   adminFoodPackApi,
   type AdminFoodPackSummary,
@@ -20,6 +24,8 @@ export default function FoodPacksList() {
   const [packs, setPacks] = useState<AdminFoodPackSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [filterOpen, setFilterOpen] = useState(false);
+  const [filterState, setFilterState] = useState<ProductFilterState>(emptyFilterState);
 
   const fetchPacks = async () => {
     setLoading(true);
@@ -47,6 +53,38 @@ export default function FoodPacksList() {
     return () => clearTimeout(timeout);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [search, activeFilter]);
+
+  const [categories, setCategories] = useState<{ id: string; name: string }[]>([]);
+  useEffect(() => {
+    adminFoodPackApi
+      .getCategories()
+      .then((res) => setCategories(res.data.data.categories))
+      .catch(() => {});
+  }, []);
+
+  const filterActiveCount =
+    filterState.categoryIds.length + filterState.priceRanges.length + filterState.availability.length;
+
+  const visiblePacks = packs.filter((pack) => {
+    if (filterState.categoryIds.length > 0 && !filterState.categoryIds.includes(pack.category?.id ?? '')) {
+      return false;
+    }
+    if (filterState.priceRanges.length > 0) {
+      const matchesRange = filterState.priceRanges.some((range) => {
+        if (range === '0-5000') return pack.price <= 5000;
+        if (range === '5000-10000') return pack.price > 5000 && pack.price <= 10000;
+        return pack.price > 10000;
+      });
+      if (!matchesRange) return false;
+    }
+    if (filterState.availability.length > 0) {
+      const matches = filterState.availability.some((a) =>
+        a === 'IN_STOCK' ? pack.status === 'ACTIVE' : pack.status === 'INACTIVE'
+      );
+      if (!matches) return false;
+    }
+    return true;
+  });
 
   const handleToggleActive = async (pack: AdminFoodPackSummary, e: React.MouseEvent) => {
     e.stopPropagation();
@@ -86,7 +124,17 @@ export default function FoodPacksList() {
         </div>
       </div>
 
-      <div className="mt-4 flex gap-2 overflow-x-auto px-5 pb-1 scrollbar-hide">
+      <div className="mt-4 flex items-center gap-2 overflow-x-auto px-5 pb-1 scrollbar-hide">
+        <button
+          type="button"
+          onClick={() => setFilterOpen(true)}
+          className={`flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border px-4 py-2 text-sm font-semibold ${
+            filterActiveCount > 0 ? 'border-primary bg-primary/10 text-primary' : 'border-gray-200 text-gray-500'
+          }`}
+        >
+          <SlidersHorizontal size={14} />
+          Filter{filterActiveCount > 0 ? ` (${filterActiveCount})` : ''}
+        </button>
         {filters.map((f) => (
           <button
             key={f}
@@ -110,12 +158,12 @@ export default function FoodPacksList() {
 
         {loading && <p className="py-10 text-center text-sm text-gray-400">Loading food packs...</p>}
 
-        {!loading && !error && packs.length === 0 && (
+        {!loading && !error && visiblePacks.length === 0 && (
           <p className="py-10 text-center text-sm text-gray-400">No food packs found.</p>
         )}
 
         {!loading &&
-          packs.map((pack) => (
+          visiblePacks.map((pack) => (
             <div
               key={pack.id}
               className="overflow-hidden rounded-2xl border border-gray-100 shadow-sm"
@@ -191,6 +239,18 @@ export default function FoodPacksList() {
       </button>
 
       <AdminBottomNav />
+
+      {filterOpen && (
+        <AdminFilterSheet
+          categories={categories}
+          value={filterState}
+          onClose={() => setFilterOpen(false)}
+          onApply={(next) => {
+            setFilterState(next);
+            setFilterOpen(false);
+          }}
+        />
+      )}
     </div>
   );
 }

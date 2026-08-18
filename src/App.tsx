@@ -49,6 +49,9 @@ import AdminProductList from './components/pages/admin/products/ProductList';
 import AdminProductDetails from './components/pages/admin/products/ProductDetails';
 import AdminAddProduct from './components/pages/admin/products/AddProduct';
 import AdminEditProduct from './components/pages/admin/products/EditProduct';
+import RidersOverview from './components/pages/admin/riders/RidersOverview';
+import RiderHub from './components/pages/admin/riders/RiderHub';
+import RiderOnboarding from './components/pages/admin/riders/RiderOnboarding';
 
 
 
@@ -204,6 +207,30 @@ export default function App() {
             element={
               <AdminProtectedRoute>
                 <AdminEditProduct />
+              </AdminProtectedRoute>
+            }
+          />
+          <Route
+            path="/admin/riders"
+            element={
+              <AdminProtectedRoute>
+                <RidersOverview />
+              </AdminProtectedRoute>
+            }
+          />
+          <Route
+            path="/admin/riders/onboard"
+            element={
+              <AdminProtectedRoute>
+                <RiderOnboarding />
+              </AdminProtectedRoute>
+            }
+          />
+          <Route
+            path="/admin/riders/:id"
+            element={
+              <AdminProtectedRoute>
+                <RiderHub />
               </AdminProtectedRoute>
             }
           />

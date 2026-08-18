@@ -4,7 +4,6 @@ import { ArrowLeft, HelpCircle, ChevronDown, Send } from 'lucide-react';
 import { adminProductApi, type AdminProductCategory } from '../../../../app/lib/adminProductApi';
 import AdminImageUpload from '../../../admin/AdminImageUpload';
 
-
 export default function AddProduct() {
   const navigate = useNavigate();
   const [categories, setCategories] = useState<AdminProductCategory[]>([]);
@@ -150,15 +149,15 @@ export default function AddProduct() {
                 className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-sm text-gray-800 outline-none placeholder:text-gray-400"
               />
             </div>
-           <div>
-  <label className="mb-1 block text-xs text-gray-500">Unit</label>
-  <input
-    value={unit}
-    onChange={(e) => setUnit(e.target.value)}
-    placeholder="e.g. kg, satchet, pack"
-    className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-sm text-gray-800 outline-none placeholder:text-gray-400"
-  />
-</div>
+            <div>
+              <label className="mb-1 block text-xs text-gray-500">Unit</label>
+              <input
+                value={unit}
+                onChange={(e) => setUnit(e.target.value)}
+                placeholder="e.g. kg, satchet, pack"
+                className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-sm text-gray-800 outline-none placeholder:text-gray-400"
+              />
+            </div>
             <div>
               <label className="mb-1 block text-xs text-gray-500">Stock Qty</label>
               <input

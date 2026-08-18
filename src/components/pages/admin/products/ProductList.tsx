@@ -3,7 +3,11 @@ import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, Search, SlidersHorizontal, Menu, Pencil, Plus, MoreVertical, AlertTriangle } from 'lucide-react';
 import AdminBottomNav from '../../../admin/AdminBottomNav';
 import ProductActionsMenu from './ProductActionsMenu';
-import { adminProductApi, type AdminProduct } from '../../../../app/lib/adminProductApi';
+import AdminFilterSheet, {
+  emptyFilterState,
+  type ProductFilterState,
+} from '../../../admin/AdminFilterSheet';
+import { adminProductApi, type AdminProduct, type AdminProductCategory } from '../../../../app/lib/adminProductApi';
 
 const filters = ['All', 'Available', 'Out of Stock', 'Hidden'];
 
@@ -39,6 +43,16 @@ export default function ProductList() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [actionsProduct, setActionsProduct] = useState<AdminProduct | null>(null);
+  const [categories, setCategories] = useState<AdminProductCategory[]>([]);
+  const [filterOpen, setFilterOpen] = useState(false);
+  const [filterState, setFilterState] = useState<ProductFilterState>(emptyFilterState);
+
+  useEffect(() => {
+    adminProductApi
+      .getCategories()
+      .then((res) => setCategories(res.data.data.productCategories))
+      .catch(() => {});
+  }, []);
 
   const fetchProducts = async () => {
     setLoading(true);
@@ -89,6 +103,38 @@ export default function ProductList() {
     }
   };
 
+  const filterActiveCount =
+    filterState.categoryIds.length +
+    filterState.priceRanges.length +
+    filterState.availability.length +
+    filterState.ratings.length;
+
+  const visibleProducts = products.filter((product) => {
+    if (filterState.categoryIds.length > 0 && !filterState.categoryIds.includes(product.category?.id ?? '')) {
+      return false;
+    }
+
+    if (filterState.priceRanges.length > 0) {
+      const price = Number(product.price);
+      const matchesRange = filterState.priceRanges.some((range) => {
+        if (range === '0-5000') return price <= 5000;
+        if (range === '5000-10000') return price > 5000 && price <= 10000;
+        return price > 10000;
+      });
+      if (!matchesRange) return false;
+    }
+
+    if (filterState.availability.length > 0) {
+      const inStock = product.quantity > 0 && product.stock_status !== 'OUT_OF_STOCK';
+      const matchesAvailability = filterState.availability.some((a) =>
+        a === 'IN_STOCK' ? inStock : !inStock
+      );
+      if (!matchesAvailability) return false;
+    }
+
+    return true;
+  });
+
   return (
     <div className="relative flex min-h-screen flex-col bg-white">
       <header className="flex items-center justify-between px-5 pt-6">
@@ -115,7 +161,19 @@ export default function ProductList() {
         </div>
       </div>
 
-      <div className="mt-4 flex gap-2 overflow-x-auto px-5 pb-1 scrollbar-hide">
+      <div className="mt-4 flex items-center gap-2 overflow-x-auto px-5 pb-1 scrollbar-hide">
+        <button
+          type="button"
+          onClick={() => setFilterOpen(true)}
+          className={`flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border px-4 py-2 text-sm font-semibold ${
+            filterActiveCount > 0
+              ? 'border-primary bg-primary/10 text-primary'
+              : 'border-gray-200 text-gray-500'
+          }`}
+        >
+          <SlidersHorizontal size={14} />
+          Filter{filterActiveCount > 0 ? ` (${filterActiveCount})` : ''}
+        </button>
         {filters.map((f) => (
           <button
             key={f}
@@ -141,12 +199,12 @@ export default function ProductList() {
           <p className="py-10 text-center text-sm text-gray-400">Loading products...</p>
         )}
 
-        {!loading && !error && products.length === 0 && (
+        {!loading && !error && visibleProducts.length === 0 && (
           <p className="py-10 text-center text-sm text-gray-400">No products found.</p>
         )}
 
         {!loading &&
-          products.map((product) => {
+          visibleProducts.map((product) => {
             const status = getStatus(product);
             return (
               <div key={product.id} className="overflow-hidden rounded-2xl border border-gray-100 shadow-sm">
@@ -237,6 +295,18 @@ export default function ProductList() {
           }}
           onToggleHide={() => handleHideToggle(actionsProduct)}
           onMarkOutOfStock={() => handleMarkOutOfStock(actionsProduct)}
+        />
+      )}
+
+      {filterOpen && (
+        <AdminFilterSheet
+          categories={categories}
+          value={filterState}
+          onClose={() => setFilterOpen(false)}
+          onApply={(next) => {
+            setFilterState(next);
+            setFilterOpen(false);
+          }}
         />
       )}
     </div>

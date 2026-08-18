@@ -13,7 +13,7 @@ export type AdminOrderStatus =
 
 export interface AdminOrderCustomer {
   id?: string;
-  fullname?: string;
+  name?: string;
   phone?: string;
   email?: string;
 }
@@ -28,13 +28,13 @@ export interface AdminOrderItem {
 
 export interface AdminOrder {
   id: string;
-  orderStatus: AdminOrderStatus;
-  amount?: number | string;
+  orderNumber?: string;
+  status: AdminOrderStatus;
+  totalAmount?: number | string;
   paymentStatus?: string;
   createdAt?: string;
   customer?: AdminOrderCustomer;
-  numberOfItems: number;
-  orderNumber: string;
+  deliveryAddress?: string;
   items?: AdminOrderItem[];
   rider?: { id: string; name: string } | null;
   [key: string]: unknown;

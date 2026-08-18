@@ -72,6 +72,7 @@ export interface UpdateProductPayload {
   scale?: string;
   imageUrls?: string[];
   discount?: number;
+  categoryId?: string;
 }
 
 export interface StockUpdatePayload {
