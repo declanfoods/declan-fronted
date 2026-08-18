@@ -50,7 +50,7 @@ interface ApiResponse<T> {
 
 export const adminRiderApi = {
   getDeliveryRiders: () =>
-    api.get<ApiResponse<{ deliveryRiders: DeliveryRider[] } | DeliveryRider[]>>(
+    api.get<ApiResponse<{ riders: DeliveryRider[] }>>(
       '/api/v1/admin/delivery-riders'
     ),
 
@@ -61,10 +61,14 @@ export const adminRiderApi = {
     ),
 
   getRiderDeliveries: (riderId: string) =>
-    api.get<ApiResponse<unknown>>(`/api/v1/admin/delivery-riders/${riderId}/deliveries`),
+    api.get<ApiResponse<unknown>>(
+      `/api/v1/admin/delivery-riders/${riderId}/deliveries`
+    ),
 
   suspendRider: (riderId: string) =>
-    api.patch<ApiResponse<unknown>>(`/api/v1/admin/delivery-riders/${riderId}/suspend`),
+    api.patch<ApiResponse<unknown>>(
+      `/api/v1/admin/delivery-riders/${riderId}/suspend`
+    ),
 
   removeSuspension: (riderId: string) =>
     api.patch<ApiResponse<unknown>>(
@@ -72,9 +76,8 @@ export const adminRiderApi = {
     ),
 };
 
-// Normalizes either { deliveryRiders: [...] } or a bare array response shape.
 export function extractRidersList(
-  data: { deliveryRiders: DeliveryRider[] } | DeliveryRider[]
+  data: { riders: DeliveryRider[] }
 ): DeliveryRider[] {
-  return Array.isArray(data) ? data : data.deliveryRiders;
+  return data.riders;
 }

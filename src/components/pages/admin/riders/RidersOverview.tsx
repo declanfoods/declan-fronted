@@ -17,13 +17,15 @@ export default function RidersOverview() {
   const [search, setSearch] = useState('');
   const [activeFilter, setActiveFilter] = useState('All');
 
-  useEffect(() => {
-    adminRiderApi
-      .getDeliveryRiders()
-      .then((res) => setRiders(extractRidersList(res.data.data)))
-      .catch((err) => setError(err.response?.data?.message ?? 'Failed to load riders.'))
-      .finally(() => setLoading(false));
-  }, []);
+useEffect(() => {
+adminRiderApi
+  .getDeliveryRiders()
+  .then((res) => setRiders(extractRidersList(res.data.data)))
+  .catch((err) =>
+    setError(err.response?.data?.message ?? 'Failed to load riders.')
+  )
+  .finally(() => setLoading(false));
+}, []);
 
   const filtered = riders.filter((r) => {
     const q = search.toLowerCase();
