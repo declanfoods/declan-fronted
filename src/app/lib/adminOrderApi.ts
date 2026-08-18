@@ -14,11 +14,8 @@ export type AdminOrderStatus =
 export interface AdminOrderCustomer {
   id?: string;
   name?: string;
-  fullname?: string;
   phone?: string;
   email?: string;
-  addressLine?: string;
-  customerType?: string;
 }
 
 export interface AdminOrderItem {
@@ -27,7 +24,6 @@ export interface AdminOrderItem {
   quantity?: number;
   price?: number | string;
   imageUrls?: string[];
-  [key: string]: unknown;
 }
 
 export interface AdminOrder {
@@ -44,40 +40,6 @@ export interface AdminOrder {
     id: string;
     name: string;
   } | null;
-  [key: string]: unknown;
-}
-
-export interface AdminOrderDetails {
-  id: string;
-  orderNumber: string;
-  orderStatus: AdminOrderStatus;
-  estimatedDelivery?: string;
-  orderTimeline?: unknown[];
-  customer: {
-    id: string;
-    fullname: string;
-    phone: string;
-    addressLine: string;
-    customerType: string;
-  };
-  deliveryRider: {
-    id: string;
-    fullname?: string;
-  } | null;
-  orderItems: AdminOrderItem[];
-  orderSummary: {
-    subTotal: number;
-    discount: number;
-    deliveryFee: number;
-    total: number;
-  };
-  payment: {
-    id: string;
-    amount: number;
-    paymentStatus: string;
-    paymentMethod: string;
-  };
-  [key: string]: unknown;
 }
 
 export interface AdminOrderPagination {
@@ -99,6 +61,71 @@ export interface AssignRiderPayload {
   riderId: string;
 }
 
+/*
+|--------------------------------------------------------------------------
+| Order Details
+|--------------------------------------------------------------------------
+| The GET /admin/orders/:id endpoint returns a different structure from
+| GET /admin/orders.
+*/
+
+export interface AdminOrderDetailsCustomer {
+  id: string;
+  fullname: string;
+  phone: string;
+  addressLine: string;
+  customerType: string;
+}
+
+export interface AdminOrderDetailsSummary {
+  subTotal: number;
+  discount: number;
+  deliveryFee: number;
+  total: number;
+}
+
+export interface AdminOrderPayment {
+  id: string;
+  amount: number;
+  paymentStatus: string;
+  paymentMethod: string;
+}
+
+export interface AdminOrderTimeline {
+  status?: string;
+  timestamp?: string;
+  createdAt?: string;
+  [key: string]: unknown;
+}
+
+export interface AdminOrderDetailsItem {
+  id?: string;
+  name?: string;
+  quantity?: number;
+  price?: number | string;
+  imageUrls?: string[];
+  [key: string]: unknown;
+}
+
+export interface AdminOrderDetails {
+  id: string;
+  orderNumber: string;
+  orderStatus: AdminOrderStatus;
+  estimatedDelivery: string;
+  orderTimeline: AdminOrderTimeline[];
+  customer: AdminOrderDetailsCustomer;
+  deliveryRider: {
+    id: string;
+    fullname?: string;
+    name?: string;
+  } | null;
+  orderItems: AdminOrderDetailsItem[];
+  orderSummary: AdminOrderDetailsSummary;
+  payment: AdminOrderPayment;
+  createdAt?: string;
+  [key: string]: unknown;
+}
+
 interface ApiResponse<T> {
   success: boolean;
   message: string;
@@ -108,6 +135,12 @@ interface ApiResponse<T> {
 }
 
 export const adminOrderApi = {
+  /*
+  |--------------------------------------------------------------------------
+  | Get Orders
+  |--------------------------------------------------------------------------
+  */
+
   getOrders: (filters?: AdminOrderFilters) =>
     api.get<
       ApiResponse<{
@@ -118,19 +151,42 @@ export const adminOrderApi = {
       params: filters,
     }),
 
+  /*
+  |--------------------------------------------------------------------------
+  | Get Single Order
+  |--------------------------------------------------------------------------
+  */
+
   getOrderById: (id: string) =>
-    api.get<ApiResponse<{ order: AdminOrderDetails }>>(
-      `/api/v1/admin/orders/${id}`
-    ),
+    api.get<
+      ApiResponse<{
+        order: AdminOrderDetails;
+      }>
+    >(`/api/v1/admin/orders/${id}`),
+
+  /*
+  |--------------------------------------------------------------------------
+  | Mark Order As Processing
+  |--------------------------------------------------------------------------
+  */
 
   markAsProcessing: (id: string) =>
-    api.patch<ApiResponse<{ order?: AdminOrderDetails }>>(
-      `/api/v1/admin/orders/${id}/processing`
-    ),
+    api.patch<
+      ApiResponse<{
+        order?: AdminOrderDetails;
+      }>
+    >(`/api/v1/admin/orders/${id}/processing`),
+
+  /*
+  |--------------------------------------------------------------------------
+  | Assign Rider
+  |--------------------------------------------------------------------------
+  */
 
   assignRider: (id: string, data: AssignRiderPayload) =>
-    api.patch<ApiResponse<{ order?: AdminOrderDetails }>>(
-      `/api/v1/admin/orders/${id}/assign-rider`,
-      data
-    ),
+    api.patch<
+      ApiResponse<{
+        order?: AdminOrderDetails;
+      }>
+    >(`/api/v1/admin/orders/${id}/assign-rider`, data),
 };

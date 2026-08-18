@@ -51,23 +51,37 @@ export default function RiderHub() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
-  const handleSuspendToggle = async () => {
-    if (!id || !rider) return;
-    if (!window.confirm(rider.isSuspended ? 'Remove suspension from this rider?' : 'Suspend this rider?')) return;
-    setBusy(true);
-    try {
-      if (rider.isSuspended) {
-        await adminRiderApi.removeSuspension(id);
-      } else {
-        await adminRiderApi.suspendRider(id);
-      }
-      fetchRiders();
-    } catch (err: any) {
-      setError(err.response?.data?.message ?? 'Failed to update rider status.');
-    } finally {
-      setBusy(false);
+const handleSuspendToggle = async () => {
+  if (!id || !rider) return;
+
+  const action = rider.isSuspended
+    ? 'Remove suspension from this rider?'
+    : 'Suspend this rider?';
+
+  if (!window.confirm(action)) return;
+
+  setBusy(true);
+  setError('');
+
+  try {
+    if (rider.isSuspended) {
+      await adminRiderApi.removeSuspension(id);
+    } else {
+      await adminRiderApi.suspendRider(id);
     }
-  };
+
+    await fetchRiders();
+  } catch (err: any) {
+    console.error('RIDER SUSPENSION ERROR:', err);
+
+    setError(
+      err.response?.data?.message ??
+        'Failed to update rider status.'
+    );
+  } finally {
+    setBusy(false);
+  }
+};
 
   if (loading) {
     return (

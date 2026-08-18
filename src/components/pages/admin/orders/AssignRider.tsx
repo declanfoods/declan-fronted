@@ -33,18 +33,34 @@ function formatStatus(status: string) {
     .replace(/\b\w/g, (char) => char.toUpperCase());
 }
 
+function formatDate(dateString?: string) {
+  if (!dateString) return '';
+
+  const date = new Date(dateString);
+
+  if (Number.isNaN(date.getTime())) {
+    return '';
+  }
+
+  return date.toLocaleString();
+}
+
 export default function AssignRider() {
   const navigate = useNavigate();
   const { id } = useParams();
 
-  const [order, setOrder] = useState<AdminOrderDetails | null>(null);
-  const [riders, setRiders] = useState<DeliveryRider[]>([]);
+  const [order, setOrder] =
+    useState<AdminOrderDetails | null>(null);
+
+  const [riders, setRiders] =
+    useState<DeliveryRider[]>([]);
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
   const [search, setSearch] = useState('');
-  const [assigningId, setAssigningId] = useState<string | null>(null);
+  const [assigningId, setAssigningId] =
+    useState<string | null>(null);
 
   useEffect(() => {
     if (!id) return;
@@ -57,8 +73,25 @@ export default function AssignRider() {
       adminRiderApi.getDeliveryRiders(),
     ])
       .then(([orderRes, ridersRes]) => {
-        console.log('ORDER RESPONSE:', orderRes.data);
-        console.log('RIDERS RESPONSE:', ridersRes.data);
+        console.log(
+          'FULL ORDER RESPONSE:',
+          orderRes.data
+        );
+
+        console.log(
+          'ORDER OBJECT:',
+          orderRes.data.data.order
+        );
+
+        console.log(
+          'ORDER STATUS:',
+          orderRes.data.data.order.orderStatus
+        );
+
+        console.log(
+          'RIDERS RESPONSE:',
+          ridersRes.data
+        );
 
         setOrder(orderRes.data.data.order);
 
@@ -67,7 +100,10 @@ export default function AssignRider() {
         );
       })
       .catch((err) => {
-        console.error('ASSIGN RIDER ERROR:', err);
+        console.error(
+          'ASSIGN RIDER ERROR:',
+          err
+        );
 
         setError(
           err.response?.data?.message ??
@@ -92,7 +128,10 @@ export default function AssignRider() {
 
       navigate(`/admin/orders/${id}`);
     } catch (err: any) {
-      console.error('ASSIGN RIDER ERROR:', err);
+      console.error(
+        'ASSIGN RIDER ERROR:',
+        err
+      );
 
       setError(
         err.response?.data?.message ??
@@ -109,8 +148,12 @@ export default function AssignRider() {
     const query = search.toLowerCase();
 
     return (
-      rider.fullname?.toLowerCase().includes(query) ||
-      rider.id?.toLowerCase().includes(query) ||
+      rider.fullname
+        ?.toLowerCase()
+        .includes(query) ||
+      rider.id
+        ?.toLowerCase()
+        .includes(query) ||
       rider.phoneNumberOne
         ?.toLowerCase()
         .includes(query)
@@ -119,6 +162,7 @@ export default function AssignRider() {
 
   return (
     <div className="flex min-h-screen flex-col bg-[#F3F7EE] pb-10">
+
       {/* Header */}
       <header className="flex items-center justify-between px-5 pt-6">
         <button
@@ -173,10 +217,13 @@ export default function AssignRider() {
         </p>
       )}
 
-      {/* Order Summary */}
+      {/* Order */}
       {!loading && order && (
         <div className="mx-5 mt-4 rounded-2xl bg-white p-4 shadow-sm">
+
+          {/* Status + total */}
           <div className="flex items-start justify-between">
+
             <span className="rounded-full bg-rose-100 px-2.5 py-1 text-[10px] font-bold uppercase text-rose-600">
               {order.orderStatus === 'PENDING'
                 ? 'Urgent'
@@ -197,7 +244,7 @@ export default function AssignRider() {
               `#${order.id.slice(0, 8)}`}
           </p>
 
-          {/* Customer */} 
+          {/* Customer */}
           <div className="mt-1">
             <p className="text-sm font-semibold text-gray-700">
               {order.customer.fullname}
@@ -208,18 +255,16 @@ export default function AssignRider() {
             </p>
           </div>
 
-          {/* Created time */}
+          {/* Created */}
           {order.createdAt && (
             <p className="mt-1 text-xs text-gray-400">
-              Placed{' '}
-              {new Date(
-                order.createdAt
-              ).toLocaleString()}
+              Placed {formatDate(order.createdAt)}
             </p>
           )}
 
           {/* Pickup / Delivery */}
           <div className="mt-3 space-y-3 border-t border-gray-100 pt-3">
+
             {/* Pickup */}
             <div className="flex items-start gap-2">
               <span className="mt-1 h-2 w-2 rounded-full bg-primary" />
@@ -254,8 +299,9 @@ export default function AssignRider() {
             </div>
           </div>
 
-          {/* Order total breakdown */}
+          {/* Summary */}
           <div className="mt-3 border-t border-gray-100 pt-3">
+
             <div className="flex justify-between text-xs text-gray-500">
               <span>Subtotal</span>
 
@@ -302,19 +348,20 @@ export default function AssignRider() {
       {/* Riders */}
       {!loading && (
         <div className="mx-5 mt-4 rounded-2xl bg-white p-4 shadow-sm">
+
           <div className="mb-3 flex items-center justify-between">
             <h2 className="text-sm font-bold text-gray-900">
               Available Riders
             </h2>
 
             <span className="text-xs text-gray-400">
-              Showing {filteredRiders.length}{' '}
-              riders
+              Showing {filteredRiders.length} riders
             </span>
           </div>
 
           {/* Rider search */}
           <div className="mb-3 flex items-center gap-2">
+
             <div className="flex flex-1 items-center gap-2 rounded-full bg-gray-100 px-4 py-2.5">
               <Search
                 size={14}
@@ -342,6 +389,7 @@ export default function AssignRider() {
 
           {/* Rider list */}
           <div className="space-y-2">
+
             {filteredRiders.length === 0 && (
               <p className="py-4 text-center text-sm text-gray-400">
                 No riders found.
@@ -353,7 +401,9 @@ export default function AssignRider() {
                 key={rider.id}
                 className="flex items-center justify-between rounded-xl border border-gray-100 p-3"
               >
+
                 <div className="flex items-center gap-3">
+
                   <img
                     src={
                       rider.profilePictureUrl ||
@@ -364,6 +414,7 @@ export default function AssignRider() {
                   />
 
                   <div>
+
                     <p className="text-sm font-bold text-gray-900">
                       {rider.fullname}
                     </p>

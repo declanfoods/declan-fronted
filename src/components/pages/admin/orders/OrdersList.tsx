@@ -154,7 +154,7 @@ export default function OrdersList() {
               </div>
 
               <div className="mt-3 flex items-center justify-between border-t border-gray-100 pt-3">
-                <StatusPill label={order.status ?? "Unknown"} dot />
+                <StatusPill label={order.status } dot />
                 <p className="text-xs text-gray-400">{formatTime(order.createdAt)}</p>
               </div>
 
