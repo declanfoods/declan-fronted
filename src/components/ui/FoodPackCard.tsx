@@ -2,9 +2,9 @@ import { useState } from 'react';
 import { ShoppingCart, Loader2 } from 'lucide-react';
 import type { ApiFoodpack } from '../../app/lib/foodpackApi';
 import { cartApi } from '../../app/lib/cartApi';
+import { guestCart } from '../../app/lib/guestCart';
+import { isAuthenticated } from '../../app/lib/auth';
 import { formatNaira } from '../data/products';
-
-
 
 interface FoodPackCardProps {
   pack: ApiFoodpack;
@@ -22,7 +22,19 @@ export default function FoodPackCard({ pack, onCartUpdate }: FoodPackCardProps) 
   const handleAddToCart = async () => {
     setAdding(true);
     try {
-      await cartApi.addItem({ foodpackId: pack.id, quantity: 1 });
+      if (isAuthenticated()) {
+        await cartApi.addItem({ foodpackId: pack.id, quantity: 1 });
+      } else {
+        guestCart.addItem({
+          id: pack.id,
+          itemName: pack.name,
+          itemCategoryName: 'Food Pack',
+          itemId: pack.id,
+          itemType: 'FOODPACK',
+          itemUrls: pack.imageUrls ?? [],
+          itemPrice: String(price),
+        });
+      }
       setAdded(true);
       setTimeout(() => setAdded(false), 2000);
       onCartUpdate?.();

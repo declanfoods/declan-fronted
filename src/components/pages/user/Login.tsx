@@ -5,6 +5,8 @@ import AuthLayout from '../../auth/AuthLayout';
 import AuthInput from '../../auth/AuthInput';
 import AuthBranding from '../../auth/AuthBranding';
 import { authApi } from '../../../app/lib/authApi';
+import { cartApi } from '../../../app/lib/cartApi';
+import { guestCart } from '../../../app/lib/guestCart';
 
 export default function Login() {
   const navigate = useNavigate();
@@ -30,6 +32,17 @@ const handleSubmit = async (e: FormEvent) => {
     }
 
     localStorage.setItem('token', accessToken);
+
+    const pendingItems = guestCart.toMergePayload();
+    if (pendingItems.length > 0) {
+      try {
+        await cartApi.mergeCart(pendingItems);
+        guestCart.clear();
+      } catch {
+        // non-fatal — user keeps their existing account cart if merge fails
+      }
+    }
+
     navigate('/app');
   } catch (err: any) {
     setError(err.response?.data?.message ?? 'Login failed. Please try again.');

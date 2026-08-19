@@ -1,14 +1,16 @@
 import { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { Search } from 'lucide-react';
+import { Search, SlidersHorizontal } from 'lucide-react';
 import AppLayout from '../../app/AppLayout';
 import ProductCard from '../../ui/ProductCard';
 import FoodPackCard from '../../ui/FoodPackCard';
 import SplashLoader from '../../ui/SplashLoader';
+import AdminFilterSheet, {
+  emptyFilterState,
+  type ProductFilterState,
+} from '../../admin/AdminFilterSheet';
 import { productApi, type ApiProduct, type ProductCategory } from '../../../app/lib/productApi';
 import { foodpackApi, type ApiFoodpack } from '../../../app/lib/foodpackApi';
-
-
 
 type ShopTab = 'all' | 'products' | 'food-packs';
 
@@ -42,6 +44,8 @@ export default function Shop() {
 
   const [initialLoading, setInitialLoading] = useState(true);
   const [error, setError] = useState('');
+  const [filterOpen, setFilterOpen] = useState(false);
+  const [filterState, setFilterState] = useState<ProductFilterState>(emptyFilterState);
 
   // Fetch categories once
   useEffect(() => {
@@ -117,6 +121,38 @@ export default function Shop() {
 
   const isLoading = productsLoading || foodpacksLoading;
 
+  const filterActiveCount =
+    filterState.categoryIds.length + filterState.priceRanges.length + filterState.availability.length;
+
+  const applyPriceAndAvailability = <T extends { price: string | number; quantity?: number }>(
+    list: T[]
+  ) =>
+    list.filter((item) => {
+      if (filterState.priceRanges.length > 0) {
+        const price = Number(item.price);
+        const matchesRange = filterState.priceRanges.some((range) => {
+          if (range === '0-5000') return price <= 5000;
+          if (range === '5000-10000') return price > 5000 && price <= 10000;
+          return price > 10000;
+        });
+        if (!matchesRange) return false;
+      }
+      if (filterState.availability.length > 0 && item.quantity !== undefined) {
+        const inStock = item.quantity > 0;
+        const matches = filterState.availability.some((a) => (a === 'IN_STOCK' ? inStock : !inStock));
+        if (!matches) return false;
+      }
+      return true;
+    });
+
+  const visibleProducts = applyPriceAndAvailability(
+    filterState.categoryIds.length > 0
+      ? products.filter((p) => filterState.categoryIds.includes(p.category?.id ?? ''))
+      : products
+  );
+
+  const visibleFoodpacks = applyPriceAndAvailability(foodpacks);
+
   const totalPages =
     active === 'food-packs' ? foodpackTotalPages : productTotalPages;
   const currentPage =
@@ -151,6 +187,20 @@ export default function Shop() {
           placeholder="Search products..."
           className="flex-1 border-none bg-transparent text-sm text-ink outline-none placeholder:text-primary/70"
         />
+        <button
+          type="button"
+          onClick={() => setFilterOpen(true)}
+          aria-label="Filter"
+          className={
+            'flex shrink-0 items-center gap-1 rounded-full border px-3 py-1.5 text-xs font-semibold ' +
+            (filterActiveCount > 0
+              ? 'border-primary bg-primary/10 text-primary'
+              : 'border-muted text-ink-soft')
+          }
+        >
+          <SlidersHorizontal size={14} />
+          {filterActiveCount > 0 ? filterActiveCount : ''}
+        </button>
       </div>
 
       {/* Tab switcher */}
@@ -224,11 +274,11 @@ export default function Shop() {
       {!isLoading && (
         <div className="mt-6 grid grid-cols-2 gap-4">
           {active !== 'food-packs' &&
-            products.map((product) => (
+            visibleProducts.map((product) => (
               <ProductCard key={product.id} product={product} />
             ))}
           {active !== 'products' &&
-            foodpacks.map((pack) => (
+            visibleFoodpacks.map((pack) => (
               <FoodPackCard key={pack.id} pack={pack} />
             ))}
         </div>
@@ -236,8 +286,8 @@ export default function Shop() {
 
       {/* Empty state */}
       {!isLoading &&
-        products.length === 0 &&
-        foodpacks.length === 0 && (
+        visibleProducts.length === 0 &&
+        visibleFoodpacks.length === 0 && (
           <div className="mt-12 text-center">
             <p className="text-lg font-semibold text-ink-soft">
               No products found
@@ -275,6 +325,18 @@ export default function Shop() {
             );
           })}
         </div>
+      )}
+
+      {filterOpen && (
+        <AdminFilterSheet
+          categories={categories}
+          value={filterState}
+          onClose={() => setFilterOpen(false)}
+          onApply={(next) => {
+            setFilterState(next);
+            setFilterOpen(false);
+          }}
+        />
       )}
     </AppLayout>
   );

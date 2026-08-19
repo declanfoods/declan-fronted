@@ -1,22 +1,24 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Loader2 } from 'lucide-react';
+import { ArrowLeft, Loader2, CheckCircle2 } from 'lucide-react';
 import Container from '../../layout/Container';
 import SplashLoader from '../../ui/SplashLoader';
 import { formatNaira } from '../../data/products';
 import { cartApi, type Cart } from '../../../app/lib/cartApi';
 import { paymentApi, type PaymentMethod } from '../../../app/lib/paymentApi';
-import { userApi, type DeliveryAddress } from '../../../app/lib/userApi';
+import { userApi, type UserProfile } from '../../../app/lib/userApi';
 import { orderApi } from '../../../app/lib/orderApi';
-
-
+import { guestCart } from '../../../app/lib/guestCart';
+import { guestOrderApi } from '../../../app/lib/guestOrderApi';
+import { isAuthenticated } from '../../../app/lib/auth';
 
 export default function Checkout() {
   const navigate = useNavigate();
+  const guest = !isAuthenticated();
 
   const [cart, setCart] = useState<Cart | null>(null);
   const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([]);
-  const [deliveryAddresses, setDeliveryAddresses] = useState<DeliveryAddress[]>([]);
+  const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
@@ -25,13 +27,32 @@ export default function Checkout() {
   const [placing, setPlacing] = useState(false);
   const [placeError, setPlaceError] = useState('');
 
+  // Guest-only fields
+  const [guestEmail, setGuestEmail] = useState('');
+  const [guestAddressLine, setGuestAddressLine] = useState('');
+  const [guestState, setGuestState] = useState('');
+  const [guestLandmark, setGuestLandmark] = useState('');
+
+  // Guest verification step (after order is created)
+  const [placedOrderNumber, setPlacedOrderNumber] = useState('');
+  const [verifyCode, setVerifyCode] = useState('');
+  const [verifying, setVerifying] = useState(false);
+  const [verifyError, setVerifyError] = useState('');
+  const [verified, setVerified] = useState(false);
+
   useEffect(() => {
+    if (guest) {
+      setCart(guestCart.toCart());
+      setLoading(false);
+      return;
+    }
+
     const fetchData = async () => {
       try {
-        const [cartRes, payRes, deliveryAddressResponse] = await Promise.allSettled([
+        const [cartRes, payRes, profileRes] = await Promise.allSettled([
           cartApi.getCart(),
           paymentApi.getPaymentMethods(),
-          userApi.getDeliveryAddresses()
+          userApi.getProfileOverview(),
         ]);
 
         if (cartRes.status === 'fulfilled') {
@@ -43,9 +64,8 @@ export default function Checkout() {
           setPaymentMethods(methods);
           if (methods.length > 0) setSelectedPayment(methods[0].id);
         }
-
-        if (deliveryAddressResponse.status === 'fulfilled') {
-          setDeliveryAddresses(deliveryAddressResponse.value.data.data.deliveryAddresses)
+        if (profileRes.status === 'fulfilled') {
+          setProfile(profileRes.value.data.data);
         }
       } catch {
         setError('Failed to load checkout.');
@@ -54,9 +74,41 @@ export default function Checkout() {
       }
     };
     fetchData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const handlePlaceOrder = async () => {
+    if (guest) {
+      if (!guestEmail || !guestAddressLine) {
+        setPlaceError('Please provide your email and delivery address.');
+        return;
+      }
+      setPlacing(true);
+      setPlaceError('');
+      try {
+        const res = await guestOrderApi.createGuestOrder({
+          payment: { method: 'CASH_ON_DELIVERY' },
+          deliveryInstructions: instructions || undefined,
+          items: guestCart.toMergePayload(),
+          deliveryAddress: {
+            addressLine: guestAddressLine,
+            state: guestState || undefined,
+            landmark: guestLandmark || undefined,
+          },
+          emailAddress: guestEmail,
+        });
+        setPlacedOrderNumber(res.data.data.orderNumber);
+        guestCart.clear();
+      } catch (err: any) {
+        setPlaceError(
+          err.response?.data?.message ?? 'Failed to place order. Please try again.'
+        );
+      } finally {
+        setPlacing(false);
+      }
+      return;
+    }
+
     if (!selectedPayment) {
       setPlaceError('Please select a payment method.');
       return;
@@ -79,6 +131,27 @@ export default function Checkout() {
     }
   };
 
+  const handleVerifyOrder = async () => {
+    if (!verifyCode) {
+      setVerifyError('Please enter the verification code sent to your email.');
+      return;
+    }
+    setVerifying(true);
+    setVerifyError('');
+    try {
+      await guestOrderApi.verifyGuestOrder({
+        customerEmail: guestEmail,
+        verificationCode: verifyCode,
+        orderNumber: placedOrderNumber,
+      });
+      setVerified(true);
+    } catch (err: any) {
+      setVerifyError(err.response?.data?.message ?? 'Invalid or expired code.');
+    } finally {
+      setVerifying(false);
+    }
+  };
+
   if (loading) return <SplashLoader />;
 
   if (error) {
@@ -91,6 +164,56 @@ export default function Checkout() {
         >
           Try Again
         </button>
+      </div>
+    );
+  }
+
+  // Guest order placed — show verification step
+  if (guest && placedOrderNumber) {
+    return (
+      <div className="flex min-h-screen flex-col items-center justify-center gap-4 px-6 text-center">
+        {verified ? (
+          <>
+            <CheckCircle2 size={56} className="text-primary" />
+            <p className="text-xl font-bold text-ink">Order Confirmed!</p>
+            <p className="text-sm text-ink-soft">
+              Order <span className="font-semibold text-ink">{placedOrderNumber}</span> is
+              being processed. We&apos;ve sent the details to {guestEmail}.
+            </p>
+            <button
+              onClick={() => navigate('/')}
+              className="mt-2 rounded-full bg-primary px-6 py-3 text-sm font-semibold text-white"
+            >
+              Back to Home
+            </button>
+          </>
+        ) : (
+          <>
+            <p className="text-xl font-bold text-ink">Verify Your Order</p>
+            <p className="max-w-sm text-sm text-ink-soft">
+              We sent a verification code to <span className="font-semibold">{guestEmail}</span>{' '}
+              for order <span className="font-semibold text-ink">{placedOrderNumber}</span>.
+              Enter it below to confirm.
+            </p>
+            <input
+              value={verifyCode}
+              onChange={(e) => setVerifyCode(e.target.value)}
+              placeholder="Verification code"
+              className="w-full max-w-xs rounded-full border-2 border-primary px-5 py-3 text-center text-sm outline-none"
+            />
+            {verifyError && (
+              <p className="text-sm font-medium text-red-600">{verifyError}</p>
+            )}
+            <button
+              type="button"
+              disabled={verifying}
+              onClick={handleVerifyOrder}
+              className="w-full max-w-xs rounded-full bg-primary py-3 text-sm font-semibold text-white disabled:opacity-60"
+            >
+              {verifying ? 'Verifying...' : 'Verify Order'}
+            </button>
+          </>
+        )}
       </div>
     );
   }
@@ -109,9 +232,12 @@ export default function Checkout() {
       </div>
     );
   }
-  
-  const address = deliveryAddresses[0];
-  
+
+  const address = profile?.deliveryAddresses?.[0];
+  const canPlaceOrder = guest
+    ? !!guestEmail && !!guestAddressLine
+    : !!selectedPayment && !!address;
+
   return (
     <div className="min-h-screen bg-white">
       {/* Top bar */}
@@ -132,39 +258,91 @@ export default function Checkout() {
 
       <Container className="py-8">
         <div className="mx-auto max-w-2xl space-y-6">
+          {guest && (
+            <section className="rounded-3xl border-2 border-primary bg-white p-6 shadow-sm">
+              <h3 className="text-lg font-bold text-primary">📧 Contact Email</h3>
+              <p className="mt-1 text-xs text-ink-soft">
+                We'll send your order confirmation and tracking details here.
+              </p>
+              <input
+                type="email"
+                value={guestEmail}
+                onChange={(e) => setGuestEmail(e.target.value)}
+                placeholder="you@example.com"
+                required
+                className="mt-3 w-full rounded-2xl border border-muted p-4 text-sm text-ink outline-none focus:border-primary"
+              />
+            </section>
+          )}
 
           {/* Delivery Address */}
           <section className="rounded-3xl border-2 border-primary bg-white p-6 shadow-sm">
             <div className="flex items-start justify-between">
               <h3 className="text-lg font-bold text-primary">📍 Delivery Address</h3>
-              <button
-                type="button"
-                onClick={() => navigate('/app/profile')}
-                className="text-sm font-semibold text-primary hover:underline"
-              >
-                Edit
-              </button>
-            </div>
-            <div className="mt-3 rounded-2xl bg-primary/10 p-5">
-              {address ? (
-                <>
-                  <p className="text-lg font-bold text-ink">{address.state}</p>
-                  <p className="mt-1 text-sm leading-relaxed text-ink-soft">
-                    {address.addressLine}, {address.country}
-                  </p>
-                </>
-              ) : (
-                <p className="text-sm text-ink-soft">
-                  No saved address. Please add one in your profile before ordering.
-                </p>
+              {!guest && (
+                <button
+                  type="button"
+                  onClick={() => navigate('/app/profile')}
+                  className="text-sm font-semibold text-primary hover:underline"
+                >
+                  Edit
+                </button>
               )}
             </div>
+
+            {guest ? (
+              <div className="mt-3 flex flex-col gap-3">
+                <input
+                  value={guestAddressLine}
+                  onChange={(e) => setGuestAddressLine(e.target.value)}
+                  placeholder="Street address"
+                  required
+                  className="w-full rounded-2xl border border-muted p-4 text-sm text-ink outline-none focus:border-primary"
+                />
+                <div className="grid grid-cols-2 gap-3">
+                  <input
+                    value={guestState}
+                    onChange={(e) => setGuestState(e.target.value)}
+                    placeholder="State"
+                    className="w-full rounded-2xl border border-muted p-4 text-sm text-ink outline-none focus:border-primary"
+                  />
+                  <input
+                    value={guestLandmark}
+                    onChange={(e) => setGuestLandmark(e.target.value)}
+                    placeholder="Nearest landmark"
+                    className="w-full rounded-2xl border border-muted p-4 text-sm text-ink outline-none focus:border-primary"
+                  />
+                </div>
+              </div>
+            ) : (
+              <div className="mt-3 rounded-2xl bg-primary/10 p-5">
+                {address ? (
+                  <>
+                    <p className="text-lg font-bold text-ink">{address.state}</p>
+                    <p className="mt-1 text-sm leading-relaxed text-ink-soft">
+                      {address.addressLine}, {address.country}
+                    </p>
+                  </>
+                ) : (
+                  <p className="text-sm text-ink-soft">
+                    No saved address. Please add one in your profile before ordering.
+                  </p>
+                )}
+              </div>
+            )}
           </section>
 
           {/* Payment Method */}
           <section className="rounded-3xl border-2 border-primary bg-white p-6 shadow-sm">
             <h3 className="text-lg font-bold text-primary">💳 Payment Method</h3>
-            {paymentMethods.length === 0 ? (
+            {guest ? (
+              <div className="mt-4 rounded-2xl border-2 border-primary bg-primary/10 px-5 py-4">
+                <p className="text-base font-semibold text-ink">Cash on Delivery</p>
+                <p className="mt-0.5 text-xs text-ink-soft">
+                  Pay the rider when your order arrives.
+                </p>
+              </div>
+            ) : paymentMethods.length === 0 ? (
               <p className="mt-3 text-sm text-ink-soft">
                 No payment methods available.
               </p>
@@ -271,7 +449,7 @@ export default function Checkout() {
           <button
             type="button"
             onClick={handlePlaceOrder}
-            disabled={placing || !selectedPayment || !address}
+            disabled={placing || !canPlaceOrder}
             className="w-full rounded-full bg-primary py-5 text-lg font-bold text-white transition-colors hover:bg-primary-dark disabled:opacity-60"
           >
             {placing ? (

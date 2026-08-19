@@ -6,8 +6,8 @@ import SplashLoader from '../../ui/SplashLoader';
 import Button from '../../ui/Button';
 import { formatNaira } from '../../data/products';
 import { cartApi, type Cart as CartType, type CartItem } from '../../../app/lib/cartApi';
-
-
+import { guestCart } from '../../../app/lib/guestCart';
+import { isAuthenticated } from '../../../app/lib/auth';
 
 export default function Cart() {
   const navigate = useNavigate();
@@ -18,6 +18,11 @@ export default function Cart() {
   const [clearing, setClearing] = useState(false);
 
   const fetchCart = async () => {
+    if (!isAuthenticated()) {
+      setCart(guestCart.toCart());
+      setLoading(false);
+      return;
+    }
     try {
       const res = await cartApi.getCart();
       setCart(res.data.data.cart);
@@ -30,6 +35,9 @@ export default function Cart() {
 
   useEffect(() => {
     fetchCart();
+    if (!isAuthenticated()) {
+      return guestCart.onChange(fetchCart);
+    }
   }, []);
 
   const markUpdating = (id: string, active: boolean) => {
@@ -42,6 +50,12 @@ export default function Cart() {
 
   const handleUpdateQty = async (item: CartItem, delta: number) => {
     markUpdating(item.id, true);
+    if (!isAuthenticated()) {
+      guestCart.setQty(item.id, item.quantity + delta);
+      await fetchCart();
+      markUpdating(item.id, false);
+      return;
+    }
     try {
       await cartApi.updateItemQty(item.id, {
         quantity: 1,
@@ -56,6 +70,12 @@ export default function Cart() {
 
   const handleRemove = async (itemId: string) => {
     markUpdating(itemId, true);
+    if (!isAuthenticated()) {
+      guestCart.removeItem(itemId);
+      await fetchCart();
+      markUpdating(itemId, false);
+      return;
+    }
     try {
       await cartApi.removeItem(itemId);
       await fetchCart();
@@ -67,6 +87,12 @@ export default function Cart() {
 
   const handleClearCart = async () => {
     setClearing(true);
+    if (!isAuthenticated()) {
+      guestCart.clear();
+      await fetchCart();
+      setClearing(false);
+      return;
+    }
     try {
       await cartApi.clearCart();
       await fetchCart();

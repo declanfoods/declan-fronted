@@ -3,11 +3,9 @@ import { ShoppingCart, Loader2 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import type { ApiProduct } from '../../app/lib/productApi';
 import { cartApi } from '../../app/lib/cartApi';
+import { guestCart } from '../../app/lib/guestCart';
+import { isAuthenticated } from '../../app/lib/auth';
 import { formatNaira } from '../data/products';
-
-
-
-
 
 interface ProductCardProps {
   product: ApiProduct;
@@ -27,7 +25,19 @@ export default function ProductCard({ product, onCartUpdate }: ProductCardProps)
     e.stopPropagation();
     setAdding(true);
     try {
-      await cartApi.addItem({ productId: product.id, quantity: 1 });
+      if (isAuthenticated()) {
+        await cartApi.addItem({ productId: product.id, quantity: 1 });
+      } else {
+        guestCart.addItem({
+          id: product.id,
+          itemName: product.name,
+          itemCategoryName: categoryName,
+          itemId: product.id,
+          itemType: 'PRODUCT',
+          itemUrls: product.imageUrls ?? [],
+          itemPrice: String(product.price),
+        });
+      }
       setAdded(true);
       setTimeout(() => setAdded(false), 2000);
       onCartUpdate?.();

@@ -1,9 +1,11 @@
 // HeroSection.tsx — combines Navbar + Hero as one cohesive unit
+import { useNavigate } from 'react-router-dom';
 import Button from '../ui/Button';
 import hero from '../../assets/hero.png';
- 
+
 
 export default function Hero() {
+  const navigate = useNavigate();
   return (
     <div className="px-4 pt-4 sm:px-6">
       {/* Navbar lives inside the same padded wrapper as the hero card below it */}
@@ -39,11 +41,12 @@ export default function Hero() {
                 </p>
 
                 <div className="mt-8 flex flex-wrap gap-4">
-                  <Button variant="primary" size="lg">
+                  <Button variant="primary" size="lg" onClick={() => navigate('/app/shop')}>
                     Shop Now
                   </Button>
 
                   <button
+                    onClick={() => navigate('/app/shop')}
                     className="inline-flex text-primary items-center justify-center rounded-full border-2 border-white bg-white px-8 py-3.5 font-semibold"
                   >
                     Browse Catalog

@@ -53,6 +53,6 @@ export const cartApi = {
   removeItem: (itemId: string) =>
     api.delete(`/api/v1/cart/items/${itemId}`),
 
-  mergeCart: () =>
-    api.post('/api/v1/cart/merge'),
+  mergeCart: (cartItems: { productId?: string; foodPackId?: string; quantity: number }[]) =>
+    api.post('/api/v1/cart/merge', { cartItems }),
 };

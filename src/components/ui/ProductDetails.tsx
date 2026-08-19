@@ -6,6 +6,7 @@ import ProductCard from '../ui/ProductCard';
 import { formatNaira } from '../data/products';
 import { productApi, type ApiProduct } from '../../app/lib/productApi';
 import { cartApi } from '../../app/lib/cartApi';
+import { guestCart } from '../../app/lib/guestCart';
 import { savedApi } from '../../app/lib/savedApi';
 import { isAuthenticated } from '../../app/lib/auth';
 
@@ -71,7 +72,22 @@ export default function ProductDetails() {
     setAdding(true);
     setAddedMsg('');
     try {
-      await cartApi.addItem({ productId: product.id, quantity: qty });
+      if (isAuthenticated()) {
+        await cartApi.addItem({ productId: product.id, quantity: qty });
+      } else {
+        guestCart.addItem(
+          {
+            id: product.id,
+            itemName: product.name,
+            itemCategoryName: product.category?.name ?? 'Product',
+            itemId: product.id,
+            itemType: 'PRODUCT',
+            itemUrls: product.imageUrls ?? [],
+            itemPrice: String(product.price),
+          },
+          qty
+        );
+      }
       setAddedMsg('Added to cart!');
       setTimeout(() => setAddedMsg(''), 2000);
     } catch (err: any) {
