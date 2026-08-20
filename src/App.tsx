@@ -52,7 +52,7 @@ import AdminEditProduct from './components/pages/admin/products/EditProduct';
 import RidersOverview from './components/pages/admin/riders/RidersOverview';
 import RiderHub from './components/pages/admin/riders/RiderHub';
 import RiderOnboarding from './components/pages/admin/riders/RiderOnboarding';
-
+import GuestOrderTracking from './components/pages/app/GuestOrderTracking';
 
 
 export default function App() {
@@ -81,6 +81,7 @@ export default function App() {
           <Route path="/app/saved" element={<SavedProducts />} />
           <Route path="/app/checkout" element={<Checkout />} />
           <Route path="/app/orders/:orderId/tracking" element={<OrderTracking />} />
+          <Route path="/track-order" element={<GuestOrderTracking />} />
           {/* referral: */}
           <Route path="/app/referrals" element={<ReferralOverview />} />
           <Route path="/app/referrals/list" element={<ReferralList />} />

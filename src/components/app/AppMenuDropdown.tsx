@@ -1,7 +1,6 @@
-import { NavLink } from 'react-router-dom';
-import { Search, LogOut } from 'lucide-react';
-import { logout } from '../../app/lib/auth.ts';
-
+import { NavLink, useNavigate } from 'react-router-dom';
+import { Search, LogOut, LogIn } from 'lucide-react';
+import { logout, isAuthenticated } from '../../app/lib/auth.ts';
 interface AppMenuDropdownProps {
   onClose?: () => void;
 }
@@ -15,6 +14,13 @@ const LINKS = [
 ];
 
 export default function AppMenuDropdown({ onClose }: AppMenuDropdownProps) {
+const navigate = useNavigate();
+const loggedIn = isAuthenticated();
+
+const handleLogin = () => {
+  onClose?.();
+  navigate('/login');
+};
   const handleLogout = () => {
     onClose?.();
     logout();
@@ -40,14 +46,17 @@ export default function AppMenuDropdown({ onClose }: AppMenuDropdownProps) {
         ))}
 
         {/* Logout button */}
-        <button
-          type="button"
-          onClick={handleLogout}
-          className="flex items-center gap-2 text-xl font-medium text-red-500 transition-colors hover:text-red-600"
-        >
-          <LogOut size={20} strokeWidth={2} />
-          Logout
-        </button>
+{loggedIn ? (
+  <button type="button" onClick={handleLogout} className="flex items-center gap-2 text-xl font-medium text-red-500 transition-colors hover:text-red-600">
+    <LogOut size={20} strokeWidth={2} />
+    Logout
+  </button>
+) : (
+  <button type="button" onClick={handleLogin} className="flex items-center gap-2 text-xl font-medium text-primary transition-colors hover:text-primary-dark">
+    <LogIn size={20} strokeWidth={2} />
+    Login
+  </button>
+)}
       </nav>
 
       <div className="mt-8 flex items-center gap-2 rounded-full border border-primary px-4 py-3">

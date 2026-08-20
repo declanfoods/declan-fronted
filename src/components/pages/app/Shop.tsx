@@ -40,13 +40,13 @@ export default function Shop() {
   const [foodpacksLoading, setFoodpacksLoading] = useState(false);
 
   const [categories, setCategories] = useState<ProductCategory[]>([]);
-  const [selectedCategory, setSelectedCategory] = useState<string>('');
+  
 
   const [initialLoading, setInitialLoading] = useState(true);
   const [error, setError] = useState('');
   const [filterOpen, setFilterOpen] = useState(false);
   const [filterState, setFilterState] = useState<ProductFilterState>(emptyFilterState);
-
+  const primaryCategory = filterState.categoryIds[0];
   // Fetch categories once
   useEffect(() => {
     productApi.getCategories().then((res) => {
@@ -63,7 +63,7 @@ export default function Shop() {
         page: productPage,
         limit: PAGE_SIZE,
         search: query || undefined,
-        category: selectedCategory || undefined,
+        category: primaryCategory || undefined,
       })
       .then((res) => {
         setProducts(res.data.data.products);
@@ -76,7 +76,7 @@ export default function Shop() {
         setProductsLoading(false);
         setInitialLoading(false);
       });
-  }, [productPage, query, selectedCategory, active]);
+  }, [productPage, query, primaryCategory, active]);
 
   // Fetch foodpacks
   useEffect(() => {
@@ -221,42 +221,7 @@ export default function Shop() {
         ))}
       </div>
 
-      {/* Category pills */}
-      {active !== 'food-packs' && categories.length > 0 && (
-        <div className="mt-3 flex flex-wrap gap-2">
-          <button
-            onClick={() => {
-              setSelectedCategory('');
-              setProductPage(1);
-            }}
-            className={
-              'rounded-full px-4 py-1.5 text-xs font-semibold transition-colors ' +
-              (!selectedCategory
-                ? 'bg-primary text-white'
-                : 'border border-primary text-primary hover:bg-primary/5')
-            }
-          >
-            All
-          </button>
-          {categories.map((cat) => (
-            <button
-              key={cat.id}
-              onClick={() => {
-                setSelectedCategory(cat.id);
-                setProductPage(1);
-              }}
-              className={
-                'rounded-full px-4 py-1.5 text-xs font-semibold transition-colors ' +
-                (selectedCategory === cat.id
-                  ? 'bg-primary text-white'
-                  : 'border border-primary text-primary hover:bg-primary/5')
-              }
-            >
-              {cat.name}
-            </button>
-          ))}
-        </div>
-      )}
+      
 
       {error && (
         <p className="mt-4 rounded-xl bg-red-50 px-4 py-3 text-sm font-medium text-red-600">

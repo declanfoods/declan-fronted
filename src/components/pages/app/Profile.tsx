@@ -13,7 +13,8 @@ import {
 import { logout } from '../../../app/lib/auth';
 import { addressApi, type DeliveryAddress } from '../../../app/lib/addressApi';
 import AddressModal from './AddressModal';
-
+import { LogIn } from 'lucide-react';
+import { isAuthenticated } from '../../../app/lib/auth';
 export default function Profile() {
   const navigate = useNavigate();
 
@@ -40,6 +41,7 @@ const [editingAddress, setEditingAddress] = useState<DeliveryAddress | null>(nul
 
   // Fetch profile on mount
   useEffect(() => {
+    if (!isAuthenticated()) { setLoading(false); return; }
     const fetchProfile = async () => {
       try {
         const res = await userApi.getProfileOverview();
@@ -60,6 +62,7 @@ const [editingAddress, setEditingAddress] = useState<DeliveryAddress | null>(nul
 };
 
 useEffect(() => {
+  if (!isAuthenticated()) { setLoading(false); return; }
   fetchAddresses();
 }, []); 
 
@@ -140,6 +143,25 @@ useEffect(() => {
     );
   }
 
+if (!isAuthenticated()) {
+  return (
+    <AppLayout title="My Profile">
+      <div className="flex min-h-[60vh] flex-col items-center justify-center gap-4 px-8 text-center">
+        <LogIn size={40} className="text-primary" />
+        <p className="text-lg font-semibold text-ink">Login to view your profile</p>
+        <p className="text-sm text-ink-soft">
+          Sign in to manage your addresses, see your order history, and track referrals.
+        </p>
+        <button
+          onClick={() => navigate('/login')}
+          className="rounded-full bg-primary px-8 py-3 text-sm font-semibold text-white hover:bg-primary-dark"
+        >
+          Login
+        </button>
+      </div>
+    </AppLayout>
+  );
+}
   if (error) {
     return (
       <AppLayout title="My Profile">

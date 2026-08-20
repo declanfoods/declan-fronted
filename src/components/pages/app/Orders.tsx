@@ -6,7 +6,8 @@ import AppLayout from '../../app/AppLayout';
 import SplashLoader from '../../ui/SplashLoader';
 import { formatNaira } from '../../data/products';
 import { orderApi, type Order } from '../../../app/lib/orderApi';
-
+import { LogIn } from 'lucide-react';
+import { isAuthenticated } from '../../../app/lib/auth';
 
 const formatDate = (iso: string) =>
   new Date(iso).toLocaleDateString('en-NG', {
@@ -31,6 +32,7 @@ export default function Orders() {
 
   // Fetch single active order
   useEffect(() => {
+    if (!isAuthenticated()) { setLoading(false); return; }
     const fetchActive = async () => {
       try {
         const res = await orderApi.getActiveOrder();
@@ -50,6 +52,7 @@ export default function Orders() {
 
   // Fetch past orders
   useEffect(() => {
+    if (!isAuthenticated()) { setLoading(false); return; }
     const fetchPast = async () => {
       setPastLoading(true);
       try {
@@ -86,6 +89,28 @@ export default function Orders() {
       </AppLayout>
     );
   }
+
+  
+if (!isAuthenticated()) {
+  return (
+    <AppLayout title="My Orders">
+      <div className="flex min-h-[60vh] flex-col items-center justify-center gap-4 px-8 text-center">
+        <LogIn size={40} className="text-primary" />
+        <p className="text-lg font-semibold text-ink">Login to view your orders</p>
+        <p className="text-sm text-ink-soft">
+          Track deliveries and see your order history once you sign in. Placed an order as a
+          guest? Use the tracking link from your confirmation email instead.
+        </p>
+        <button
+          onClick={() => navigate('/login')}
+          className="rounded-full bg-primary px-8 py-3 text-sm font-semibold text-white hover:bg-primary-dark"
+        >
+          Login
+        </button>
+      </div>
+    </AppLayout>
+  );
+}
 
   if (error) {
     return (

@@ -15,8 +15,9 @@ export default {
         accent: "#D07F2E",
       },
       fontFamily: {
-        sans: ["Plus Jakarta Sans", "sans-serif"],
-      },
+  sans: ["Inter", "sans-serif"],
+  heading: ["Plus Jakarta Sans", "sans-serif"],
+},
     },
   },
   plugins: [],
