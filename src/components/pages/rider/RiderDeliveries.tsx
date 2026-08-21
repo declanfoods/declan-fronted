@@ -1,261 +1,171 @@
-import { useState, useRef,  } from 'react';
-import { User, Phone, MapPin, CheckCircle, X } from 'lucide-react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import RiderLayout from './RiderLayout';
-import { mockOrders, type RiderOrder, type OrderStatus } from '../../data/orders';
-import { formatNaira } from '../../data/products';
+import { riderDeliveryApi, type RiderDelivery } from '../../../app/lib/riderDeliveryApi';
 
+const stages = ['ASSIGNED', 'PICKED_UP', 'IN_TRANSIT', 'DELIVERED'];
+const stageLabels = ['Assigned', 'Picked Up', 'On the Way', 'Delivered'];
 
-const STATUS_LABELS: Record<OrderStatus, string> = {
-  assigned: 'Assigned',
-  picked_up: 'Picked Up',
-  in_transit: 'In Transit',
-  delivered: 'Delivered',
-};
+const filters = ['All', 'Pending', 'In Progress', 'Completed'];
 
-const STATUS_COLORS: Record<OrderStatus, string> = {
-  assigned: 'bg-primary text-white',
-  picked_up: 'border border-primary text-primary bg-white',
-  in_transit: 'bg-accent text-white',
-  delivered: 'bg-gray-300 text-gray-700',
-};
-
-// ─── Delivery Code Modal ───────────────────────────────────────────────────────
-function DeliveryCodeModal({
-  onConfirm,
-  onCancel,
-}: {
-  onConfirm: () => void;
-  onCancel: () => void;
-}) {
-  const [digits, setDigits] = useState(['', '', '', '']);
-  const refs = [
-    useRef<HTMLInputElement>(null),
-    useRef<HTMLInputElement>(null),
-    useRef<HTMLInputElement>(null),
-    useRef<HTMLInputElement>(null),
-  ];
-
-  const handleChange = (i: number, val: string) => {
-    if (!/^\d?$/.test(val)) return;
-    const next = [...digits];
-    next[i] = val;
-    setDigits(next);
-    if (val && i < 3) refs[i + 1].current?.focus();
-  };
-
-  const handleKeyDown = (i: number, e: React.KeyboardEvent) => {
-    if (e.key === 'Backspace' && !digits[i] && i > 0) {
-      refs[i - 1].current?.focus();
-    }
-  };
-
-  const isFull = digits.every((d) => d !== '');
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#D9D9D9]/80 px-6">
-      <div className="w-full max-w-xs rounded-2xl bg-white p-6 shadow-xl">
-        <p className="mb-6 text-center text-sm font-medium text-ink">
-          Ask customer for 4-digit Code. Enter it below to confirm delivery
-        </p>
-
-        {/* 4 digit inputs */}
-        <div className="mb-8 flex items-center justify-center gap-3">
-          {digits.map((d, i) => (
-            <input
-              key={i}
-              ref={refs[i]}
-              type="text"
-              inputMode="numeric"
-              maxLength={1}
-              value={d}
-              onChange={(e) => handleChange(i, e.target.value)}
-              onKeyDown={(e) => handleKeyDown(i, e)}
-              className="h-14 w-14 rounded-xl border border-gray-200 bg-white text-center text-2xl font-bold text-ink shadow-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
-            />
-          ))}
-        </div>
-
-        <div className="flex gap-3">
-          <button
-            type="button"
-            onClick={onCancel}
-            className="flex-1 rounded-full bg-primary py-3 text-sm font-semibold text-white transition-colors hover:bg-primary-dark"
-          >
-            Cancel
-          </button>
-          <button
-            type="button"
-            onClick={onConfirm}
-            disabled={!isFull}
-            className="flex-1 rounded-full border border-primary py-3 text-sm font-semibold text-primary transition-colors hover:bg-primary/5 disabled:opacity-40"
-          >
-            Confirm
-          </button>
-        </div>
-      </div>
-    </div>
-  );
+function matchesFilter(status: string, filter: string) {
+  if (filter === 'All') return true;
+  if (filter === 'Pending') return status === 'ASSIGNED';
+  if (filter === 'In Progress') return ['PICKED_UP', 'IN_TRANSIT', 'CODE_EXCHANGED'].includes(status);
+  if (filter === 'Completed') return ['DELIVERED', 'COMPLETED'].includes(status);
+  return true;
 }
 
-// ─── Payment Confirmed Modal ───────────────────────────────────────────────────
-function PaymentConfirmedModal({ onClose }: { onClose: () => void }) {
-  const navigate = useNavigate();
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#D9D9D9]/80 px-6">
-      <div className="relative w-full max-w-xs rounded-2xl bg-white p-8 shadow-xl">
-        <button
-          type="button"
-          onClick={onClose}
-          aria-label="Close"
-          className="absolute right-4 top-4 text-gray-400 hover:text-gray-600"
-        >
-          <X size={18} strokeWidth={2} />
-        </button>
-
-        <div className="flex flex-col items-center gap-4">
-          <div className="flex h-20 w-20 items-center justify-center rounded-full border-4 border-primary">
-            <CheckCircle size={44} className="text-primary" strokeWidth={1.5} />
-          </div>
-          <p className="text-base font-semibold text-ink">Payment confirmed</p>
-          <button
-            type="button"
-            onClick={() => navigate('/rider/home')}
-            className="mt-2 w-full rounded-full bg-primary py-3 text-sm font-semibold text-white transition-colors hover:bg-primary-dark"
-          >
-            Back to Home
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ─── Order Card ───────────────────────────────────────────────────────────────
-function OrderCard({ order: initial }: { order: RiderOrder }) {
-  const [status, setStatus] = useState<OrderStatus>(initial.status);
-  const [showCodeModal, setShowCodeModal] = useState(false);
-  const [showConfirmedModal, setShowConfirmedModal] = useState(false);
-
-  const total = initial.items.reduce((s, i) => s + i.price, 0);
-  const showDelivery = status !== 'assigned';
-
-  const handleCTA = () => {
-    if (status === 'assigned') return setStatus('picked_up');
-    if (status === 'picked_up') return setStatus('in_transit');
-    if (status === 'in_transit') return setShowCodeModal(true);
-    if (status === 'delivered') return setShowConfirmedModal(true);
-  };
-
-  const ctaLabel: Record<OrderStatus, string> = {
-    assigned: 'Mark as Picked Up',
-    picked_up: 'Start Delivery',
-    in_transit: 'Enter Delivery Code',
-    delivered: 'Confirm Payment',
-  };
-
-  return (
-    <>
-      <div className="rounded-2xl border border-gray-200 p-5">
-        {/* Header */}
-        <div className="mb-3 flex items-start justify-between">
-          <p className="text-sm font-bold text-primary">{initial.id}</p>
-          <span
-            className={
-              'rounded-full px-3 py-1 text-xs font-semibold ' +
-              STATUS_COLORS[status]
-            }
-          >
-            {STATUS_LABELS[status]}
-          </span>
-        </div>
-
-        {/* Customer */}
-        <div className="mb-3 space-y-1">
-          <div className="flex items-center gap-2 text-sm font-semibold text-ink">
-            <User size={16} className="text-primary" strokeWidth={2} />
-            {initial.customerName}
-          </div>
-          <div className="flex items-center gap-2 text-sm font-semibold text-ink">
-            <Phone size={16} className="text-primary" strokeWidth={2} />
-            {initial.phone}
-          </div>
-        </div>
-
-        {/* Items */}
-        <p className="mb-2 text-sm font-semibold text-ink">Items</p>
-        <div className="space-y-1">
-          {initial.items.map((item, i) => (
-            <div key={i} className="flex justify-between text-sm text-gray-700">
-              <span>{item.name}</span>
-              <span className="font-medium">{formatNaira(item.price)}</span>
-            </div>
-          ))}
-        </div>
-        <div className="mt-2 flex justify-between border-t border-gray-200 pt-2 text-sm font-bold text-ink">
-          <span>Total (₦)</span>
-          <span className="text-primary">{formatNaira(total)}</span>
-        </div>
-
-        {/* Delivery details */}
-        {showDelivery && (
-          <div className="mt-4 rounded-xl bg-gray-100 p-4 text-sm">
-            <div className="mb-2 flex items-center gap-2 font-semibold text-primary">
-              <MapPin size={16} strokeWidth={2} />
-              Delivery Details
-            </div>
-            <p className="font-semibold text-primary">{initial.deliveryName}</p>
-            <p className="whitespace-pre-line text-gray-700">
-              {initial.deliveryAddress}
-            </p>
-            <p className="text-primary">{initial.deliveryPhone}</p>
-            <p className="mt-2 text-primary">
-              Delivery Instructions: {initial.deliveryInstructions}
-            </p>
-          </div>
-        )}
-
-        {/* CTA */}
-        <button
-          type="button"
-          onClick={handleCTA}
-          className="mt-4 w-full rounded-full bg-primary py-3.5 text-sm font-semibold text-white transition-colors hover:bg-primary-dark"
-        >
-          {ctaLabel[status]}
-        </button>
-      </div>
-
-      {/* Modals */}
-      {showCodeModal && (
-        <DeliveryCodeModal
-          onConfirm={() => {
-            setShowCodeModal(false);
-            setStatus('delivered');
-          }}
-          onCancel={() => setShowCodeModal(false)}
-        />
-      )}
-
-      {showConfirmedModal && (
-        <PaymentConfirmedModal onClose={() => setShowConfirmedModal(false)} />
-      )}
-    </>
-  );
-}
-
-// ─── Page ─────────────────────────────────────────────────────────────────────
 export default function RiderDeliveries() {
+  const navigate = useNavigate();
+  const [deliveries, setDeliveries] = useState<RiderDelivery[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [activeFilter, setActiveFilter] = useState('All');
+
+  useEffect(() => {
+    riderDeliveryApi
+      .getAssignedDeliveries()
+      .then((res) => setDeliveries(res.data.data.deliveries ?? []))
+      .catch((err) => setError(err.response?.data?.message ?? 'Failed to load deliveries.'))
+      .finally(() => setLoading(false));
+  }, []);
+
+  const total = deliveries.length;
+  const completed = deliveries.filter((d) => ['DELIVERED', 'COMPLETED'].includes(d.status)).length;
+  const inProgress = deliveries.filter((d) =>
+    ['PICKED_UP', 'IN_TRANSIT', 'CODE_EXCHANGED'].includes(d.status)
+  ).length;
+
+  const filtered = deliveries.filter((d) => matchesFilter(d.status, activeFilter));
+
   return (
     <RiderLayout>
-      <h2 className="mb-1 text-xl font-bold text-ink">My Deliveries</h2>
-      <p className="mb-6 text-sm text-gray-500">
-        Manage your assigned orders and deliveries
-      </p>
-      <div className="space-y-5">
-        {mockOrders.map((order, i) => (
-          <OrderCard key={i} order={order} />
+      <h2 className="text-xl font-bold text-gray-900">Today's Deliveries</h2>
+
+      <div className="mt-4 grid grid-cols-3 gap-3">
+        <div className="rounded-2xl bg-white p-4 shadow-sm">
+          <p className="text-xs text-gray-400">Total</p>
+          <p className="text-xl font-extrabold text-primary">{total}</p>
+        </div>
+        <div className="rounded-2xl bg-white p-4 shadow-sm">
+          <p className="text-xs text-gray-400">Completed</p>
+          <p className="text-xl font-extrabold text-primary">{completed}</p>
+        </div>
+        <div className="rounded-2xl bg-white p-4 shadow-sm">
+          <p className="text-xs text-gray-400">In Progress</p>
+          <p className="text-xl font-extrabold text-orange-500">{inProgress}</p>
+        </div>
+      </div>
+
+      <div className="mt-4 flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
+        {filters.map((f) => (
+          <button
+            key={f}
+            type="button"
+            onClick={() => setActiveFilter(f)}
+            className={`whitespace-nowrap rounded-full px-4 py-2 text-sm font-semibold transition-colors ${
+              activeFilter === f ? 'bg-primary text-white' : 'bg-gray-100 text-gray-500'
+            }`}
+          >
+            {f}
+          </button>
         ))}
+      </div>
+
+      {error && (
+        <p className="mt-4 rounded-xl bg-red-50 px-4 py-3 text-sm font-medium text-red-600">
+          {error}
+        </p>
+      )}
+
+      {loading && <p className="mt-6 text-center text-sm text-gray-400">Loading deliveries...</p>}
+
+      {!loading && filtered.length === 0 && (
+        <p className="mt-6 text-center text-sm text-gray-400">No deliveries here.</p>
+      )}
+
+      <div className="mt-4 space-y-3">
+        {filtered.map((d) => {
+          const isCurrent = ['PICKED_UP', 'IN_TRANSIT'].includes(d.status);
+          const isCompleted = ['DELIVERED', 'COMPLETED'].includes(d.status);
+          const stageIndex = stages.indexOf(d.status);
+
+          return (
+            <div
+              key={d.id}
+              className={`rounded-2xl bg-white p-4 shadow-sm ${
+                isCurrent ? 'border-2 border-primary' : 'border border-gray-100'
+              }`}
+            >
+              <div className="flex items-center justify-between">
+                {isCurrent && (
+                  <span className="rounded-full bg-primary px-2.5 py-1 text-[10px] font-bold uppercase text-white">
+                    Current Delivery
+                  </span>
+                )}
+                <span
+                  className={`ml-auto rounded-full px-2.5 py-1 text-[10px] font-bold uppercase ${
+                    isCompleted
+                      ? 'bg-primary/10 text-primary'
+                      : isCurrent
+                      ? 'bg-orange-100 text-orange-600'
+                      : 'bg-gray-100 text-gray-500'
+                  }`}
+                >
+                  {d.status.replace(/_/g, ' ')}
+                </span>
+              </div>
+
+              <p className="mt-2 font-bold text-gray-900">#{d.id.slice(0, 8)}</p>
+              <p className="text-sm text-gray-600">{d.customer?.name ?? 'Customer'}</p>
+              <p className="text-xs text-gray-400">
+                {d.items?.length ?? 0} items • ₦{Number(d.totalAmount ?? 0).toLocaleString()} total
+              </p>
+
+              {d.deliveryAddress && (
+                <p className="mt-2 text-xs text-gray-500">📍 {d.deliveryAddress}</p>
+              )}
+
+              {isCurrent && stageIndex >= 0 && (
+                <div className="mt-3 space-y-1.5 border-t border-gray-100 pt-3">
+                  {stageLabels.map((label, idx) => (
+                    <div key={label} className="flex items-center gap-2">
+                      <span
+                        className={`h-2 w-2 rounded-full ${
+                          idx <= stageIndex ? 'bg-primary' : 'bg-gray-200'
+                        }`}
+                      />
+                      <span
+                        className={`text-xs ${
+                          idx === stageIndex
+                            ? 'font-semibold text-primary'
+                            : idx < stageIndex
+                            ? 'text-gray-500'
+                            : 'text-gray-300'
+                        }`}
+                      >
+                        {label}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              <button
+                type="button"
+                onClick={() => navigate(`/rider/deliveries/${d.id}`)}
+                className={`mt-3 w-full rounded-full py-2.5 text-sm font-semibold ${
+                  isCurrent
+                    ? 'bg-primary text-white'
+                    : 'border border-primary text-primary'
+                }`}
+              >
+                {isCurrent ? 'Continue Delivery' : isCompleted ? 'View Details' : 'View Delivery'}
+              </button>
+            </div>
+          );
+        })}
       </div>
     </RiderLayout>
   );

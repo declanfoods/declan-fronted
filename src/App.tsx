@@ -53,7 +53,10 @@ import RidersOverview from './components/pages/admin/riders/RidersOverview';
 import RiderHub from './components/pages/admin/riders/RiderHub';
 import RiderOnboarding from './components/pages/admin/riders/RiderOnboarding';
 import GuestOrderTracking from './components/pages/app/GuestOrderTracking';
-
+import DeliveryDetails from './components/pages/rider/DeliveryDetails';
+import DeliveryVerification from './components/pages/rider/DeliveryVerification';
+import DeliverySuccess from './components/pages/rider/DeliverySuccess';
+import Earnings from './components/pages/rider/Earnings';
 
 export default function App() {
   return (
@@ -242,7 +245,10 @@ export default function App() {
           <Route path="/rider/home" element={<RiderHome />} />
           <Route path="/rider/profile" element={<RiderProfile />} />
           <Route path="/rider/deliveries" element={<RiderDeliveries />} />
-
+<Route path="/rider/deliveries/:id" element={<DeliveryDetails />} />
+<Route path="/rider/deliveries/:id/verify" element={<DeliveryVerification />} />
+<Route path="/rider/deliveries/:id/success" element={<DeliverySuccess />} />
+<Route path="/rider/earnings" element={<Earnings />} />
           {/* Marketing pages — shared Navbar + Footer */}
           <Route
             path="*"

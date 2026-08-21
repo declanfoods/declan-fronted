@@ -1,8 +1,32 @@
 import api from './axios';
 
+export interface RiderDeliveryCustomer {
+  name?: string;
+  phone?: string;
+}
+
+export interface RiderDeliveryItem {
+  name?: string;
+  quantity?: number;
+  price?: number | string;
+}
+
 export interface RiderDelivery {
   id: string;
   status: string;
+  customer?: RiderDeliveryCustomer;
+  items?: RiderDeliveryItem[];
+  deliveryAddress?: string;
+  deliveryInstructions?: string;
+  totalAmount?: number | string;
+  [key: string]: unknown;
+}
+
+export interface RiderDeliveryMetrics {
+  activeDeliveries?: number;
+  assignedDeliveries?: number;
+  pendingPickups?: number;
+  completedToday?: number;
   [key: string]: unknown;
 }
 
@@ -19,7 +43,7 @@ export const riderDeliveryApi = {
     api.get<ApiResponse<{ deliveries: RiderDelivery[] }>>('/api/v1/delivery-rider/deliveries'),
 
   getDeliveryOverview: () =>
-    api.get<ApiResponse<unknown>>('/api/v1/delivery-rider/deliveries/metrics'),
+    api.get<ApiResponse<RiderDeliveryMetrics>>('/api/v1/delivery-rider/deliveries/metrics'),
 
   getAssignedDelivery: (deliveryId: string) =>
     api.get<ApiResponse<{ delivery: RiderDelivery }>>(

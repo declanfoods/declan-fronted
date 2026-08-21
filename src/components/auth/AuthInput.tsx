@@ -1,5 +1,5 @@
 import { type InputHTMLAttributes, useState } from 'react';
-
+import { Eye, EyeOff } from 'lucide-react';
 type AuthInputProps = InputHTMLAttributes<HTMLInputElement> & {
   label?: string;
   type?: 'text' | 'email' | 'password'|'tel';
@@ -44,7 +44,7 @@ export default function AuthInput({
             aria-label={show ? 'Hide password' : 'Show password'}
             className="absolute right-5 top-1/2 -translate-y-1/2 text-xl text-primary"
           >
-            {show ? '👁' : '👁‍🗨'}
+            {show ? <EyeOff size={20} /> : <Eye size={20} />}
           </button>
         )}
         {!isPassword && trailingIcon && (
