@@ -1,5 +1,5 @@
 import api from './axios';
-
+import type { Order, OrderTimelineEvent } from './orderApi';
 export interface GuestDeliveryAddress {
   addressLine: string;
   city?: string;
@@ -52,6 +52,9 @@ export const guestOrderApi = {
   verifyGuestOrder: (data: VerifyGuestOrderPayload) =>
     api.post<ApiResponse<unknown>>('/api/v1/orders/guest/verify', data),
 
-  trackGuestOrder: (data: TrackGuestOrderPayload) =>
-    api.post<ApiResponse<unknown>>('/api/v1/orders/guest/order-tracking', data),
+   trackGuestOrder: (data: TrackGuestOrderPayload) =>
+    api.post<ApiResponse<{ order: Order; orderTimeline?: OrderTimelineEvent[] }>>(
+      '/api/v1/orders/guest/order-tracking',
+      data
+    ),
 };
