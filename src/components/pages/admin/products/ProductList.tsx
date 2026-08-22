@@ -15,7 +15,7 @@ const filterToStatus: Record<string, string | undefined> = {
   All: undefined,
   Available: 'active',
   'Out of Stock': 'inactive',
-  Hidden: 'hidden',
+
 };
 
 function formatPrice(price: string) {
@@ -55,20 +55,26 @@ export default function ProductList() {
   }, []);
 
   const fetchProducts = async () => {
-    setLoading(true);
-    setError('');
-    try {
+  setLoading(true);
+  setError('');
+  try {
+    if (activeFilter === 'Hidden') {
+      const res = await adminProductApi.getHiddenProducts();
+      setProducts(res.data.data.products);
+    } else {
       const res = await adminProductApi.getProducts({
         search: search || undefined,
         status: filterToStatus[activeFilter],
       });
       setProducts(res.data.data.products);
-    } catch (err: any) {
-      setError(err.response?.data?.message ?? 'Failed to load products.');
-    } finally {
-      setLoading(false);
     }
-  };
+  } catch (err: any) {
+    setError(err.response?.data?.message ?? 'Failed to load products.');
+  } finally {
+    setLoading(false);
+  }
+};
+
 
   useEffect(() => {
     const timeout = setTimeout(fetchProducts, 350);
