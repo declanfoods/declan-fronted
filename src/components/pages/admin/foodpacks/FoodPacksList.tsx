@@ -34,7 +34,7 @@ export default function FoodPacksList() {
       const res = await adminFoodPackApi.getFoodPacks({
         search: search || undefined,
         status:
-          activeFilter === 'Active' ? 'active' : activeFilter === 'Inactive' ? 'inactive' : undefined,
+          activeFilter === 'Active' ? 'ACTIVE' : activeFilter === 'Inactive' ? 'INACTIVE' : undefined,
       });
       let results = res.data.data.foodpacks;
       if (activeFilter === 'Featured') {
