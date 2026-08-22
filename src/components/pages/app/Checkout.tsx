@@ -91,7 +91,7 @@ export default function Checkout() {
         const res = await guestOrderApi.createGuestOrder({
           payment: { paymentMethodId: selectedPayment },
           deliveryInstructions: instructions || undefined,
-          items: guestCart.getItems(),
+          items: guestCart.toGuestOrderItems(),
           deliveryAddress: {
             addressLine: guestAddressLine,
             state: guestState || undefined,
