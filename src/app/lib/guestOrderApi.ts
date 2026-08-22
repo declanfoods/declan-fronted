@@ -21,6 +21,8 @@ export interface CreateGuestOrderPayload {
   items: GuestOrderItem[];
   deliveryAddress: GuestDeliveryAddress;
   emailAddress: string;
+  nameOfCustomer:string;
+  phoneNumber:string;
 }
 
 export interface VerifyGuestOrderPayload {

@@ -61,7 +61,7 @@ export default function FoodPackCard({ pack, onCartUpdate }: FoodPackCardProps) 
         </span>
 
         <div className="mt-2 rounded-xl border border-primary px-3 py-2">
-          {pack.items.slice(0, 4).map((item) => (
+         {(pack.items ?? []).slice(0, 4).map((item) => (
             <p
               key={item.id}
               className="text-sm font-semibold leading-tight text-primary capitalize"
@@ -72,9 +72,9 @@ export default function FoodPackCard({ pack, onCartUpdate }: FoodPackCardProps) 
               </span>
             </p>
           ))}
-          {pack.items.length > 4 && (
+         {(pack.items?.length ?? 0) > 4 && (
             <p className="mt-0.5 text-xs font-medium text-accent">
-              +{pack.items.length - 4} more
+              +{(pack.items?.length ?? 0) - 4} more
             </p>
           )}
         </div>

@@ -20,7 +20,7 @@ export interface ApiFoodpack {
   imageUrls: string[];
   createdAt: string;
   updatedAt: string;
-  items: FoodpackItem[];
+items: FoodpackItem[] | null;
   category: {
     id: string;
     name: string;

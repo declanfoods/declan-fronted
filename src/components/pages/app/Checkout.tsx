@@ -11,10 +11,12 @@ import { orderApi } from '../../../app/lib/orderApi';
 import { guestCart } from '../../../app/lib/guestCart';
 import { guestOrderApi } from '../../../app/lib/guestOrderApi';
 import { isAuthenticated } from '../../../app/lib/auth';
+import { useToast } from '../../ui/Toast';
 
 export default function Checkout() {
   const navigate = useNavigate();
   const guest = !isAuthenticated();
+  const { showToast } = useToast();
 
   const [cart, setCart] = useState<Cart | null>(null);
   const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([]);
@@ -25,10 +27,11 @@ export default function Checkout() {
   const [selectedPayment, setSelectedPayment] = useState<string>('');
   const [instructions, setInstructions] = useState('');
   const [placing, setPlacing] = useState(false);
-  const [placeError, setPlaceError] = useState('');
 
   // Guest-only fields
   const [guestEmail, setGuestEmail] = useState('');
+  const [guestName, setGuestName] = useState('');
+  const [guestPhone, setGuestPhone] = useState('');
   const [guestAddressLine, setGuestAddressLine] = useState('');
   const [guestState, setGuestState] = useState('');
   const [guestLandmark, setGuestLandmark] = useState('');
@@ -41,30 +44,26 @@ export default function Checkout() {
   const [verified, setVerified] = useState(false);
 
   useEffect(() => {
-    if (guest) {
-      setCart(guestCart.toCart());
-      setLoading(false);
-      return;
-    }
-
     const fetchData = async () => {
       try {
         const [cartRes, payRes, profileRes] = await Promise.allSettled([
-          cartApi.getCart(),
+          guest ? Promise.resolve(null) : cartApi.getCart(),
           paymentApi.getPaymentMethods(),
-          userApi.getProfileOverview(),
+          guest ? Promise.resolve(null) : userApi.getProfileOverview(),
         ]);
 
-        if (cartRes.status === 'fulfilled') {
+        if (guest) {
+          setCart(guestCart.toCart());
+        } else if (cartRes.status === 'fulfilled' && cartRes.value) {
           setCart(cartRes.value.data.data.cart);
         }
-        if (payRes.status === 'fulfilled') {
+        if (payRes.status === 'fulfilled' && payRes.value) {
           // Note: API typo — "paymentMethodds"
           const methods = payRes.value.data.data.paymentMethodds;
           setPaymentMethods(methods);
           if (methods.length > 0) setSelectedPayment(methods[0].id);
         }
-        if (profileRes.status === 'fulfilled') {
+        if (!guest && profileRes.status === 'fulfilled' && profileRes.value) {
           setProfile(profileRes.value.data.data);
         }
       } catch {
@@ -79,29 +78,35 @@ export default function Checkout() {
 
   const handlePlaceOrder = async () => {
     if (guest) {
-      if (!guestEmail || !guestAddressLine) {
-        setPlaceError('Please provide your email and delivery address.');
+      if (!guestEmail || !guestName || !guestPhone || !guestAddressLine) {
+        showToast('Please fill in your name, email, phone number and delivery address.', 'error');
+        return;
+      }
+      if (!selectedPayment) {
+        showToast('Please select a payment method.', 'error');
         return;
       }
       setPlacing(true);
-      setPlaceError('');
       try {
         const res = await guestOrderApi.createGuestOrder({
-          payment: { method: 'CASH_ON_DELIVERY' },
+          payment: { paymentMethodId: selectedPayment },
           deliveryInstructions: instructions || undefined,
-          items: guestCart.toMergePayload(),
+          items: guestCart.getItems(),
           deliveryAddress: {
             addressLine: guestAddressLine,
             state: guestState || undefined,
             landmark: guestLandmark || undefined,
           },
           emailAddress: guestEmail,
+          nameOfCustomer: guestName,
+          phoneNumber: guestPhone,
         });
         setPlacedOrderNumber(res.data.data.orderNumber);
         guestCart.clear();
       } catch (err: any) {
-        setPlaceError(
-          err.response?.data?.message ?? 'Failed to place order. Please try again.'
+        showToast(
+          err.response?.data?.message ?? 'Failed to place order. Please try again.',
+          'error'
         );
       } finally {
         setPlacing(false);
@@ -110,11 +115,10 @@ export default function Checkout() {
     }
 
     if (!selectedPayment) {
-      setPlaceError('Please select a payment method.');
+      showToast('Please select a payment method.', 'error');
       return;
     }
     setPlacing(true);
-    setPlaceError('');
     try {
       const res = await orderApi.createOrder({
         payment: { paymentMethodId: selectedPayment },
@@ -123,8 +127,9 @@ export default function Checkout() {
       const order = res.data.data.order;
       navigate(`/app/orders/${order.id}/tracking`);
     } catch (err: any) {
-      setPlaceError(
-        err.response?.data?.message ?? 'Failed to place order. Please try again.'
+      showToast(
+        err.response?.data?.message ?? 'Failed to place order. Please try again.',
+        'error'
       );
     } finally {
       setPlacing(false);
@@ -235,7 +240,7 @@ export default function Checkout() {
 
   const address = profile?.deliveryAddresses?.[0];
   const canPlaceOrder = guest
-    ? !!guestEmail && !!guestAddressLine
+    ? !!guestEmail && !!guestName && !!guestPhone && !!guestAddressLine && !!selectedPayment
     : !!selectedPayment && !!address;
 
   return (
@@ -260,18 +265,35 @@ export default function Checkout() {
         <div className="mx-auto max-w-2xl space-y-6">
           {guest && (
             <section className="rounded-3xl border-2 border-primary bg-white p-6 shadow-sm">
-              <h3 className="text-lg font-bold text-primary">📧 Contact Email</h3>
-              <p className="mt-1 text-xs text-ink-soft">
-                We'll send your order confirmation and tracking details here.
+              <h3 className="text-lg font-bold text-primary">👤 Contact Details</h3>
+              <div className="mt-3 flex flex-col gap-3">
+                <input
+                  value={guestName}
+                  onChange={(e) => setGuestName(e.target.value)}
+                  placeholder="Full name"
+                  required
+                  className="w-full rounded-2xl border border-muted p-4 text-sm text-ink outline-none focus:border-primary"
+                />
+                <input
+                  type="email"
+                  value={guestEmail}
+                  onChange={(e) => setGuestEmail(e.target.value)}
+                  placeholder="you@example.com"
+                  required
+                  className="w-full rounded-2xl border border-muted p-4 text-sm text-ink outline-none focus:border-primary"
+                />
+                <input
+                  type="tel"
+                  value={guestPhone}
+                  onChange={(e) => setGuestPhone(e.target.value)}
+                  placeholder="Phone number"
+                  required
+                  className="w-full rounded-2xl border border-muted p-4 text-sm text-ink outline-none focus:border-primary"
+                />
+              </div>
+              <p className="mt-2 text-xs text-ink-soft">
+                We'll send your order confirmation and tracking link to this email.
               </p>
-              <input
-                type="email"
-                value={guestEmail}
-                onChange={(e) => setGuestEmail(e.target.value)}
-                placeholder="you@example.com"
-                required
-                className="mt-3 w-full rounded-2xl border border-muted p-4 text-sm text-ink outline-none focus:border-primary"
-              />
             </section>
           )}
 
@@ -335,14 +357,7 @@ export default function Checkout() {
           {/* Payment Method */}
           <section className="rounded-3xl border-2 border-primary bg-white p-6 shadow-sm">
             <h3 className="text-lg font-bold text-primary">💳 Payment Method</h3>
-            {guest ? (
-              <div className="mt-4 rounded-2xl border-2 border-primary bg-primary/10 px-5 py-4">
-                <p className="text-base font-semibold text-ink">Cash on Delivery</p>
-                <p className="mt-0.5 text-xs text-ink-soft">
-                  Pay the rider when your order arrives.
-                </p>
-              </div>
-            ) : paymentMethods.length === 0 ? (
+            {paymentMethods.length === 0 ? (
               <p className="mt-3 text-sm text-ink-soft">
                 No payment methods available.
               </p>
@@ -439,12 +454,6 @@ export default function Checkout() {
               </span>
             </div>
           </section>
-
-          {placeError && (
-            <p className="rounded-xl bg-red-50 px-4 py-3 text-sm font-medium text-red-600">
-              {placeError}
-            </p>
-          )}
 
           <button
             type="button"
