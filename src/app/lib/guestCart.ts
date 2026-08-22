@@ -64,6 +64,14 @@ export const guestCart = {
     };
   },
 
+  /** Shape expected by POST /api/v1/orders/guest items array. */
+  toGuestOrderItems: () =>
+    read().map((i) => ({
+      itemType: i.itemType,
+      itemId: i.itemId,
+      quantity: i.quantity,
+    })),
+
   /** Shape expected by POST /api/v1/cart/merge once the guest logs in. */
   toMergePayload: () =>
     read().map((i) => ({
