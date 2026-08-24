@@ -179,7 +179,7 @@ export default function AdminDrawer({ onClose, fullPage }: AdminDrawerProps) {
 
       <button
         type="button"
-        onClick={logout}
+        onClick={adminLogout}
         className="mx-5 mb-6 flex items-center gap-2 text-sm font-semibold text-red-500"
       >
         <LogOut size={16} strokeWidth={2} />
