@@ -1,11 +1,10 @@
 import { type PropsWithChildren } from 'react';
 import { Navigate } from 'react-router-dom';
-import { isAuthenticated } from '../../app/lib/auth';
-
 export default function AdminProtectedRoute({ children }: PropsWithChildren) {
   const role = localStorage.getItem('role');
+  const adminToken = localStorage.getItem('adminToken');
 
-  if (!isAuthenticated() || role !== 'admin') {
+  if (!adminToken || role !== 'admin') {
     return <Navigate to="/admin/login" replace />;
   }
 
