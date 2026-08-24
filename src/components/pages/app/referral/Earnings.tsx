@@ -27,7 +27,7 @@ export default function ReferralEarnings() {
 
   useEffect(() => {
     userApi.getProfileOverview().then((res) => {
-      setFirstName(res.data.data?.profile?.firstName ?? 'John');
+      setFirstName(res.data.data?.user?.profile?.firstName ?? 'John');
     }).catch(() => {});
     userApi.getReferralsOverview().then((res) => {
       const m = res.data.data.metrics;
