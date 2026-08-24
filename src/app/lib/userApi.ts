@@ -7,11 +7,7 @@ export interface ProfilePhoto {
   url: string;
 }
 
-export interface DeliveryAddress {
-  addressLine: string;
-  state: string;
-  country: string;
-}
+
 
 export interface UserProfile {
   id: string;
@@ -95,8 +91,8 @@ export const userApi = {
   getDeliveryAddresses: () => 
     api.get<ApiResponse<GetDeliveryAddressResponse>>('api/v1/delivery-addresses'),
   
-  getProfileOverview: () =>
-    api.get<ApiResponse<UserProfile>>('/api/v1/users/profile-overview'),
+ getProfileOverview: () =>
+  api.get<ApiResponse<{ user: UserProfile }>>('/api/v1/users/profile-overview'),
 
   getMetricsOverview: () =>
     api.get<ApiResponse<{ metrics: UserMetrics }>>('/api/v1/users/metrics-overview'),

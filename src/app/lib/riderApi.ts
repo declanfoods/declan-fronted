@@ -5,15 +5,22 @@ export interface RiderSignInPayload {
   password: string;
 }
 
+export interface StudentInformation {
+  level?: string;
+  department?: string;
+  matricNumber?: string;
+}
+
 export interface RiderProfile {
   id: string;
   fullname: string;
   email: string;
   phoneNumberOne: string;
-  phoneNumberTwo?: string;
+  phoneNumberTwo?: string | null;
   address: string;
-  profilePictureUrl: string;
+  profilePictureUrl?: string | null;
   isStudent?: boolean;
+  studentInformation?: StudentInformation;
   createdAt?: string;
   [key: string]: unknown;
 }
@@ -26,31 +33,21 @@ interface ApiResponse<T> {
   data: T;
 }
 
-interface RiderLoginData {
-  accessToken?: string;
-  token?: string;
-  refreshToken?: string;
-  [key: string]: unknown;
-}
-
 export const riderApi = {
   signIn: (data: RiderSignInPayload) =>
-    api.post<ApiResponse<RiderLoginData>>(
+    api.post<ApiResponse<{ accessToken: string }>>(
       '/api/v1/delivery-riders/auth/sign-in',
       data
     ),
 
   getProfile: () =>
-    api.get<ApiResponse<{ deliveryRider: RiderProfile } | RiderProfile>>(
+    api.get<ApiResponse<{ rider: RiderProfile }>>(
       '/api/v1/delivery-riders'
     ),
 };
 
 export function extractRiderProfile(
-  data: { deliveryRider: RiderProfile } | RiderProfile
+  data: { rider: RiderProfile } | RiderProfile
 ): RiderProfile {
-  return (
-    (data as { deliveryRider?: RiderProfile }).deliveryRider ??
-    (data as RiderProfile)
-  );
+  return (data as { rider?: RiderProfile }).rider ?? (data as RiderProfile);
 }

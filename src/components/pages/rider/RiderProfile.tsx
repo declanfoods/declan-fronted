@@ -1,205 +1,192 @@
 import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import {
-  User,
-  GraduationCap,
-  Pencil,
-  Lock,
-  HelpCircle,
-  LogOut,
-  ChevronRight,
-  Truck,
-  CheckCircle2,
-  Star,
-} from 'lucide-react';
-import RiderTopBar from './RiderTopBar';
-import { riderApi, extractRiderProfile, type RiderProfile as RiderProfileType } from '../../../app/lib/riderApi';
-import { logout } from '../../../app/lib/auth';
+import RiderLayout from './RiderLayout';
+import { riderApi, type RiderProfile as RiderProfileData } from '../../../app/lib/riderApi';
 
 export default function RiderProfile() {
-  const navigate = useNavigate();
-  const [rider, setRider] = useState<RiderProfileType | null>(null);
+  const [profile, setProfile] = useState<RiderProfileData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
   useEffect(() => {
     riderApi
       .getProfile()
-      .then((res) => setRider(extractRiderProfile(res.data.data)))
-      .catch((err) => setError(err.response?.data?.message ?? 'Failed to load profile.'))
-      .finally(() => setLoading(false));
+      .then((res) => {
+        console.log('RIDER PROFILE API RESPONSE:', res.data);
+
+        const rider = res.data.data.rider;
+
+        if (!rider) {
+          throw new Error('Rider profile was not found in the response.');
+        }
+
+        setProfile(rider);
+      })
+      .catch((err) => {
+        console.error('Failed to load rider profile:', err);
+
+        setError(
+          err.response?.data?.message ??
+            err.message ??
+            'Failed to load rider profile.'
+        );
+      })
+      .finally(() => {
+        setLoading(false);
+      });
   }, []);
 
-  const handleLogout = () => {
-    logout();
-    navigate('/rider/login');
-  };
+  if (loading) {
+    return (
+      <RiderLayout>
+        <div className="py-10 text-center text-sm text-gray-400">
+          Loading profile...
+        </div>
+      </RiderLayout>
+    );
+  }
 
-  const studentInfo = rider?.studentInformation as
-    | { institution?: string; faculty?: string; department?: string; matricNumber?: string }
-    | null
-    | undefined;
+  if (error) {
+    return (
+      <RiderLayout>
+        <div className="rounded-xl bg-red-50 px-4 py-3 text-sm font-medium text-red-600">
+          {error}
+        </div>
+      </RiderLayout>
+    );
+  }
+
+  if (!profile) {
+    return (
+      <RiderLayout>
+        <div className="py-10 text-center text-sm text-gray-400">
+          No profile information available.
+        </div>
+      </RiderLayout>
+    );
+  }
+
+  const initials = (profile.fullname || 'Rider')
+    .trim()
+    .split(/\s+/)
+    .map((name) => name[0])
+    .join('')
+    .slice(0, 2)
+    .toUpperCase();
 
   return (
-    <div className="flex min-h-screen flex-col bg-[#F3F7EE] pb-10">
-      <RiderTopBar title="Declan Rider" />
+    <RiderLayout>
+      <div className="space-y-4">
+        <h2 className="text-xl font-bold text-gray-900">My Profile</h2>
 
-      <main className="flex-1 px-5 pt-4">
-        {error && (
-          <p className="mb-4 rounded-xl bg-red-50 px-4 py-3 text-sm font-medium text-red-600">
-            {error}
-          </p>
-        )}
-
-        {loading ? (
-          <p className="py-10 text-center text-sm text-gray-400">Loading profile...</p>
-        ) : rider ? (
-          <>
-            <div className="flex flex-col items-center rounded-2xl bg-white p-6 shadow-sm">
+        {/* Profile Header */}
+        <div className="rounded-2xl bg-white p-5 shadow-sm">
+          <div className="flex flex-col items-center text-center">
+            {profile.profilePictureUrl ? (
               <img
-                src={rider.profilePictureUrl || `https://i.pravatar.cc/120?u=${rider.id}`}
-                alt={rider.fullname}
+                src={profile.profilePictureUrl}
+                alt={profile.fullname || 'Rider'}
                 className="h-24 w-24 rounded-full object-cover"
               />
-              <h2 className="mt-4 text-xl font-bold text-gray-900">{rider.fullname}</h2>
-              <p className="text-sm text-gray-400">Rider ID: {rider.id.slice(0, 8).toUpperCase()}</p>
-              <div className="mt-2 flex gap-2">
-                <span className="flex items-center gap-1 rounded-full bg-primary px-3 py-1 text-[11px] font-bold text-white">
-                  <CheckCircle2 size={12} />
-                  Verified
-                </span>
-                <span className="flex items-center gap-1 rounded-full bg-gray-100 px-3 py-1 text-[11px] font-bold text-gray-600">
-                  <span className="h-2 w-2 rounded-full bg-primary" />
-                  Online
-                </span>
-              </div>
-            </div>
-
-            <div className="mt-4 grid grid-cols-3 gap-3">
-              <div className="rounded-2xl bg-white p-4 text-center shadow-sm">
-                <Truck size={18} className="mx-auto text-primary" />
-                <p className="mt-1 text-lg font-extrabold text-gray-900">
-                  {(rider.totalDeliveries as number | undefined) ?? '—'}
-                </p>
-                <p className="text-[10px] text-gray-400">Deliveries</p>
-              </div>
-              <div className="rounded-2xl bg-white p-4 text-center shadow-sm">
-                <CheckCircle2 size={18} className="mx-auto text-primary" />
-                <p className="mt-1 text-lg font-extrabold text-gray-900">
-                  {(rider.completionRate as number | undefined) ?? '—'}%
-                </p>
-                <p className="text-[10px] text-gray-400">Completion</p>
-              </div>
-              <div className="rounded-2xl bg-white p-4 text-center shadow-sm">
-                <Star size={18} className="mx-auto text-amber-400" />
-                <p className="mt-1 text-lg font-extrabold text-gray-900">
-                  {(rider.rating as number | undefined) ?? '—'}
-                </p>
-                <p className="text-[10px] text-gray-400">Rating</p>
-              </div>
-            </div>
-
-            <div className="mt-4 rounded-2xl bg-white p-4 shadow-sm">
-              <div className="mb-3 flex items-center gap-2 text-primary">
-                <User size={16} />
-                <h3 className="text-sm font-bold">PERSONAL INFO</h3>
-              </div>
-              <div className="space-y-2 text-sm">
-                <div className="flex justify-between">
-                  <span className="text-gray-400">Phone</span>
-                  <span className="font-medium text-gray-800">{rider.phoneNumberOne}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-400">Email</span>
-                  <span className="font-medium text-gray-800">{rider.email}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-400">Address</span>
-                  <span className="max-w-[60%] text-right font-medium text-gray-800">
-                    {rider.address}
-                  </span>
-                </div>
-              </div>
-            </div>
-
-            {rider.isStudent && (
-              <div className="mt-4 rounded-2xl bg-white p-4 shadow-sm">
-                <div className="mb-3 flex items-center gap-2 text-primary">
-                  <GraduationCap size={16} />
-                  <h3 className="text-sm font-bold">RIDER INFO</h3>
-                </div>
-                <div className="space-y-2 text-sm">
-                  <div className="flex justify-between">
-                    <span className="text-gray-400">Type</span>
-                    <span className="font-medium text-gray-800">Student</span>
-                  </div>
-                  {studentInfo?.institution && (
-                    <div className="flex justify-between">
-                      <span className="text-gray-400">Institution</span>
-                      <span className="font-medium text-gray-800">{studentInfo.institution}</span>
-                    </div>
-                  )}
-                  {studentInfo?.faculty && (
-                    <div className="flex justify-between">
-                      <span className="text-gray-400">Faculty</span>
-                      <span className="font-medium text-gray-800">{studentInfo.faculty}</span>
-                    </div>
-                  )}
-                  {studentInfo?.department && (
-                    <div className="flex justify-between">
-                      <span className="text-gray-400">Dept</span>
-                      <span className="font-medium text-gray-800">{studentInfo.department}</span>
-                    </div>
-                  )}
-                  {studentInfo?.matricNumber && (
-                    <div className="flex justify-between">
-                      <span className="text-gray-400">Matric No.</span>
-                      <span className="font-medium text-gray-800">{studentInfo.matricNumber}</span>
-                    </div>
-                  )}
-                </div>
+            ) : (
+              <div className="flex h-24 w-24 items-center justify-center rounded-full bg-primary/10 text-2xl font-bold text-primary">
+                {initials}
               </div>
             )}
 
-            <div className="mt-4 divide-y divide-gray-100 rounded-2xl bg-white shadow-sm">
-              <button
-                type="button"
-                className="flex w-full items-center gap-3 px-4 py-4 text-left"
-              >
-                <Pencil size={16} className="text-gray-400" />
-                <span className="flex-1 text-sm font-medium text-gray-800">Edit Profile</span>
-                <ChevronRight size={16} className="text-gray-300" />
-              </button>
-              <button
-                type="button"
-                className="flex w-full items-center gap-3 px-4 py-4 text-left"
-              >
-                <Lock size={16} className="text-gray-400" />
-                <span className="flex-1 text-sm font-medium text-gray-800">
-                  Change Password/PIN
-                </span>
-                <ChevronRight size={16} className="text-gray-300" />
-              </button>
-              <button
-                type="button"
-                className="flex w-full items-center gap-3 px-4 py-4 text-left"
-              >
-                <HelpCircle size={16} className="text-gray-400" />
-                <span className="flex-1 text-sm font-medium text-gray-800">Help & Support</span>
-                <ChevronRight size={16} className="text-gray-300" />
-              </button>
-              <button
-                type="button"
-                onClick={handleLogout}
-                className="flex w-full items-center gap-3 px-4 py-4 text-left text-red-500"
-              >
-                <LogOut size={16} />
-                <span className="text-sm font-medium">Logout</span>
-              </button>
+            <h3 className="mt-3 text-lg font-bold text-gray-900">
+              {profile.fullname || 'Rider'}
+            </h3>
+
+            <p className="text-sm text-gray-500">
+              {profile.email || 'No email'}
+            </p>
+
+            {profile.isStudent && (
+              <span className="mt-2 rounded-full bg-primary/10 px-3 py-1 text-xs font-semibold text-primary">
+                Student Rider
+              </span>
+            )}
+          </div>
+        </div>
+
+        {/* Personal Information */}
+        <div className="rounded-2xl bg-white p-5 shadow-sm">
+          <h3 className="mb-4 text-sm font-bold text-gray-900">
+            Personal Information
+          </h3>
+
+          <div className="space-y-4">
+            <div>
+              <p className="text-xs text-gray-400">Full Name</p>
+              <p className="mt-1 text-sm font-semibold text-gray-800">
+                {profile.fullname || '—'}
+              </p>
             </div>
-          </>
-        ) : null}
-      </main>
-    </div>
+
+            <div>
+              <p className="text-xs text-gray-400">Email Address</p>
+              <p className="mt-1 break-all text-sm font-semibold text-gray-800">
+                {profile.email || '—'}
+              </p>
+            </div>
+
+            <div>
+              <p className="text-xs text-gray-400">Phone Number</p>
+              <p className="mt-1 text-sm font-semibold text-gray-800">
+                {profile.phoneNumberOne || '—'}
+              </p>
+            </div>
+
+            {profile.phoneNumberTwo && (
+              <div>
+                <p className="text-xs text-gray-400">Alternative Phone</p>
+                <p className="mt-1 text-sm font-semibold text-gray-800">
+                  {profile.phoneNumberTwo}
+                </p>
+              </div>
+            )}
+
+            <div>
+              <p className="text-xs text-gray-400">Address</p>
+              <p className="mt-1 text-sm font-semibold text-gray-800">
+                {profile.address || '—'}
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* Student Information */}
+        {profile.isStudent && profile.studentInformation && (
+          <div className="rounded-2xl bg-white p-5 shadow-sm">
+            <h3 className="mb-4 text-sm font-bold text-gray-900">
+              Student Information
+            </h3>
+
+            <div className="space-y-4">
+              <div>
+                <p className="text-xs text-gray-400">Level</p>
+                <p className="mt-1 text-sm font-semibold text-gray-800">
+                  {profile.studentInformation.level || '—'}
+                </p>
+              </div>
+
+              <div>
+                <p className="text-xs text-gray-400">Department</p>
+                <p className="mt-1 text-sm font-semibold text-gray-800">
+                  {profile.studentInformation.department || '—'}
+                </p>
+              </div>
+
+              <div>
+                <p className="text-xs text-gray-400">Matric Number</p>
+                <p className="mt-1 text-sm font-semibold text-gray-800">
+                  {profile.studentInformation.matricNumber || '—'}
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    </RiderLayout>
   );
 }

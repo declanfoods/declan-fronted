@@ -8,21 +8,50 @@ const api = axios.create({
   timeout: 15000,
 });
 
-// Attach the appropriate token to every request
 api.interceptors.request.use(
   (config) => {
-    const riderToken = localStorage.getItem('riderToken');
-    const userToken = localStorage.getItem('token');
+    const url = config.url ?? '';
 
-    // Rider routes use riderToken.
-    // Everything else falls back to the normal user token.
-    const isRiderRequest =
-      config.url?.includes('/delivery-rider') ||
-      config.url?.includes('/delivery-riders');
+    let token: string | null = null;
 
-    const token = isRiderRequest ? riderToken : userToken;
+    // Rider API
+    if (url.startsWith('/api/v1/delivery-rider')) {
+      token = localStorage.getItem('riderToken');
+    }
 
+    // Admin API
+    else if (url.startsWith('/api/v1/admin')) {
+      token = localStorage.getItem('adminToken');
+    }
+
+    // Customer API
+    else {
+      token = localStorage.getItem('customerToken');
+
+      // Fallback to existing auth-storage
+      if (!token) {
+        const authStorage = localStorage.getItem('auth-storage');
+
+        if (authStorage) {
+          try {
+            const parsed = JSON.parse(authStorage);
+            token = parsed?.state?.token ?? null;
+          } catch (error) {
+            console.error('Failed to read auth storage:', error);
+          }
+        }
+      }
+    }
+console.log('AUTH DEBUG:', {
+  url: config.url,
+  tokenFound: !!token,
+  tokenPreview: token ? `${token.slice(0, 20)}...` : null,
+  riderToken: !!localStorage.getItem('riderToken'),
+  customerToken: !!localStorage.getItem('customerToken'),
+  adminToken: !!localStorage.getItem('adminToken'),
+});
     if (token) {
+      config.headers = config.headers ?? {};
       config.headers.Authorization = `Bearer ${token}`;
     }
 
@@ -31,25 +60,14 @@ api.interceptors.request.use(
   (error) => Promise.reject(error)
 );
 
-// Global response error handling
 api.interceptors.response.use(
   (response) => response,
   (error) => {
-    const status = error.response?.status;
-    const url = error.config?.url ?? '';
-
-    const isRiderRequest =
-      url.includes('/delivery-rider') ||
-      url.includes('/delivery-riders');
-
-    if (status === 401) {
-      if (isRiderRequest) {
-        localStorage.removeItem('riderToken');
-        localStorage.removeItem('riderId');
-      } else {
-        localStorage.removeItem('token');
-        localStorage.removeItem('userId');
-      }
+    if (error.response?.status === 401) {
+      console.error(
+        'API authorization failed:',
+        error.response?.data
+      );
     }
 
     return Promise.reject(error);

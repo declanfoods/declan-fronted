@@ -1,32 +1,44 @@
 import api from './axios';
 
-export interface RiderDeliveryCustomer {
-  name?: string;
-  phone?: string;
+export interface RiderDeliveryItem {
+  id: string;
+  name: string;
+  price: string | number;
+  quantity: number;
 }
 
-export interface RiderDeliveryItem {
-  name?: string;
-  quantity?: number;
-  price?: number | string;
+export interface RiderOrder {
+  customerEmail?: string;
+  customerFullname?: string;
+  customerPhoneNumber?: string;
+  items?: RiderDeliveryItem[];
+  numberOfItems?: number;
+  orderNumber?: string;
+  orderStatus?: string;
+  subTotal?: string | number;
+  totalQuantityOfItems?: number;
+  deliveryAddress?: string;
+  deliveryInstructions?: string;
+  totalAmount?: string | number;
 }
 
 export interface RiderDelivery {
   id: string;
-  status: string;
-  customer?: RiderDeliveryCustomer;
-  items?: RiderDeliveryItem[];
-  deliveryAddress?: string;
-  deliveryInstructions?: string;
-  totalAmount?: number | string;
-  [key: string]: unknown;
+  assignedAt?: string;
+  order: RiderOrder;
 }
 
 export interface RiderDeliveryMetrics {
-  activeDeliveries?: number;
-  assignedDeliveries?: number;
-  pendingPickups?: number;
+  todaysEarnings?: number;
+  todayEarnings?: number;
+  totalDeliveries?: number;
+  deliveriesToday?: number;
   completedToday?: number;
+  completed?: number;
+  activeDeliveries?: number;
+  inProgress?: number;
+  pendingPickups?: number;
+  remaining?: number;
   [key: string]: unknown;
 }
 
@@ -38,34 +50,50 @@ interface ApiResponse<T> {
   data: T;
 }
 
+interface DeliveriesData {
+  deliveries: RiderDelivery[];
+}
+
+interface DeliveryData {
+  delivery: RiderDelivery;
+}
+
+interface MetricsData extends RiderDeliveryMetrics {}
+
 export const riderDeliveryApi = {
   getAssignedDeliveries: () =>
-    api.get<ApiResponse<{ deliveries: RiderDelivery[] }>>('/api/v1/delivery-rider/deliveries'),
+    api.get<ApiResponse<DeliveriesData>>(
+      '/api/v1/delivery-rider/deliveries'
+    ),
+
+  getAssignedDelivery: (id: string) =>
+    api.get<ApiResponse<DeliveryData>>(
+      `/api/v1/delivery-rider/deliveries/${id}`
+    ),
 
   getDeliveryOverview: () =>
-    api.get<ApiResponse<RiderDeliveryMetrics>>('/api/v1/delivery-rider/deliveries/metrics'),
-
-  getAssignedDelivery: (deliveryId: string) =>
-    api.get<ApiResponse<{ delivery: RiderDelivery }>>(
-      `/api/v1/delivery-rider/deliveries/${deliveryId}`
+    api.get<ApiResponse<MetricsData>>(
+      '/api/v1/delivery-rider/deliveries/metrics'
     ),
 
-  pickUpOrder: (deliveryId: string) =>
-    api.patch<ApiResponse<unknown>>(`/api/v1/delivery-rider/deliveries/${deliveryId}/pick-up`),
-
-  startDelivery: (deliveryId: string) =>
-    api.patch<ApiResponse<unknown>>(
-      `/api/v1/delivery-rider/deliveries/${deliveryId}/start-delivery`
+  pickUpOrder: (id: string) =>
+    api.patch(
+      `/api/v1/delivery-rider/deliveries/${id}/pickup`
     ),
 
-  exchangeCode: (deliveryId: string, code: string) =>
-    api.post<ApiResponse<unknown>>(
-      `/api/v1/delivery-rider/deliveries/${deliveryId}/code-exchange`,
+  startDelivery: (id: string) =>
+    api.patch(
+      `/api/v1/delivery-rider/deliveries/${id}/start`
+    ),
+
+  exchangeCode: (id: string, code: string) =>
+    api.post(
+      `/api/v1/delivery-rider/deliveries/${id}/exchange-code`,
       { code }
     ),
 
-  confirmPayment: (deliveryId: string) =>
-    api.patch<ApiResponse<unknown>>(
-      `/api/v1/delivery-rider/deliveries/${deliveryId}/confirm-payment`
+  confirmPayment: (id: string) =>
+    api.patch(
+      `/api/v1/delivery-rider/deliveries/${id}/confirm-payment`
     ),
 };

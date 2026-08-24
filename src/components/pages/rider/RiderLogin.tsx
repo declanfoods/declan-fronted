@@ -26,7 +26,7 @@ export default function RiderLogin() {
         return;
       }
 
-      localStorage.setItem('token', token);
+      localStorage.setItem('riderToken', token);
       localStorage.setItem('role', 'rider');
       navigate('/rider/home');
     } catch (err: any) {

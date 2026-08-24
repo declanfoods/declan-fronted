@@ -31,8 +31,7 @@ const handleSubmit = async (e: FormEvent) => {
       return;
     }
 
-    localStorage.setItem('token', accessToken);
-
+localStorage.setItem('customerToken', accessToken);
     const pendingItems = guestCart.toMergePayload();
     if (pendingItems.length > 0) {
       try {
