@@ -34,7 +34,7 @@ export default function ReferralOverview() {
         ]);
 
         if (profileRes.status === 'fulfilled') {
-          setFirstName(profileRes.value.data.data?.profile?.firstName ?? 'John');
+          setFirstName(profileRes.value.data.data?.user?.profile?.firstName ?? 'John');
         }
         if (codeRes.status === 'fulfilled') {
           setReferralCode(codeRes.value.data.data?.referralCode ?? 'JOHN2026');
