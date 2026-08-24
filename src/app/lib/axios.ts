@@ -8,27 +8,48 @@ const api = axios.create({
   timeout: 15000,
 });
 
-// Attach token to every request if present
-api.interceptors.request.use((config) => {
-  const token = localStorage.getItem('token');
+// Attach the appropriate token to every request
+api.interceptors.request.use(
+  (config) => {
+    const riderToken = localStorage.getItem('riderToken');
+    const userToken = localStorage.getItem('token');
 
-  if (token) {
-    config.headers.Authorization = `Bearer ${token}`;
-  }
+    // Rider routes use riderToken.
+    // Everything else falls back to the normal user token.
+    const isRiderRequest =
+      config.url?.includes('/delivery-rider') ||
+      config.url?.includes('/delivery-riders');
 
-  return config;
-});
+    const token = isRiderRequest ? riderToken : userToken;
+
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+
+    return config;
+  },
+  (error) => Promise.reject(error)
+);
 
 // Global response error handling
 api.interceptors.response.use(
   (response) => response,
   (error) => {
     const status = error.response?.status;
+    const url = error.config?.url ?? '';
 
+    const isRiderRequest =
+      url.includes('/delivery-rider') ||
+      url.includes('/delivery-riders');
 
-    if (status === 401 && localStorage.getItem('token')) {
-      localStorage.removeItem('token');
-      localStorage.removeItem('userId');
+    if (status === 401) {
+      if (isRiderRequest) {
+        localStorage.removeItem('riderToken');
+        localStorage.removeItem('riderId');
+      } else {
+        localStorage.removeItem('token');
+        localStorage.removeItem('userId');
+      }
     }
 
     return Promise.reject(error);
