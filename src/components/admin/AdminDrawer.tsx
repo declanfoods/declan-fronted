@@ -18,7 +18,8 @@ import {
   X,
   UtensilsCrossed,
 } from 'lucide-react';
-import { logout } from '../../app/lib/auth';
+import { adminLogout } from '../../app/lib/adminAuth';
+
 
 type AdminDrawerProps = {
   onClose?: () => void;
