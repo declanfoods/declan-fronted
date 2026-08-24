@@ -32,7 +32,7 @@ useEffect(() => {
         ]);
 
       if (profileRes.status === 'fulfilled')
-        setProfile(profileRes.value.data.data);
+        setProfile(profileRes.value.data.data.user);
       if (ordersRes.status === 'fulfilled')
         setOrders(ordersRes.value.data.data?.orders ?? []);
       if (essentialsRes.status === 'fulfilled')
