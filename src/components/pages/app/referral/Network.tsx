@@ -22,7 +22,7 @@ export default function ReferralNetwork() {
     }).finally(() => setLoading(false));
 
     userApi.getProfileOverview().then((res) => {
-      setFirstName(res.data.data?.profile?.firstName ?? 'John');
+      setFirstName(res.data.data?.user?.profile?.firstName ?? 'John');
     }).catch(() => {});
   }, []);
 
