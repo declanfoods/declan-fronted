@@ -351,7 +351,7 @@ export default function RiderOnboarding() {
                     >
                       <option value="">Select Level</option>
                       {['100', '200', '300', '400', '500'].map((lvl) => (
-                        <option key={lvl} value={`${lvl} Level`}>
+                        <option key={lvl} value={lvl}>
                           {lvl} Level
                         </option>
                       ))}
