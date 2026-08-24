@@ -51,11 +51,10 @@ console.log('AUTH DEBUG:', {
   adminToken: !!localStorage.getItem('adminToken'),
 });
     if (token) {
-      config.headers = config.headers ?? {};
-      config.headers.Authorization = `Bearer ${token}`;
-    }
+  config.headers.set('Authorization', `Bearer ${token}`);
+}
 
-    return config;
+return config;
   },
   (error) => Promise.reject(error)
 );
