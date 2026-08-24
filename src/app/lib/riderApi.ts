@@ -26,37 +26,19 @@ interface ApiResponse<T> {
   data: T;
 }
 
-interface SignInResponse {
-  token: string;
-  deliveryRider?: RiderProfile;
+interface RiderLoginData {
+  accessToken?: string;
+  token?: string;
+  refreshToken?: string;
+  [key: string]: unknown;
 }
 
 export const riderApi = {
-  signIn: async (data: RiderSignInPayload) => {
-    const response = await api.post<
-      ApiResponse<SignInResponse> | { token: string }
-    >('/api/v1/delivery-riders/auth/sign-in', data);
-
-    const responseData = response.data;
-
-    // Handle either:
-    // { data: { token: '...' } }
-    // or
-    // { token: '...' }
-    const token =
-      'data' in responseData
-        ? responseData.data.token
-        : responseData.token;
-
-    if (!token) {
-      throw new Error('Rider login succeeded but no authentication token was returned.');
-    }
-
-    // Store rider authentication separately
-    localStorage.setItem('riderToken', token);
-
-    return response;
-  },
+  signIn: (data: RiderSignInPayload) =>
+    api.post<ApiResponse<RiderLoginData>>(
+      '/api/v1/delivery-riders/auth/sign-in',
+      data
+    ),
 
   getProfile: () =>
     api.get<ApiResponse<{ deliveryRider: RiderProfile } | RiderProfile>>(
@@ -64,10 +46,6 @@ export const riderApi = {
     ),
 };
 
-// Normalizes either:
-// { deliveryRider: {...} }
-// or
-// {...}
 export function extractRiderProfile(
   data: { deliveryRider: RiderProfile } | RiderProfile
 ): RiderProfile {
