@@ -39,7 +39,7 @@ export default function ReferralList() {
           referralApi.getReferrals(),
         ]);
         if (profileRes.status === 'fulfilled')
-          setFirstName(profileRes.value.data.data?.profile?.firstName ?? 'John');
+          setFirstName(profileRes.value.data.data?.user?.profile?.firstName ?? 'John');
         if (refRes.status === 'fulfilled') {
           const m = refRes.value.data.data.metrics;
           setTotalReferrals(m?.totalDirectReferrals ?? 0);
