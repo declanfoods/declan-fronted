@@ -83,15 +83,39 @@ export default function RiderOnboarding() {
     try {
       await adminRiderApi.createDeliveryRider({
         fullname: form.fullname,
+
         email: form.email,
+
         phoneNumberOne: form.phoneNumberOne,
+
         phoneNumberTwo: form.phoneNumberTwo || undefined,
+
         address: form.address,
+
         isStudent: form.isStudent,
+
         profilePictureUrl: form.profilePictureUrl,
+
+        dateOfBirth: form.dob,
+
+        gender: form.gender,
+
+        state: form.state,
+
+        lga: form.lga,
+
+        nearestLandmark: form.landmark,
+
+        emergencyContact: {
+          contactName: form.emergencyName,
+          phoneNumber: form.emergencyPhone,
+          relationship: form.emergencyRelationship,
+          address: form.emergencyAddress,
+        },
+
         studentInfo: form.isStudent
           ? {
-              institution: form.institution,
+              institution: form.institution || undefined,
               faculty: form.faculty,
               department: form.department,
               level: form.level,
@@ -424,13 +448,13 @@ export default function RiderOnboarding() {
 
             <div>
               <p className="mb-2 text-sm font-semibold text-gray-700">Document Uploads</p>
-              <div className="grid grid-cols-2 gap-3">
-                <AdminImageUpload
+              <div className="">
+                {/* <AdminImageUpload
                   value={form.governmentIdUrl}
                   onChange={(url) => update('governmentIdUrl', url)}
                   heightClassName="h-28"
                   helperText="Government ID"
-                />
+                /> */}
                 {form.isStudent && (
                   <AdminImageUpload
                     value={form.studentIdUrl}
@@ -440,10 +464,10 @@ export default function RiderOnboarding() {
                   />
                 )}
               </div>
-              <p className="mt-1 text-xs text-gray-400">
+              {/* <p className="mt-1 text-xs text-gray-400">
                 Government ID isn&apos;t part of the create-rider payload yet — this uploads to
                 storage but isn&apos;t sent to the backend until that field exists.
-              </p>
+              </p> */}
             </div>
 
             <div className="rounded-2xl bg-white p-4 shadow-sm">
@@ -477,10 +501,6 @@ export default function RiderOnboarding() {
                   className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm text-gray-800 outline-none placeholder:text-gray-400 focus:border-primary"
                 />
               </div>
-              <p className="mt-2 text-xs text-gray-400">
-                Same as above — no emergency-contact field in the API yet, so this stays local
-                for now.
-              </p>
             </div>
 
             <div className="flex items-center justify-between rounded-2xl bg-primary/10 p-4">

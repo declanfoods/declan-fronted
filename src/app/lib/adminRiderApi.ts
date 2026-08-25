@@ -1,14 +1,5 @@
 import api from './axios';
 
-export interface StudentInfo {
-  institution?: string;
-  faculty?: string;
-  department?: string;
-  level?: string;
-  matricNumber?: string;
-  studentIdUrl?: string;
-  [key: string]: unknown;
-}
 
 export interface DeliveryRider {
   id: string;
@@ -29,15 +20,54 @@ export interface DeliveryRider {
   [key: string]: unknown;
 }
 
+export interface StudentInfo {
+  institution?: string;
+  faculty?: string;
+  department?: string;
+  level?: string;
+  matricNumber?: string;
+  studentIdUrl?: string;
+  [key: string]: unknown;
+}
+
+export interface EmergencyContact {
+  contactName: string;
+  phoneNumber: string;
+  relationship: string;
+  address: string;
+  [key: string]: unknown;
+}
+
 export interface CreateDeliveryRiderPayload {
   fullname: string;
+
   email: string;
+
   phoneNumberOne: string;
+
   phoneNumberTwo?: string;
+
   address: string;
+
   isStudent: boolean;
+
   studentInfo?: StudentInfo;
+
   profilePictureUrl: string;
+
+  dateOfBirth: string;
+
+  gender: string;
+
+  state: string;
+
+  lga: string;
+
+  nearestLandmark: string;
+
+  emergencyContact: EmergencyContact;
+
+  [key: string]: unknown;
 }
 
 interface ApiResponse<T> {
