@@ -26,9 +26,11 @@ export default function RiderLogin() {
         return;
       }
 
-      localStorage.setItem('riderToken', token);
-      localStorage.setItem('role', 'rider');
-      navigate('/rider/home');
+      localStorage.setItem('token', token);
+localStorage.setItem('role', 'rider');
+
+const mustChangePassword = d?.data?.mustChangePassword ?? d?.data?.isTemporaryPassword ?? false;
+navigate(mustChangePassword ? '/rider/change-password?forced=1' : '/rider/home');
     } catch (err: any) {
       setError(err.response?.data?.message ?? 'Login failed. Please try again.');
     } finally {

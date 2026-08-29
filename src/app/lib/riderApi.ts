@@ -44,6 +44,8 @@ export const riderApi = {
     api.get<ApiResponse<{ rider: RiderProfile }>>(
       '/api/v1/delivery-riders'
     ),
+    changePassword: (data: { oldPassword: string; newPassword: string; newPasswordConfirmation: string }) =>
+  api.patch<ApiResponse<unknown>>('/api/v1/delivery-riders/change-password', data),
 };
 
 export function extractRiderProfile(

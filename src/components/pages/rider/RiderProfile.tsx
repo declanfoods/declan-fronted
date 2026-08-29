@@ -1,8 +1,17 @@
 import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { Lock, LogOut, ChevronRight } from 'lucide-react';
 import RiderLayout from './RiderLayout';
 import { riderApi, type RiderProfile as RiderProfileData } from '../../../app/lib/riderApi';
-
+import { logout } from '../../../app/lib/auth';
 export default function RiderProfile() {
+  const navigate = useNavigate();
+
+  const handleLogout = () => {
+    logout();
+    navigate('/rider/login');
+  };
+
   const [profile, setProfile] = useState<RiderProfileData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -183,9 +192,34 @@ export default function RiderProfile() {
                   {profile.studentInformation.matricNumber || '—'}
                 </p>
               </div>
+    
             </div>
           </div>
-        )}
+            )}
+
+        {/* Account Actions */}
+        <div className="divide-y divide-gray-100 rounded-2xl bg-white shadow-sm">
+          <button
+            type="button"
+            onClick={() => navigate('/rider/change-password')}
+            className="flex w-full items-center gap-3 px-5 py-4 text-left"
+          >
+            <Lock size={16} className="text-gray-400" />
+            <span className="flex-1 text-sm font-medium text-gray-800">
+              Change Password
+            </span>
+            <ChevronRight size={16} className="text-gray-300" />
+          </button>
+          <button
+            type="button"
+            onClick={handleLogout}
+            className="flex w-full items-center gap-3 px-5 py-4 text-left text-red-500"
+          >
+            <LogOut size={16} />
+            <span className="text-sm font-medium">Logout</span>
+          </button>
+        </div>
+
       </div>
     </RiderLayout>
   );

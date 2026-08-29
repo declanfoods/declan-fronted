@@ -16,6 +16,7 @@ import RiderSplash from './components/pages/rider/RiderSplash';
 import RiderLogin from './components/pages/rider/RiderLogin';
 import RiderHome from './components/pages/rider/RiderHome';
 import RiderProfile from './components/pages/rider/RiderProfile';
+import RiderChangePassword from './components/pages/rider/RiderChangePassword';
 import RiderDeliveries from './components/pages/rider/RiderDeliveries';
 import VerifyEmail from './components/pages/user/VerifyEmail';
 import ForgotPassword from './components/pages/user/ForgotPassword';
@@ -245,6 +246,7 @@ export default function App() {
           <Route path="/rider/home" element={<RiderHome />} />
           <Route path="/rider/profile" element={<RiderProfile />} />
           <Route path="/rider/deliveries" element={<RiderDeliveries />} />
+          <Route path="/rider/change-password" element={<RiderChangePassword />} />
 <Route path="/rider/deliveries/:id" element={<DeliveryDetails />} />
 <Route path="/rider/deliveries/:id/verify" element={<DeliveryVerification />} />
 <Route path="/rider/deliveries/:id/success" element={<DeliverySuccess />} />
