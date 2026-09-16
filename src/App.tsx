@@ -59,6 +59,24 @@ import DeliveryVerification from './components/pages/rider/DeliveryVerification'
 import DeliverySuccess from './components/pages/rider/DeliverySuccess';
 import Earnings from './components/pages/rider/Earnings';
 
+// admin users
+import UsersOverview from './components/pages/admin/users/UsersOverview';
+import UserProfile from './components/pages/admin/users/UserProfile';
+import UserActions from './components/pages/admin/users/UserActions';
+import UserFinancials from './components/pages/admin/users/UserFinancials';
+import UserAnalytics from './components/pages/admin/users/UserAnalytics';
+
+// admin referral
+
+import ReferralDashboard from './components/pages/admin/referral/ReferralDashboard';
+import PayoutQueue from './components/pages/admin/referral/PayoutQueue';
+import PayoutRequestDetails from './components/pages/admin/referral/PayoutRequestDetails';
+import ReferralMembers from './components/pages/admin/referral/ReferralMembers';
+import ReferralMemberDetail from './components/pages/admin/referral/ReferralMemberDetail';
+import ReferralAnalytics from './components/pages/admin/referral/ReferralAnalytics';
+import ReferralSettings from './components/pages/admin/referral/ReferralSettings';
+import CommissionCashbackSettings from './components/pages/admin/referral/CommissionCashbackSettings';
+import WithdrawalSettings from './components/pages/admin/referral/WithdrawalSettings';
 export default function App() {
   return (
     <BrowserRouter>
@@ -239,6 +257,56 @@ export default function App() {
               </AdminProtectedRoute>
             }
           />
+          <Route
+            path="/admin/users"
+            element={
+              <AdminProtectedRoute>
+                <UsersOverview />
+              </AdminProtectedRoute>
+            }
+          />
+          <Route
+            path="/admin/users/analytics"
+            element={
+              <AdminProtectedRoute>
+                <UserAnalytics />
+              </AdminProtectedRoute>
+            }
+          />
+          <Route
+            path="/admin/users/:id"
+            element={
+              <AdminProtectedRoute>
+                <UserProfile />
+              </AdminProtectedRoute>
+            }
+          />
+          <Route
+            path="/admin/users/:id/actions"
+            element={
+              <AdminProtectedRoute>
+                <UserActions />
+              </AdminProtectedRoute>
+            }
+          />
+          <Route
+            path="/admin/users/:id/financials"
+            element={
+              <AdminProtectedRoute>
+                <UserFinancials />
+              </AdminProtectedRoute>
+            }
+          />
+
+          <Route path="/admin/referrals" element={<AdminProtectedRoute><ReferralDashboard /></AdminProtectedRoute>} />
+          <Route path="/admin/referrals/queue" element={<AdminProtectedRoute><PayoutQueue /></AdminProtectedRoute>} />
+          <Route path="/admin/referrals/queue/:id" element={<AdminProtectedRoute><PayoutRequestDetails /></AdminProtectedRoute>} />
+          <Route path="/admin/referrals/members" element={<AdminProtectedRoute><ReferralMembers /></AdminProtectedRoute>} />
+          <Route path="/admin/referrals/members/:id" element={<AdminProtectedRoute><ReferralMemberDetail /></AdminProtectedRoute>} />
+          <Route path="/admin/referrals/insights" element={<AdminProtectedRoute><ReferralAnalytics /></AdminProtectedRoute>} />
+          <Route path="/admin/referrals/settings" element={<AdminProtectedRoute><ReferralSettings /></AdminProtectedRoute>} />
+          <Route path="/admin/referrals/settings/commission" element={<AdminProtectedRoute><CommissionCashbackSettings /></AdminProtectedRoute>} />
+          <Route path="/admin/referrals/settings/withdrawal" element={<AdminProtectedRoute><WithdrawalSettings /></AdminProtectedRoute>} />
 
           {/* rider pages */}
           <Route path="/rider" element={<RiderSplash />} />
@@ -247,10 +315,10 @@ export default function App() {
           <Route path="/rider/profile" element={<RiderProfile />} />
           <Route path="/rider/deliveries" element={<RiderDeliveries />} />
           <Route path="/rider/change-password" element={<RiderChangePassword />} />
-<Route path="/rider/deliveries/:id" element={<DeliveryDetails />} />
-<Route path="/rider/deliveries/:id/verify" element={<DeliveryVerification />} />
-<Route path="/rider/deliveries/:id/success" element={<DeliverySuccess />} />
-<Route path="/rider/earnings" element={<Earnings />} />
+          <Route path="/rider/deliveries/:id" element={<DeliveryDetails />} />
+          <Route path="/rider/deliveries/:id/verify" element={<DeliveryVerification />} />
+          <Route path="/rider/deliveries/:id/success" element={<DeliverySuccess />} />
+          <Route path="/rider/earnings" element={<Earnings />} />
           {/* Marketing pages — shared Navbar + Footer */}
           <Route
             path="*"
