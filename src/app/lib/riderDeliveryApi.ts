@@ -76,19 +76,35 @@ export const riderDeliveryApi = {
       '/api/v1/delivery-rider/deliveries/metrics'
     ),
 
+  /*
+  |--------------------------------------------------------------------------
+  | FIX: 3 rider paths did not match the backend — all three returned 404
+  |--------------------------------------------------------------------------
+  | The entire rider delivery lifecycle was dead. Every one of these was a
+  | silent 404 caught by the caller's generic "try again" toast, so it read
+  | as a flaky network rather than a wrong URL.
+  |
+  |   was                              →  is                (per API docs)
+  |   -------------------------------     ------------------------------
+  |   .../deliveries/:id/pickup          .../deliveries/:id/pick-up
+  |   .../deliveries/:id/start           .../deliveries/:id/start-delivery
+  |   .../deliveries/:id/exchange-code   .../deliveries/:id/code-exchange
+  |
+  | confirm-payment was already correct.
+  */
   pickUpOrder: (id: string) =>
     api.patch(
-      `/api/v1/delivery-rider/deliveries/${id}/pickup`
+      `/api/v1/delivery-rider/deliveries/${id}/pick-up`
     ),
 
   startDelivery: (id: string) =>
     api.patch(
-      `/api/v1/delivery-rider/deliveries/${id}/start`
+      `/api/v1/delivery-rider/deliveries/${id}/start-delivery`
     ),
 
   exchangeCode: (id: string, code: string) =>
     api.post(
-      `/api/v1/delivery-rider/deliveries/${id}/exchange-code`,
+      `/api/v1/delivery-rider/deliveries/${id}/code-exchange`,
       { code }
     ),
 

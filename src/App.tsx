@@ -99,7 +99,11 @@ export default function App() {
           <Route path="/app/shop/:id" element={<ProductDetails />} />
           <Route path="/app/cart" element={<AppCart />} />
           <Route path="/app/profile" element={<Profile />} />
-          <Route path=" /app/orders/:orderId" element={<OrderDetail />} />
+          {/* FIX: this path had a leading space — " /app/orders/:orderId" —
+              which React Router treats as a literal character, so the route
+              NEVER matched and order detail pages 404'd into the catch-all
+              Home route. */}
+          <Route path="/app/orders/:orderId" element={<OrderDetail />} />
           <Route path="/app/saved" element={<SavedProducts />} />
           <Route path="/app/checkout" element={<Checkout />} />
           <Route path="/app/orders/:orderId/tracking" element={<OrderTracking />} />

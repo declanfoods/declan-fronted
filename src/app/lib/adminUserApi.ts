@@ -1,15 +1,43 @@
 import api from './axios';
-import type { AdminPagination } from './adminReferralApi';
+import type { ApiResponse, ApiPagination } from './api-types';
 
-interface ApiResponse<T> {
-  success: boolean;
-  message: string;
-  statusCode: number;
-  timestamp: string;
-  data: T;
-}
+/*
+|--------------------------------------------------------------------------
+| ADMIN USER MANAGEMENT API
+|--------------------------------------------------------------------------
+| Changes from the previous version:
+|  - `ApiResponse<T>` now comes from the shared `api-types.ts` instead of
+|    being redeclared here (it was redeclared in 30 files).
+|  - `getUserMetrics()` used to return `Record<string, unknown>`, which made
+|    the analytics screen impossible to type. See `AdminUserMetrics` below —
+|    the shape is now declared, with a documented assumption.
+|  - Pagination type is the shared `ApiPagination` (identical fields).
+*/
+
+export type AdminPagination = ApiPagination;
 
 export type AdminUserStatus = 'PENDING_VERIFICATION' | 'ACTIVE' | 'SUSPENDED';
+
+/**
+ * GET /api/v1/admin/users/metrics
+ *
+ * ⚠️ ASSUMPTION: the backend does not document this payload yet. The fields
+ * below are the ones the User Analytics screen needs. If the real response
+ * differs, only `normaliseUserMetrics()` in
+ * `src/components/pages/admin/users/UserAnalytics.tsx` needs to change —
+ * every field is read defensively and falls back to a derived value.
+ */
+export interface AdminUserMetrics {
+  totalUsers: number;
+  activeUsers: number;
+  pendingVerification: number;
+  suspendedUsers: number;
+  newUsersThisMonth: number;
+  growthPercent?: number;
+  retentionRate?: number;
+  monthlyGrowth?: { month: string; value: number }[];
+  referralTiers?: { tier: string; label: string; count: number }[];
+}
 
 /*
 |--------------------------------------------------------------------------
@@ -174,54 +202,67 @@ export interface AdminUserReferralTransaction {
 }
 
 export const adminUserApi = {
+  /** GET /api/v1/admin/users — paginated, searchable, status-filterable. */
   getUsers: (filters?: AdminUserFilters) =>
-    api.get<ApiResponse<{ users: AdminUserListItem[]; pagination: AdminPagination }>>(
+    api.get<ApiResponse<{ users: AdminUserListItem[]; pagination: ApiPagination }>>(
       '/api/v1/admin/users',
       { params: filters }
     ),
 
+  /** GET /api/v1/admin/users/metrics — aggregate counts for the analytics screen. */
   getUserMetrics: () =>
-    // Exact shape not documented yet — kept loose until a sample response is shared.
-    api.get<ApiResponse<Record<string, unknown>>>('/api/v1/admin/users/metrics'),
+    api.get<ApiResponse<AdminUserMetrics>>('/api/v1/admin/users/metrics'),
 
+  /** GET /api/v1/admin/users/:id */
   getUserById: (id: string) =>
     api.get<ApiResponse<{ user: AdminUserDetail }>>(`/api/v1/admin/users/${id}`),
 
+  /** PATCH /api/v1/admin/users/:id/suspended — note: no VERB in the path. */
   suspendUser: (userId: string) =>
     api.patch<ApiResponse<unknown>>(`/api/v1/admin/users/${userId}/suspended`),
 
+  /** PATCH /api/v1/admin/users/:id/unsuspend */
   unsuspendUser: (userId: string) =>
     api.patch<ApiResponse<unknown>>(`/api/v1/admin/users/${userId}/unsuspend`),
 
+  /** PATCH /api/v1/admin/users/:id/verify */
   verifyUser: (userId: string) =>
     api.patch<ApiResponse<unknown>>(`/api/v1/admin/users/${userId}/verify`),
 
+  /** GET /api/v1/admin/users/:id/orders */
   getUserOrders: (id: string) =>
     api.get<ApiResponse<{ orders: AdminUserOrder[] }>>(`/api/v1/admin/users/${id}/orders`),
 
+  /** GET /api/v1/admin/users/:id/activities */
   getUserActivities: (id: string, filters?: { page?: number; limit?: number }) =>
-    api.get<ApiResponse<{ activities: AdminUserActivity[]; pagination: AdminPagination }>>(
+    api.get<ApiResponse<{ activities: AdminUserActivity[]; pagination: ApiPagination }>>(
       `/api/v1/admin/users/${id}/activities`,
       { params: filters }
     ),
 
+  /** GET /api/v1/admin/users/:id/transactions */
   getUserTransactions: (id: string, filters?: { page?: number; limit?: number }) =>
-    api.get<ApiResponse<{ transactions: AdminUserTransaction[]; pagination: AdminPagination }>>(
+    api.get<ApiResponse<{ transactions: AdminUserTransaction[]; pagination: ApiPagination }>>(
       `/api/v1/admin/users/${id}/transactions`,
       { params: filters }
     ),
 
+  /** GET /api/v1/admin/users/:id/wallets — plural "wallets" in the path. */
   getUserWallet: (id: string) =>
     api.get<ApiResponse<{ wallet: AdminUserWallet }>>(`/api/v1/admin/users/${id}/wallets`),
 
+  /** GET /api/v1/admin/users/:id/referrals */
   getUserReferrals: (id: string) =>
     api.get<ApiResponse<{ referral: AdminUserReferral[] }>>(
       `/api/v1/admin/users/${id}/referrals`
     ),
 
+  /** GET /api/v1/admin/users/:id/referral-transactions */
   getUserReferralTransactions: (id: string, filters?: { page?: number; limit?: number }) =>
-    api.get<ApiResponse<{ referral_transactions: AdminUserReferralTransaction[]; pagination: AdminPagination }>>(
-      `/api/v1/admin/users/${id}/referral-transactions`,
-      { params: filters }
-    ),
+    api.get<
+      ApiResponse<{
+        referral_transactions: AdminUserReferralTransaction[];
+        pagination: ApiPagination;
+      }>
+    >(`/api/v1/admin/users/${id}/referral-transactions`, { params: filters }),
 };

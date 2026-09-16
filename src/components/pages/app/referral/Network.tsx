@@ -1,32 +1,44 @@
-import { useState, useEffect } from 'react';
 import { Download, Share2, Wallet, User } from 'lucide-react';
 import ReferralLayout from './ReferralLayout';
 import DesktopShell from './DesktopShell';
 import SplashLoader from '../../../ui/SplashLoader';
-import { userApi } from '../../../../app/lib/userApi';
-import { type ReferralPerson } from '../../../../app/lib/referralApi';
+import {
+  deriveFirstName,
+  useReferralCode,
+  useReferralMetrics,
+  useReferralNetworks,
+  useReferralWallet,
+} from '../../../../app/hooks/useReferrals';
+
+/*
+|--------------------------------------------------------------------------
+| Referral Network (tree view) — WIRED TO API
+|--------------------------------------------------------------------------
+| BEFORE:
+|  - Imported `ReferralPerson` from referralApi — a type that no longer
+|    existed after the file was rewritten → hard compile error TS2614.
+|  - Called `userApi.getReferralsOverview()` (the OLD referral contract).
+|  - Hardcoded ₦25,000 wallet, 128 total network, 100 qualified, ₦29,500 level
+|    earnings, and every "Network Performance" bar was a flat width: '60%'.
+|
+| AFTER: real network tree from `useReferralNetworks()`, real per-level
+| earnings from `useReferralMetrics().networkPerformance.amountEarnedPerlevel`,
+| real wallet. The per-level bars scale against the highest-earning level
+| instead of being a constant 60%.
+*/
 
 export default function ReferralNetwork() {
-  const [loading, setLoading] = useState(true);
-  const [firstName, setFirstName] = useState('John');
-  const [referrals, setReferrals] = useState<ReferralPerson[]>([]);
-  const [totalReferrals, setTotalReferrals] = useState(0);
-  const [activeReferrals, setActiveReferrals] = useState(0);
+  const codeQuery = useReferralCode();
+  const walletQuery = useReferralWallet();
+  const metricsQuery = useReferralMetrics();
+  const networksQuery = useReferralNetworks({ page: 1, limit: 50 });
 
-  useEffect(() => {
-    userApi.getReferralsOverview().then((res) => {
-      const m = res.data.data.metrics;
-      setTotalReferrals(m?.totalDirectReferrals ?? 0);
-      setActiveReferrals(m?.totalActiveReferrals ?? 0);
-      setReferrals(m?.referrals ?? []);
-    }).finally(() => setLoading(false));
+  const firstName = deriveFirstName(codeQuery.data);
+  const metrics = metricsQuery.data;
+  const wallet = walletQuery.data;
+  const referrals = networksQuery.data?.referrals ?? [];
 
-    userApi.getProfileOverview().then((res) => {
-      setFirstName(res.data.data?.user?.profile?.firstName ?? 'John');
-    }).catch(() => {});
-  }, []);
-
-  if (loading) {
+  if (codeQuery.isLoading || networksQuery.isLoading) {
     return (
       <ReferralLayout firstName={firstName}>
         <SplashLoader />
@@ -34,16 +46,19 @@ export default function ReferralNetwork() {
     );
   }
 
+  const levels = metrics?.networkPerformance?.amountEarnedPerlevel ?? [];
+  const maxLevelEarning = Math.max(1, ...levels.map((l) => Number(l.amountEarned ?? 0)));
+
   return (
     <ReferralLayout firstName={firstName}>
       {/* ═══ DESKTOP VIEW ═══ */}
       <DesktopShell
         firstName={firstName}
-        totalReferrals={totalReferrals}
-        activeReferrals={activeReferrals}
-        totalEarnings="80,000"
-        thisMonth="80,000"
-        pending="80,000"
+        totalReferrals={metrics?.totalNetwork ?? 0}
+        activeReferrals={metrics?.qualifiedCount ?? 0}
+        totalEarnings={Number(wallet?.lifetimeEarned ?? 0).toLocaleString()}
+        thisMonth={Number(wallet?.availableBalance ?? 0).toLocaleString()}
+        pending={Number(wallet?.pendingBalance ?? 0).toLocaleString()}
       >
         <section className="rounded-2xl border-2 border-primary/20 bg-white p-6 shadow-sm">
           <div className="flex items-center justify-between">
@@ -55,7 +70,7 @@ export default function ReferralNetwork() {
             </div>
             <div className="flex items-center gap-3">
               <span className="rounded-full bg-primary px-4 py-2 text-sm font-semibold text-white">
-                {totalReferrals} Total Members
+                {metrics?.totalNetwork ?? 0} Total Members
               </span>
               <button className="flex items-center gap-2 rounded-full border border-gray-300 px-4 py-2 text-sm font-semibold text-ink hover:bg-gray-50">
                 <Download size={16} /> Export Tree
@@ -64,42 +79,59 @@ export default function ReferralNetwork() {
           </div>
 
           <div className="mt-5 space-y-3">
+            {/* You (root) */}
             <div className="flex items-center justify-between rounded-2xl border-2 border-primary p-4">
               <div className="flex items-center gap-3">
                 <span className="text-xl text-primary">−</span>
                 <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary text-xs font-bold text-white">
-                  Y
+                  {(firstName[0] ?? 'Y').toUpperCase()}
                 </div>
                 <span className="text-sm font-bold text-ink">You</span>
               </div>
               <div className="text-right">
-                <p className="text-sm font-bold text-primary">₦29,500</p>
-                <p className="text-xs text-ink-soft">Level 1</p>
+                <p className="text-sm font-bold text-primary">
+                  ₦{Number(metrics?.networkPerformance?.totalEarned ?? 0).toLocaleString()}
+                </p>
+                <p className="text-xs text-ink-soft">All levels</p>
               </div>
             </div>
 
+            {/* Level 1 children */}
             <div className="ml-8 space-y-2 border-l-2 border-primary/30 pl-4">
-              {referrals.slice(0, 6).map((r, i) => (
+              {referrals.length === 0 && (
+                <p className="py-4 text-sm text-ink-soft">
+                  No one in your network yet.
+                </p>
+              )}
+
+              {referrals.map((r) => (
                 <div
-                  key={i}
+                  key={r.id}
                   className="flex items-center justify-between rounded-2xl border border-primary/40 p-4"
                 >
                   <div className="flex items-center gap-3">
                     <span className="text-xl text-primary">−</span>
                     <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary text-xs font-bold text-white">
-                     {(r.firstName?.[0] ?? '?')}
-{(r.lastName?.[0] ?? '')}
+                      {r.fullname
+                        ?.split(' ')
+                        .map((p) => p[0])
+                        .join('')
+                        .slice(0, 2)
+                        .toUpperCase() ?? '?'}
                     </div>
                     <div>
-                      <p className="text-sm font-bold text-ink">
-                        {r.firstName} {r.lastName}
+                      <p className="text-sm font-bold text-ink">{r.fullname}</p>
+                      <p className="text-xs text-ink-soft">
+                        {r.numberOfOrders} orders •{' '}
+                        {r.commissionEligibilityStatus === 'ACTIVE'
+                          ? 'Qualified'
+                          : `${Math.round(r.percentageReached ?? 0)}% to qualify`}
                       </p>
-                      <p className="text-xs text-ink-soft">1.5% commission</p>
                     </div>
                   </div>
                   <div className="text-right">
                     <p className="text-sm font-bold text-primary">
-                      ₦{Number(r.totalAmountOfDeliveredOrders).toLocaleString()}
+                      ₦{Number(r.totalCommissionEarnedOnReferral ?? 0).toLocaleString()}
                     </p>
                     <p className="text-xs text-ink-soft">Level 1</p>
                   </div>
@@ -118,23 +150,28 @@ export default function ReferralNetwork() {
             <Wallet size={18} />
             <span className="text-sm font-medium">Wallet Balance</span>
           </div>
-          <p className="mt-2 text-3xl font-bold">₦25,000</p>
+          <p className="mt-2 text-3xl font-bold">
+            ₦{Number(wallet?.availableBalance ?? 0).toLocaleString()}
+          </p>
           <p className="mt-1 text-xs text-white/80">Lifetime Earnings</p>
-          <p className="text-sm font-semibold">₦25,000</p>
-          <button className="mt-3 flex items-center gap-2 rounded-full bg-white px-4 py-2 text-xs font-semibold text-primary">
-            💸 Withdraw
-          </button>
+          <p className="text-sm font-semibold">
+            ₦{Number(wallet?.lifetimeEarned ?? 0).toLocaleString()}
+          </p>
         </div>
 
         {/* Stats */}
         <div className="grid grid-cols-2 gap-3">
           <div className="rounded-2xl border border-gray-200 bg-white p-4">
             <p className="text-xs text-primary">Total Network</p>
-            <p className="mt-1 text-2xl font-bold text-primary">128</p>
+            <p className="mt-1 text-2xl font-bold text-primary">
+              {metrics?.totalNetwork ?? 0}
+            </p>
           </div>
           <div className="rounded-2xl border border-gray-200 bg-white p-4">
             <p className="text-xs text-primary">Qualified</p>
-            <p className="mt-1 text-2xl font-bold text-primary">100</p>
+            <p className="mt-1 text-2xl font-bold text-primary">
+              {metrics?.qualifiedCount ?? 0}
+            </p>
           </div>
         </div>
 
@@ -149,33 +186,53 @@ export default function ReferralNetwork() {
             <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary">
               <User size={20} className="text-white" />
             </div>
-            <div className="h-6 w-0.5 bg-gray-300" />
-            <span className="rounded-full bg-primary px-4 py-1.5 text-xs font-bold text-white">
-              L1: 1.5%
-            </span>
-            <div className="h-6 w-0.5 bg-gray-300" />
-            <span className="rounded-full bg-gray-100 px-4 py-1.5 text-xs font-bold text-ink">
-              L2: 0.75%
-            </span>
-            <div className="h-6 w-0.5 bg-gray-300" />
-            <span className="rounded-full bg-gray-100 px-4 py-1.5 text-xs font-bold text-ink">
-              L3: 0.375%
-            </span>
+
+            {levels.length === 0 && (
+              <p className="text-xs text-ink-soft">No commission earned yet.</p>
+            )}
+
+            {levels.map((level, idx) => (
+              <div key={level.level} className="flex flex-col items-center gap-4">
+                {idx > 0 && <div className="h-6 w-0.5 bg-gray-300" />}
+                <span
+                  className={
+                    'rounded-full px-4 py-1.5 text-xs font-bold ' +
+                    (idx === 0 ? 'bg-primary text-white' : 'bg-gray-100 text-ink')
+                  }
+                >
+                  L{level.level}: {level.percentage}%
+                </span>
+              </div>
+            ))}
           </div>
         </div>
 
-        {/* Network Performance */}
+        {/* Network Performance — bars now scale to the real max */}
         <div>
           <p className="mb-3 text-sm font-bold text-ink">Network Performance</p>
           <div className="rounded-2xl border border-gray-200 bg-white p-4 space-y-3">
-            {['Level 1 (Direct)', 'Level 2', 'Level 3'].map((label) => (
-              <div key={label}>
+            {levels.length === 0 && (
+              <p className="text-xs text-ink-soft">No earnings recorded yet.</p>
+            )}
+
+            {levels.map((level) => (
+              <div key={level.level}>
                 <div className="flex items-center justify-between text-sm">
-                  <span className="text-ink">{label}</span>
-                  <span className="font-bold text-primary">₦29,500</span>
+                  <span className="text-ink">
+                    Level {level.level}
+                    {level.level === 1 ? ' (Direct)' : ''}
+                  </span>
+                  <span className="font-bold text-primary">
+                    ₦{Number(level.amountEarned ?? 0).toLocaleString()}
+                  </span>
                 </div>
                 <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-gray-200">
-                  <div className="h-full rounded-full bg-primary" style={{ width: '60%' }} />
+                  <div
+                    className="h-full rounded-full bg-primary"
+                    style={{
+                      width: `${(Number(level.amountEarned ?? 0) / maxLevelEarning) * 100}%`,
+                    }}
+                  />
                 </div>
               </div>
             ))}
@@ -186,23 +243,33 @@ export default function ReferralNetwork() {
         <div>
           <p className="mb-3 text-sm font-bold text-ink">Your Network</p>
           <div className="space-y-3">
-            {referrals.slice(0, 3).map((r, i) => {
-              const isPending = r.numberOfDeliveredOrders === 0;
+            {referrals.length === 0 && (
+              <p className="rounded-2xl border border-gray-200 bg-white p-4 text-center text-sm text-ink-soft">
+                Nobody has joined with your code yet.
+              </p>
+            )}
+
+            {referrals.slice(0, 3).map((r) => {
+              const isPending = r.commissionEligibilityStatus !== 'ACTIVE';
+              const progress = Math.min(100, Math.max(0, r.percentageReached ?? 0));
+
               return (
-                <div key={i} className="rounded-2xl border border-gray-200 bg-white p-4">
+                <div key={r.id} className="rounded-2xl border border-gray-200 bg-white p-4">
                   <div className="flex items-start justify-between">
                     <div className="flex items-center gap-3">
                       <div className="flex h-11 w-11 items-center justify-center rounded-full bg-primary/20 text-sm font-bold text-primary">
-                        {r.firstName[0]}
-                        {r.lastName[0]}
+                        {r.fullname
+                          ?.split(' ')
+                          .map((p) => p[0])
+                          .join('')
+                          .slice(0, 2)
+                          .toUpperCase() ?? '?'}
                       </div>
                       <div>
-                        <p className="text-sm font-bold text-ink">
-                          {r.firstName} {r.lastName}
-                        </p>
+                        <p className="text-sm font-bold text-ink">{r.fullname}</p>
                         <p className="text-xs text-ink-soft">
                           Joined{' '}
-                          {new Date(r.dateJoined).toLocaleDateString('en-NG', {
+                          {new Date(r.joinedAt).toLocaleDateString('en-NG', {
                             day: '2-digit',
                             month: 'short',
                             year: 'numeric',
@@ -225,15 +292,13 @@ export default function ReferralNetwork() {
                   <div className="mt-3">
                     <p className="text-xs text-ink-soft">
                       {isPending
-                        ? 'Awaiting first purchase (₦0/₦40,000)'
-                        : `Progression: ₦${Number(r.totalAmountOfDeliveredOrders).toLocaleString()}/₦40,000`}
+                        ? `Awaiting first purchase (₦${Number(r.commissionEligibilityThreshold ?? 0).toLocaleString()} threshold)`
+                        : `Progression: ${Math.round(progress)}%`}
                     </p>
                     <div className="mt-1 h-2 overflow-hidden rounded-full bg-gray-200">
                       <div
                         className="h-full rounded-full bg-primary"
-                        style={{
-                          width: `${Math.min(100, (Number(r.totalAmountOfDeliveredOrders) / 40000) * 100)}%`,
-                        }}
+                        style={{ width: `${progress}%` }}
                       />
                     </div>
                   </div>
@@ -241,22 +306,22 @@ export default function ReferralNetwork() {
                   <div className="mt-3 flex items-center justify-between border-t border-gray-200 pt-3 text-xs">
                     <div>
                       <p className="text-ink-soft">Orders</p>
-                      <p className="font-bold text-primary">{r.numberOfDeliveredOrders}</p>
+                      <p className="font-bold text-primary">{r.numberOfOrders ?? 0}</p>
                     </div>
                     <div className="text-right">
                       <p className="text-ink-soft">
                         {isPending ? 'Potential Rewards' : 'Total Rewards'}
                       </p>
-                      <p className="font-bold text-primary">₦40,000</p>
+                      <p className="font-bold text-primary">
+                        ₦
+                        {Number(r.totalCommissionEarnedOnReferral ?? 0).toLocaleString()}
+                      </p>
                     </div>
                   </div>
                 </div>
               );
             })}
           </div>
-          <button className="mt-4 w-full text-center text-sm font-semibold text-primary">
-            See More
-          </button>
         </div>
       </div>
     </ReferralLayout>

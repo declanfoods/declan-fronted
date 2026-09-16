@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import {
   ArrowLeft,
@@ -7,31 +8,91 @@ import {
   ShoppingCart,
   HandCoins,
   PiggyBank,
+  RefreshCw,
 } from 'lucide-react';
 import StatusPill from '../../../admin/StatusPill';
-import { findMockUser } from './mockUsers';
+import {
+  useAdminUser,
+  useAdminUserTransactions,
+  useAdminUserWallet,
+} from '../../../../app/hooks/useAdminUsers';
+import { getApiErrorMessage } from '../../../../app/lib/api-types';
+import type { AdminUserTransaction } from '../../../../app/lib/adminUserApi';
 
-function formatNaira(n: number) {
-  const sign = n < 0 ? '-' : n > 0 ? '+' : '';
-  return `${sign}₦${Math.abs(n).toLocaleString()}.00`;
+/*
+|--------------------------------------------------------------------------
+| Admin → Customer Financials — WIRED TO API
+|--------------------------------------------------------------------------
+| BEFORE: `findMockUser(id)` again → always blank in production.
+|
+| AFTER:
+|   Wallet summary  ← adminUserApi.getUserWallet(id)        → { balance, pendingBalance, lifetimeEarned }
+|   Transactions    ← adminUserApi.getUserTransactions(id)  → paginated list
+|
+| Icon is chosen from `transactionFor` (what the money moved for) with a
+| fallback to CREDIT/DEBIT, replacing the mock `icon` field that no longer
+| exists.
+*/
+
+function formatSignedNaira(amount: string | number, isDebit: boolean) {
+  const sign = isDebit ? '-' : '+';
+  return `${sign}₦${Math.abs(Number(amount ?? 0)).toLocaleString()}.00`;
 }
 
-const iconMap = {
-  order: ShoppingCart,
-  topup: Landmark,
-  referral: HandCoins,
-  cashback: PiggyBank,
-};
+function iconFor(tx: AdminUserTransaction) {
+  const source = `${tx.transactionFor ?? ''}`.toUpperCase();
+
+  if (source.includes('ORDER')) return ShoppingCart;
+  if (source.includes('REFERRAL') || source.includes('COMMISSION')) return HandCoins;
+  if (source.includes('CASHBACK')) return PiggyBank;
+
+  return tx.transactionType === 'DEBIT' ? Landmark : CreditCard;
+}
+
+const PAGE_SIZE = 15;
 
 export default function UserFinancials() {
   const navigate = useNavigate();
   const { id } = useParams();
-  const user = id ? findMockUser(id) : undefined;
+  const [page, setPage] = useState(1);
 
-  if (!user) {
+  const userQuery = useAdminUser(id);
+  const walletQuery = useAdminUserWallet(id);
+  const transactionsQuery = useAdminUserTransactions(id, { page, limit: PAGE_SIZE });
+
+  const user = userQuery.data;
+  const wallet = walletQuery.data;
+  const transactions = transactionsQuery.data?.transactions ?? [];
+  const pagination = transactionsQuery.data?.pagination;
+
+  if (userQuery.isLoading || walletQuery.isLoading) {
+    return (
+      <div className="flex min-h-screen flex-col bg-[#F3F7EE] px-5 pt-6">
+        <div className="h-32 animate-pulse rounded-2xl bg-gray-200" />
+        <div className="mt-5 space-y-3">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <div key={i} className="h-16 animate-pulse rounded-2xl bg-gray-200" />
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  if (userQuery.isError || !user) {
     return (
       <div className="flex min-h-screen flex-col items-center justify-center gap-3 bg-white px-5">
-        <p className="text-sm text-gray-500">User not found.</p>
+        <p className="text-sm text-gray-500">
+          {userQuery.isError
+            ? getApiErrorMessage(userQuery.error, 'Could not load this customer.')
+            : 'Customer not found.'}
+        </p>
+        <button
+          type="button"
+          onClick={() => userQuery.refetch()}
+          className="inline-flex items-center gap-2 rounded-full bg-primary px-5 py-2 text-sm font-semibold text-white"
+        >
+          <RefreshCw size={14} /> Retry
+        </button>
       </div>
     );
   }
@@ -47,17 +108,21 @@ export default function UserFinancials() {
 
       <main className="flex-1 space-y-5 px-5 pt-5">
         <div className="rounded-2xl bg-primary p-5 text-white">
-          <p className="text-sm text-white/80">Wallet Summary</p>
-          <p className="mt-1 text-3xl font-extrabold">₦{user.walletBalance.toLocaleString()}.00</p>
+          <p className="text-sm font-semibold">{user.fullname}</p>
+          <p className="mt-2 text-sm text-white/80">Wallet Summary</p>
+
+          <p className="mt-1 text-3xl font-extrabold">
+            {walletQuery.isError
+              ? '—'
+              : `₦${Number(wallet?.balance ?? 0).toLocaleString()}.00`}
+          </p>
+
           <div className="mt-4 flex flex-wrap gap-2">
             <span className="rounded-full bg-white/15 px-3 py-1 text-xs font-semibold">
-              Cashback: ₦{user.cashback.toLocaleString()}
+              Pending: ₦{Number(wallet?.pendingBalance ?? 0).toLocaleString()}
             </span>
             <span className="rounded-full bg-white/15 px-3 py-1 text-xs font-semibold">
-              Ref: ₦{user.referralEarnings.toLocaleString()}
-            </span>
-            <span className="rounded-full bg-white/15 px-3 py-1 text-xs font-semibold">
-              Pending: ₦{user.pendingBalance.toLocaleString()}
+              Lifetime Earned: ₦{Number(wallet?.lifetimeEarned ?? 0).toLocaleString()}
             </span>
           </div>
         </div>
@@ -65,10 +130,8 @@ export default function UserFinancials() {
         <section>
           <div className="mb-3 flex items-center justify-between">
             <h3 className="text-base font-bold text-gray-900">Financial Controls</h3>
-            <button type="button" className="text-sm font-semibold text-primary">
-              View Full History
-            </button>
           </div>
+
           <div className="grid grid-cols-3 gap-3">
             <button
               type="button"
@@ -98,13 +161,59 @@ export default function UserFinancials() {
               <span className="text-xs font-semibold text-gray-700">Refund</span>
             </button>
           </div>
+
+          {/* ⚠️ These three have no backend endpoint yet — see the report.
+              POST /admin/users/:id/wallet/credit | debit | refund */}
+          <p className="mt-2 text-[11px] text-gray-400">
+            Manual credit / debit / refund are not connected yet — awaiting backend
+            endpoints.
+          </p>
         </section>
 
         <section>
-          <h3 className="mb-2 text-base font-bold text-gray-900">Recent Transactions</h3>
+          <div className="mb-2 flex items-center justify-between">
+            <h3 className="text-base font-bold text-gray-900">Recent Transactions</h3>
+            {pagination && (
+              <span className="text-xs text-gray-400">
+                {pagination.totalItems} total
+              </span>
+            )}
+          </div>
+
+          {transactionsQuery.isLoading && (
+            <div className="space-y-3">
+              {Array.from({ length: 3 }).map((_, i) => (
+                <div key={i} className="h-16 animate-pulse rounded-2xl bg-gray-200" />
+              ))}
+            </div>
+          )}
+
+          {transactionsQuery.isError && (
+            <div className="rounded-2xl bg-white p-4 text-center shadow-sm">
+              <p className="text-sm text-gray-500">Could not load transactions.</p>
+              <button
+                type="button"
+                onClick={() => transactionsQuery.refetch()}
+                className="mt-3 text-sm font-semibold text-primary"
+              >
+                Retry
+              </button>
+            </div>
+          )}
+
+          {!transactionsQuery.isLoading &&
+            !transactionsQuery.isError &&
+            transactions.length === 0 && (
+              <p className="rounded-2xl bg-white p-6 text-center text-sm text-gray-400 shadow-sm">
+                No transactions yet.
+              </p>
+            )}
+
           <div className="space-y-3">
-            {user.transactions.map((t) => {
-              const Icon = iconMap[t.icon];
+            {transactions.map((t) => {
+              const Icon = iconFor(t);
+              const isDebit = t.transactionType === 'DEBIT';
+
               return (
                 <div
                   key={t.id}
@@ -113,19 +222,26 @@ export default function UserFinancials() {
                   <span className="flex h-10 w-10 items-center justify-center rounded-full bg-[#F3F7EE] text-primary">
                     <Icon size={18} />
                   </span>
-                  <div className="flex-1">
-                    <p className="text-sm font-bold text-gray-900">{t.title}</p>
-                    <p className="text-xs text-gray-400">
-                      Ref: {t.ref} <span className="mx-1">•</span> {t.date}
+                  <div className="flex-1 min-w-0">
+                    <p className="truncate text-sm font-bold text-gray-900">
+                      {t.description || t.transactionFor}
+                    </p>
+                    <p className="truncate text-xs text-gray-400">
+                      Ref: {t.reference} <span className="mx-1">•</span>{' '}
+                      {new Date(t.createdAt).toLocaleDateString('en-NG', {
+                        day: '2-digit',
+                        month: 'short',
+                        year: 'numeric',
+                      })}
                     </p>
                   </div>
                   <div className="text-right">
                     <p
                       className={`text-sm font-bold ${
-                        t.amount < 0 ? 'text-red-500' : 'text-primary'
+                        isDebit ? 'text-red-500' : 'text-primary'
                       }`}
                     >
-                      {formatNaira(t.amount)}
+                      {formatSignedNaira(t.amount, isDebit)}
                     </p>
                     <StatusPill label={t.status} />
                   </div>
@@ -133,6 +249,28 @@ export default function UserFinancials() {
               );
             })}
           </div>
+
+          {pagination && pagination.totalPages > 1 && (
+            <div className="mt-4 flex items-center justify-between text-sm">
+              <button
+                disabled={!pagination.hasPreviousPage}
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+                className="rounded-full border border-gray-200 bg-white px-4 py-2 font-semibold text-gray-700 disabled:opacity-40"
+              >
+                Previous
+              </button>
+              <span className="text-gray-400">
+                Page {pagination.currentPage} / {pagination.totalPages}
+              </span>
+              <button
+                disabled={!pagination.hasNextPage}
+                onClick={() => setPage((p) => p + 1)}
+                className="rounded-full border border-gray-200 bg-white px-4 py-2 font-semibold text-gray-700 disabled:opacity-40"
+              >
+                Next
+              </button>
+            </div>
+          )}
         </section>
       </main>
     </div>

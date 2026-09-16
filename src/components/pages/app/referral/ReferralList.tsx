@@ -1,12 +1,43 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Download, Eye, Wallet, History, Search } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import ReferralLayout from './ReferralLayout';
 import DesktopShell from './DesktopShell';
 import SplashLoader from '../../../ui/SplashLoader';
-import { userApi } from '../../../../app/lib/userApi';
-import { referralApi, type ReferralPerson } from '../../../../app/lib/referralApi';
+import {
+  deriveFirstName,
+  useReferralCode,
+  useReferralMetrics,
+  useReferralNetworks,
+  useReferralWallet,
+} from '../../../../app/hooks/useReferrals';
+import type { DirectReferral } from '../../../../app/lib/referralApi';
+
+/*
+|--------------------------------------------------------------------------
+| Direct Referrals list — WIRED TO API
+|--------------------------------------------------------------------------
+| BEFORE: it called BOTH `userApi.getReferralsOverview()` (old endpoint) and
+| `referralApi.getReferrals()` (broken import) and merged the two results,
+| then let whichever resolved last win. Nobody could tell which data was on
+| screen. Loading state was a `finally { setLoading(false) }` that ran even
+| when every request failed, so a network outage showed "No referrals yet."
+| instead of an error.
+|
+| AFTER: one hook (`useReferralNetworks`) is the single source of truth,
+| server-side paginated, with a real error state and a real empty state.
+|
+| Field mapping:
+|   name        ← DirectReferral.fullname
+|   joined      ← DirectReferral.joinedAt
+|   orders      ← DirectReferral.numberOfOrders
+|   commission  ← DirectReferral.totalCommissionEarnedOnReferral
+|   qualified   ← DirectReferral.commissionEligibilityStatus === 'ACTIVE'
+|   progress    ← DirectReferral.percentageReached
+*/
 
 type Filter = 'all' | 'active' | 'pending' | 'qualified';
+
 const FILTERS: { key: Filter; label: string }[] = [
   { key: 'all', label: 'All' },
   { key: 'active', label: 'Active' },
@@ -21,54 +52,24 @@ const formatDate = (iso: string) =>
     year: 'numeric',
   });
 
+const PAGE_SIZE = 20;
+
 export default function ReferralList() {
-  const [loading, setLoading] = useState(true);
-  const [firstName, setFirstName] = useState('John');
-  const [referrals, setReferrals] = useState<ReferralPerson[]>([]);
+  const navigate = useNavigate();
   const [filter, setFilter] = useState<Filter>('all');
   const [query, setQuery] = useState('');
-  const [totalReferrals, setTotalReferrals] = useState(0);
-  const [activeReferrals, setActiveReferrals] = useState(0);
+  const [page, setPage] = useState(1);
 
-  useEffect(() => {
-    const fetch = async () => {
-      try {
-        const [profileRes, refRes, listRes] = await Promise.allSettled([
-          userApi.getProfileOverview(),
-          userApi.getReferralsOverview(),
-          referralApi.getReferrals(),
-        ]);
-        if (profileRes.status === 'fulfilled')
-          setFirstName(profileRes.value.data.data?.user?.profile?.firstName ?? 'John');
-        if (refRes.status === 'fulfilled') {
-          const m = refRes.value.data.data.metrics;
-          setTotalReferrals(m?.totalDirectReferrals ?? 0);
-          setActiveReferrals(m?.totalActiveReferrals ?? 0);
-          setReferrals(m?.referrals ?? []);
-        }
-        if (listRes.status === 'fulfilled') {
-          const list = listRes.value.data.data?.referrals ?? [];
-          if (list.length > 0) setReferrals(list);
-        }
-      } catch {} finally {
-        setLoading(false);
-      }
-    };
-    fetch();
-  }, []);
+  const codeQuery = useReferralCode();
+  const walletQuery = useReferralWallet();
+  const metricsQuery = useReferralMetrics();
+  const networksQuery = useReferralNetworks({ page, limit: PAGE_SIZE });
 
-  const filtered = referrals
-  .filter((r) => r && (r.firstName || r.lastName))  // ← skip null/empty
-  .filter((r) => {
-    const q = query.toLowerCase();
-    return (
-      !q ||
-      (r.firstName ?? '').toLowerCase().includes(q) ||
-      (r.lastName ?? '').toLowerCase().includes(q)
-    );
-  });
+  const firstName = deriveFirstName(codeQuery.data);
+  const metrics = metricsQuery.data;
+  const wallet = walletQuery.data;
 
-  if (loading) {
+  if (codeQuery.isLoading || networksQuery.isLoading) {
     return (
       <ReferralLayout firstName={firstName}>
         <SplashLoader />
@@ -76,16 +77,53 @@ export default function ReferralList() {
     );
   }
 
+  if (networksQuery.isError) {
+    return (
+      <ReferralLayout firstName={firstName}>
+        <div className="py-16 text-center">
+          <p className="text-sm text-ink-soft">
+            We couldn't load your referrals. Please try again.
+          </p>
+          <button
+            onClick={() => networksQuery.refetch()}
+            className="mt-4 rounded-full bg-primary px-6 py-2.5 text-sm font-semibold text-white"
+          >
+            Retry
+          </button>
+        </div>
+      </ReferralLayout>
+    );
+  }
+
+  const referrals = networksQuery.data?.referrals ?? [];
+  const pagination = networksQuery.data?.pagination;
+
+  // Filtering happens client-side over the current page, because the backend
+  // /referrals/networks endpoint has no `search` or `status` query param yet.
+  const filtered = referrals.filter((r) => {
+    const q = query.trim().toLowerCase();
+    const matchesSearch = !q || (r.fullname ?? '').toLowerCase().includes(q);
+
+    const isQualified = r.commissionEligibilityStatus === 'ACTIVE';
+    const matchesFilter =
+      filter === 'all' ||
+      (filter === 'qualified' && isQualified) ||
+      (filter === 'active' && isQualified && r.numberOfOrders > 0) ||
+      (filter === 'pending' && !isQualified);
+
+    return matchesSearch && matchesFilter;
+  });
+
   return (
     <ReferralLayout firstName={firstName}>
       {/* ═══ DESKTOP VIEW ═══ */}
       <DesktopShell
         firstName={firstName}
-        totalReferrals={totalReferrals}
-        activeReferrals={activeReferrals}
-        totalEarnings="80,000"
-        thisMonth="80,000"
-        pending="80,000"
+        totalReferrals={metrics?.totalNetwork ?? 0}
+        activeReferrals={metrics?.qualifiedCount ?? 0}
+        totalEarnings={Number(wallet?.lifetimeEarned ?? 0).toLocaleString()}
+        thisMonth={Number(wallet?.availableBalance ?? 0).toLocaleString()}
+        pending={Number(wallet?.pendingBalance ?? 0).toLocaleString()}
       >
         <section className="rounded-2xl border-2 border-primary/20 bg-white p-6 shadow-sm">
           <div className="flex items-center justify-between">
@@ -98,34 +136,62 @@ export default function ReferralList() {
           <div className="mt-5 space-y-3">
             {filtered.length === 0 ? (
               <p className="py-8 text-center text-sm text-ink-soft">
-                No referrals yet.
+                {referrals.length === 0
+                  ? 'No referrals yet.'
+                  : 'No referrals match this filter.'}
               </p>
             ) : (
-              filtered.map((r, i) => (
+              filtered.map((r) => (
                 <div
-                  key={i}
+                  key={r.id}
                   className="flex items-center justify-between rounded-2xl border border-primary/40 p-4"
                 >
                   <div>
-                    <p className="text-sm font-semibold text-primary">
-                      {r.numberOfDeliveredOrders} Orders
+                    <p className="text-sm font-bold text-ink">{r.fullname}</p>
+                    <p className="text-xs text-ink-soft">
+                      Joined {formatDate(r.joinedAt)}
+                    </p>
+                    <p className="mt-1 text-xs font-semibold text-primary">
+                      {r.numberOfOrders} Orders
                     </p>
                   </div>
                   <div className="text-right">
                     <p className="text-lg font-bold text-primary">
-                      ₦{Number(r.totalAmountOfDeliveredOrders).toLocaleString()}
+                      ₦{Number(r.totalCommissionEarnedOnReferral ?? 0).toLocaleString()}
                     </p>
-                    <p className="text-xs text-primary line-through">
-                      ₦{Number(r.totalAmountOfDeliveredOrders).toLocaleString()} spent
+                    <p className="text-xs text-primary">
+                      {Number(r.percentageReached ?? 0).toFixed(0)}% to qualification
                     </p>
                   </div>
-                  <button className="text-primary">
+                  <button className="text-primary" aria-label="View referral">
                     <Eye size={20} />
                   </button>
                 </div>
               ))
             )}
           </div>
+
+          {pagination && pagination.totalPages > 1 && (
+            <div className="mt-5 flex items-center justify-between text-sm">
+              <button
+                disabled={!pagination.hasPreviousPage}
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+                className="rounded-full border border-gray-300 px-4 py-2 font-semibold text-ink disabled:opacity-40"
+              >
+                Previous
+              </button>
+              <span className="text-ink-soft">
+                Page {pagination.currentPage} of {pagination.totalPages}
+              </span>
+              <button
+                disabled={!pagination.hasNextPage}
+                onClick={() => setPage((p) => p + 1)}
+                className="rounded-full border border-gray-300 px-4 py-2 font-semibold text-ink disabled:opacity-40"
+              >
+                Next
+              </button>
+            </div>
+          )}
         </section>
       </DesktopShell>
 
@@ -137,12 +203,20 @@ export default function ReferralList() {
             <Wallet size={18} />
             <span className="text-sm font-medium">Wallet Balance</span>
           </div>
-          <p className="mt-2 text-3xl font-bold">₦25,000</p>
+          <p className="mt-2 text-3xl font-bold">
+            ₦{Number(wallet?.availableBalance ?? 0).toLocaleString()}
+          </p>
           <div className="mt-4 grid grid-cols-2 gap-3">
-            <button className="flex items-center justify-center gap-2 rounded-full bg-white py-2.5 text-sm font-semibold text-primary">
+            <button
+              onClick={() => navigate('/app/referrals/withdraw')}
+              className="flex items-center justify-center gap-2 rounded-full bg-white py-2.5 text-sm font-semibold text-primary"
+            >
               💸 Withdraw
             </button>
-            <button className="flex items-center justify-center gap-2 rounded-full border-2 border-white/30 py-2.5 text-sm font-semibold text-white">
+            <button
+              onClick={() => navigate('/app/referrals/earnings')}
+              className="flex items-center justify-center gap-2 rounded-full border-2 border-white/30 py-2.5 text-sm font-semibold text-white"
+            >
               <History size={16} /> History
             </button>
           </div>
@@ -181,27 +255,40 @@ export default function ReferralList() {
         <div className="space-y-3">
           {filtered.length === 0 ? (
             <p className="py-8 text-center text-sm text-ink-soft">
-              No referrals yet.
+              {referrals.length === 0
+                ? 'No referrals yet.'
+                : 'No referrals match this filter.'}
             </p>
           ) : (
-            filtered.map((r, i) => (
-              <MobileReferralCard key={i} referral={r} />
-            ))
+            filtered.map((r) => <MobileReferralCard key={r.id} referral={r} />)
           )}
         </div>
+
+        {pagination && pagination.hasNextPage && (
+          <button
+            onClick={() => setPage((p) => p + 1)}
+            className="w-full rounded-full border border-primary py-3 text-sm font-semibold text-primary"
+          >
+            Load More
+          </button>
+        )}
       </div>
     </ReferralLayout>
   );
 }
 
-function MobileReferralCard({ referral }: { referral: ReferralPerson }) {
-  const firstName = referral.firstName ?? '';
-  const lastName = referral.lastName ?? '';
-  const initials = `${firstName[0] ?? ''}${lastName[0] ?? ''}`.toUpperCase() || '?';
+function MobileReferralCard({ referral }: { referral: DirectReferral }) {
+  const initials =
+    referral.fullname
+      ?.split(' ')
+      .map((part) => part[0])
+      .join('')
+      .slice(0, 2)
+      .toUpperCase() || '?';
 
-  const progress = Math.min(100, (referral.numberOfDeliveredOrders / 10) * 100);
-  const isQualified = progress >= 100;
-  const isActive = referral.numberOfDeliveredOrders > 0 && !isQualified;
+  const isQualified = referral.commissionEligibilityStatus === 'ACTIVE';
+  const progress = Math.min(100, Math.max(0, referral.percentageReached ?? 0));
+  const isActive = isQualified && referral.numberOfOrders > 0;
   const status = isQualified ? 'Qualified' : isActive ? 'Active' : 'Pending';
 
   return (
@@ -212,11 +299,9 @@ function MobileReferralCard({ referral }: { referral: ReferralPerson }) {
             {initials}
           </div>
           <div>
-            <p className="text-sm font-bold text-primary">
-              {firstName} {lastName}
-            </p>
+            <p className="text-sm font-bold text-primary">{referral.fullname}</p>
             <p className="text-xs text-ink-soft">
-              Joined {formatDate(referral.dateJoined)}
+              Joined {formatDate(referral.joinedAt)}
             </p>
           </div>
         </div>
@@ -233,31 +318,30 @@ function MobileReferralCard({ referral }: { referral: ReferralPerson }) {
           {status}
         </span>
       </div>
+
       <div className="mt-3">
         <div className="flex items-center justify-between text-xs">
           <span className="text-primary">
             {isQualified
               ? 'Goal Completed'
-              : `Progression: ₦${Number(referral.totalAmountOfDeliveredOrders ?? 0).toLocaleString()}/₦40,000`}
+              : `Progression: ₦${Number(referral.commissionEligibilityThreshold ?? 0).toLocaleString()} threshold`}
           </span>
           <span className="font-bold text-primary">{Math.round(progress)}%</span>
         </div>
         <div className="mt-1 h-2 overflow-hidden rounded-full bg-gray-200">
-          <div
-            className="h-full rounded-full bg-primary"
-            style={{ width: `${progress}%` }}
-          />
+          <div className="h-full rounded-full bg-primary" style={{ width: `${progress}%` }} />
         </div>
       </div>
+
       <div className="mt-3 flex items-center justify-between border-t border-gray-200 pt-3 text-xs">
         <div>
           <p className="text-ink-soft">Orders</p>
-          <p className="font-bold text-primary">{referral.numberOfDeliveredOrders ?? 0}</p>
+          <p className="font-bold text-primary">{referral.numberOfOrders ?? 0}</p>
         </div>
         <div className="text-right">
           <p className="text-ink-soft">Total Rewards</p>
           <p className="font-bold text-primary">
-            ₦{Number(referral.totalAmountOfDeliveredOrders ?? 0).toLocaleString()}
+            ₦{Number(referral.totalCommissionEarnedOnReferral ?? 0).toLocaleString()}
           </p>
         </div>
       </div>

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Wallet,
@@ -12,52 +12,69 @@ import {
 import ReferralLayout from './ReferralLayout';
 import DesktopShell from './DesktopShell';
 import SplashLoader from '../../../ui/SplashLoader';
-import { userApi } from '../../../../app/lib/userApi';
-import { referralApi } from '../../../../app/lib/referralApi';
+import {
+  deriveFirstName,
+  useReferralCode,
+  useReferralMetrics,
+  useReferralNetworks,
+  useReferralWallet,
+} from '../../../../app/hooks/useReferrals';
+
+/*
+|--------------------------------------------------------------------------
+| Referral Overview — WIRED TO API
+|--------------------------------------------------------------------------
+| BEFORE: three Promise.allSettled calls in a useEffect, half of them
+| hitting `userApi.getReferralsOverview()` which is a DIFFERENT (older)
+| referral endpoint than the one referralApi was written for. Plus hardcoded
+| mock numbers for wallet/monthly cashback/commission eligibility, and the
+| "Review Activity" list was a literal `[1, 2, 3].map(...)` of fake rows.
+|
+| AFTER: four React Query hooks. Real wallet, real metrics, real recent
+| referral activity. Zero mock constants left on this screen.
+|
+| Field mapping used:
+|   referralCode         ← referralApi.getCode()      → data.code
+|   firstName            ← referralApi.getCode()      → data.user.profile.firstName
+|   totalNetwork         ← referralApi.getMetrics()   → metrics.totalNetwork
+|   qualifiedCount       ← referralApi.getMetrics()   → metrics.qualifiedCount
+|   level earnings       ← referralApi.getMetrics()   → networkPerformance.amountEarnedPerlevel[]
+|   wallet balance       ← referralApi.getWallet()    → referralWallet.availableBalance
+|   activity feed        ← referralApi.getNetworks()   → referrals[].fullname / joinedAt
+*/
 
 export default function ReferralOverview() {
   const navigate = useNavigate();
-  const [loading, setLoading] = useState(true);
-  const [referralCode, setReferralCode] = useState('');
-  const [firstName, setFirstName] = useState('John');
-  const [totalReferrals, setTotalReferrals] = useState(0);
-  const [activeReferrals, setActiveReferrals] = useState(0);
   const [copied, setCopied] = useState(false);
 
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const [profileRes, codeRes, referralsRes] = await Promise.allSettled([
-          userApi.getProfileOverview(),
-          referralApi.getReferralCode(),
-          userApi.getReferralsOverview(),
-        ]);
+  const codeQuery = useReferralCode();
+  const walletQuery = useReferralWallet();
+  const metricsQuery = useReferralMetrics();
+  const networksQuery = useReferralNetworks({ page: 1, limit: 5 });
 
-        if (profileRes.status === 'fulfilled') {
-          setFirstName(profileRes.value.data.data?.user?.profile?.firstName ?? 'John');
-        }
-        if (codeRes.status === 'fulfilled') {
-          setReferralCode(codeRes.value.data.data?.referralCode ?? 'JOHN2026');
-        }
-        if (referralsRes.status === 'fulfilled') {
-          const m = referralsRes.value.data.data.metrics;
-          setTotalReferrals(m?.totalDirectReferrals ?? 0);
-          setActiveReferrals(m?.totalActiveReferrals ?? 0);
-          if (!referralCode && m?.referralCode) setReferralCode(m.referralCode);
-        }
-      } catch {} finally {
-        setLoading(false);
-      }
-    };
-    fetchData();
-  }, []);
+  const isLoading =
+    codeQuery.isLoading || walletQuery.isLoading || metricsQuery.isLoading;
 
+  const firstName = deriveFirstName(codeQuery.data);
+  const referralCode = codeQuery.data?.code ?? '';
   const shareLink = `${window.location.origin}/signup?ref=${referralCode}`;
 
+  const wallet = walletQuery.data;
+  const metrics = metricsQuery.data;
+  const recentReferrals = networksQuery.data?.referrals ?? [];
+
+  const levelEarnings = metrics?.networkPerformance?.amountEarnedPerlevel ?? [];
+  const totalEarned = metrics?.networkPerformance?.totalEarned ?? 0;
+
   const handleCopy = async () => {
-    await navigator.clipboard.writeText(shareLink);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+    if (!referralCode) return;
+    try {
+      await navigator.clipboard.writeText(shareLink);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      // Clipboard blocked (insecure origin / permission) — nothing to do.
+    }
   };
 
   const handleShare = async () => {
@@ -68,13 +85,15 @@ export default function ReferralOverview() {
           text: `Sign up on Declan Foods with my referral code: ${referralCode}`,
           url: shareLink,
         });
-      } catch {}
+      } catch {
+        // User dismissed the native share sheet.
+      }
     } else {
       handleCopy();
     }
   };
 
-  if (loading) {
+  if (isLoading) {
     return (
       <ReferralLayout firstName={firstName}>
         <SplashLoader />
@@ -82,23 +101,16 @@ export default function ReferralOverview() {
     );
   }
 
-  // Mock data for placeholder features
-  const walletBalance = 25000;
-  const monthlyCashback = 15000;
-  const monthlyTarget = 25000;
-  const currentCommission = 25000;
-  const commissionTarget = 40000;
-
   return (
     <ReferralLayout firstName={firstName}>
       {/* ═══ DESKTOP VIEW ═══ */}
       <DesktopShell
         firstName={firstName}
-        totalReferrals={totalReferrals}
-        activeReferrals={activeReferrals}
-        totalEarnings="80,000"
-        thisMonth="80,000"
-        pending="80,000"
+        totalReferrals={metrics?.totalNetwork ?? 0}
+        activeReferrals={metrics?.qualifiedCount ?? 0}
+        totalEarnings={Number(wallet?.lifetimeEarned ?? 0).toLocaleString()}
+        thisMonth={Number(wallet?.availableBalance ?? 0).toLocaleString()}
+        pending={Number(wallet?.pendingBalance ?? 0).toLocaleString()}
         onShareLink={handleShare}
       >
         {/* Referral Code Card */}
@@ -109,7 +121,7 @@ export default function ReferralOverview() {
             <div className="flex items-start justify-between">
               <div>
                 <p className="text-sm text-ink-soft">Referral Code</p>
-                <p className="mt-1 text-2xl font-bold text-primary">{referralCode}</p>
+                <p className="mt-1 text-2xl font-bold text-primary">{referralCode || '—'}</p>
               </div>
               <button
                 onClick={handleCopy}
@@ -141,14 +153,22 @@ export default function ReferralOverview() {
         <div className="mt-6 grid gap-4 md:grid-cols-2">
           <div className="rounded-2xl border-2 border-primary/20 bg-white p-6 shadow-sm">
             <h3 className="text-lg font-bold text-primary">Performance Overview</h3>
-            <p className="mt-4 text-sm font-semibold text-ink">Monthly Target</p>
+            <p className="mt-4 text-sm font-semibold text-ink">Network Summary</p>
 
             <div className="mt-3 space-y-4">
-              <ProgressRow label="Referral Target (10)" value="4/10" progress={40} />
               <ProgressRow
-                label="Earning Target ₦5000"
-                value="₦1,500/₦5000"
-                progress={30}
+                label="Total Network"
+                value={`${metrics?.totalNetwork ?? 0} members`}
+                progress={100}
+              />
+              <ProgressRow
+                label="Qualified Members"
+                value={`${metrics?.qualifiedCount ?? 0}/${metrics?.totalNetwork ?? 0}`}
+                progress={
+                  metrics?.totalNetwork
+                    ? ((metrics.qualifiedCount ?? 0) / metrics.totalNetwork) * 100
+                    : 0
+                }
               />
             </div>
           </div>
@@ -156,12 +176,27 @@ export default function ReferralOverview() {
           <div className="rounded-2xl border-2 border-primary/20 bg-white p-6 shadow-sm">
             <h3 className="text-lg font-bold text-primary">Commission Breakdown</h3>
             <div className="mt-4 space-y-3 text-sm">
-              <BreakdownRow label="Level 1 (1.5%)" value="₦5000" />
-              <BreakdownRow label="Level 2 (0.75%)" value="₦280" />
-              <BreakdownRow label="Level 2 (0.375%)" value="₦145" />
-              <div className="border-t border-gray-200 pt-3">
-                <BreakdownRow label="Total This Month" value="₦5000" bold />
-              </div>
+              {levelEarnings.length === 0 && (
+                <p className="text-ink-soft">No commission earned yet.</p>
+              )}
+
+              {levelEarnings.map((level) => (
+                <BreakdownRow
+                  key={level.level}
+                  label={`Level ${level.level} (${level.percentage}%)`}
+                  value={`₦${Number(level.amountEarned).toLocaleString()}`}
+                />
+              ))}
+
+              {levelEarnings.length > 0 && (
+                <div className="border-t border-gray-200 pt-3">
+                  <BreakdownRow
+                    label="Total Earned"
+                    value={`₦${Number(totalEarned).toLocaleString()}`}
+                    bold
+                  />
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -175,7 +210,9 @@ export default function ReferralOverview() {
             <Wallet size={18} />
             <span className="text-sm font-medium">Wallet Balance</span>
           </div>
-          <p className="mt-2 text-3xl font-bold">₦{walletBalance.toLocaleString()}</p>
+          <p className="mt-2 text-3xl font-bold">
+            ₦{Number(wallet?.availableBalance ?? 0).toLocaleString()}
+          </p>
 
           <div className="mt-4 grid grid-cols-2 gap-3">
             <button
@@ -184,7 +221,10 @@ export default function ReferralOverview() {
             >
               💸 Withdraw
             </button>
-            <button className="flex items-center justify-center gap-2 rounded-full border-2 border-white/30 py-2.5 text-sm font-semibold text-white hover:bg-white/10">
+            <button
+              onClick={() => navigate('/app/referrals/earnings')}
+              className="flex items-center justify-center gap-2 rounded-full border-2 border-white/30 py-2.5 text-sm font-semibold text-white hover:bg-white/10"
+            >
               <History size={16} /> History
             </button>
           </div>
@@ -193,12 +233,12 @@ export default function ReferralOverview() {
         {/* Stats row */}
         <div className="grid grid-cols-2 gap-3">
           <div className="rounded-2xl border border-gray-200 bg-white p-4">
-            <p className="text-2xl font-bold text-ink">{totalReferrals}</p>
+            <p className="text-2xl font-bold text-ink">{metrics?.totalNetwork ?? 0}</p>
             <p className="mt-1 text-xs text-ink-soft">Total Referrals</p>
           </div>
           <div className="rounded-2xl border border-gray-200 bg-white p-4">
-            <p className="text-2xl font-bold text-ink">{activeReferrals}</p>
-            <p className="mt-1 text-xs text-ink-soft">Active Members</p>
+            <p className="text-2xl font-bold text-ink">{metrics?.qualifiedCount ?? 0}</p>
+            <p className="mt-1 text-xs text-ink-soft">Qualified Members</p>
           </div>
         </div>
 
@@ -225,73 +265,79 @@ export default function ReferralOverview() {
           </div>
         </div>
 
-        {/* Cashback progress */}
+        {/* Wallet breakdown — replaces the two hardcoded progress bars */}
         <div className="rounded-2xl border border-gray-200 bg-white p-4">
           <div className="flex items-center justify-between">
-            <span className="text-sm font-semibold text-primary">💰 Monthly Cashback</span>
+            <span className="text-sm font-semibold text-primary">💰 Wallet</span>
             <span className="text-sm font-bold text-primary">
-              ₦{monthlyCashback.toLocaleString()}/₦{monthlyTarget.toLocaleString()}
+              ₦{Number(wallet?.availableBalance ?? 0).toLocaleString()}
             </span>
           </div>
-          <div className="mt-2 h-2 overflow-hidden rounded-full bg-gray-200">
-            <div
-              className="h-full rounded-full bg-primary"
-              style={{ width: `${(monthlyCashback / monthlyTarget) * 100}%` }}
-            />
-          </div>
-          <p className="mt-2 text-xs text-ink-soft">
-            ₦{(monthlyTarget - monthlyCashback).toLocaleString()} more to unlock monthly bonus
-          </p>
-        </div>
-
-        {/* Commission Eligibility */}
-        <div className="rounded-2xl border border-gray-200 bg-white p-4">
-          <div className="flex items-center justify-between">
-            <span className="text-sm font-semibold text-primary">
-              🎓 Commission Eligibility
-            </span>
-            <span className="text-sm font-bold text-primary">75% Complete</span>
-          </div>
-          <div className="mt-2 h-2 overflow-hidden rounded-full bg-gray-200">
-            <div
-              className="h-full rounded-full bg-primary"
-              style={{ width: `${(currentCommission / commissionTarget) * 100}%` }}
-            />
-          </div>
-          <div className="mt-2 flex justify-between text-xs text-ink-soft">
-            <span>Current: ₦{currentCommission.toLocaleString()}</span>
-            <span>Target: ₦{commissionTarget.toLocaleString()}</span>
+          <div className="mt-3 space-y-2 text-xs">
+            <div className="flex justify-between">
+              <span className="text-ink-soft">Pending</span>
+              <span className="font-semibold text-primary">
+                ₦{Number(wallet?.pendingBalance ?? 0).toLocaleString()}
+              </span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-ink-soft">Lifetime Earned</span>
+              <span className="font-semibold text-primary">
+                ₦{Number(wallet?.lifetimeEarned ?? 0).toLocaleString()}
+              </span>
+            </div>
           </div>
         </div>
 
-        {/* Review Activity */}
+        {/* Review Activity — now real referrals, newest first */}
         <div>
           <div className="mb-3 flex items-center justify-between">
-            <p className="text-sm font-bold text-ink">Review Activity</p>
-            <button className="text-xs font-semibold text-primary">View All</button>
+            <p className="text-sm font-bold text-ink">Recent Referrals</p>
+            <button
+              onClick={() => navigate('/app/referrals/list')}
+              className="text-xs font-semibold text-primary"
+            >
+              View All
+            </button>
           </div>
-          <div className="space-y-2">
-            {[1, 2, 3].map((i) => (
-              <div
-                key={i}
-                className="flex items-center gap-3 rounded-xl bg-primary/5 p-3"
-              >
-                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10">
-                  <Bell size={14} className="text-primary" />
+
+          {recentReferrals.length === 0 ? (
+            <p className="rounded-xl bg-primary/5 p-4 text-center text-xs text-ink-soft">
+              No referrals yet. Share your link to get started.
+            </p>
+          ) : (
+            <div className="space-y-2">
+              {recentReferrals.map((r) => (
+                <div
+                  key={r.id}
+                  className="flex items-center gap-3 rounded-xl bg-primary/5 p-3"
+                >
+                  <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10">
+                    <Bell size={14} className="text-primary" />
+                  </div>
+                  <div className="flex-1">
+                    <p className="text-sm font-semibold text-primary">{r.fullname}</p>
+                    <p className="text-xs text-ink-soft">
+                      {r.commissionEligibilityStatus === 'ACTIVE'
+                        ? 'Active — earning you commission'
+                        : 'Signed up via your link'}
+                    </p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-xs text-primary">
+                      {new Date(r.joinedAt).toLocaleDateString('en-NG', {
+                        day: '2-digit',
+                        month: 'short',
+                      })}
+                    </p>
+                    <p className="text-xs font-semibold text-primary">
+                      ₦{Number(r.totalCommissionEarnedOnReferral ?? 0).toLocaleString()}
+                    </p>
+                  </div>
                 </div>
-                <div className="flex-1">
-                  <p className="text-sm font-semibold text-primary">
-                    Referral: Chidi Okoro
-                  </p>
-                  <p className="text-xs text-ink-soft">New sign-up via your link</p>
-                </div>
-                <div className="text-right">
-                  <p className="text-xs text-primary">Today</p>
-                  <p className="text-xs font-semibold text-primary">+₦0.00</p>
-                </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* Quick Actions */}
@@ -332,7 +378,10 @@ function ProgressRow({
         <span className="font-semibold text-primary">{value}</span>
       </div>
       <div className="mt-1 h-2 overflow-hidden rounded-full bg-gray-200">
-        <div className="h-full rounded-full bg-primary" style={{ width: `${progress}%` }} />
+        <div
+          className="h-full rounded-full bg-primary"
+          style={{ width: `${Math.min(100, Math.max(0, progress))}%` }}
+        />
       </div>
     </div>
   );

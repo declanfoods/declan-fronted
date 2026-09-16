@@ -1,51 +1,153 @@
 import { useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { Phone, Mail, MessageSquare, Copy, Check, MoreVertical, ArrowLeft } from 'lucide-react';
+import {
+  Phone,
+  Mail,
+  MessageSquare,
+  Copy,
+  Check,
+  MoreVertical,
+  ArrowLeft,
+  RefreshCw,
+} from 'lucide-react';
 import StatusPill from '../../../admin/StatusPill';
-import { findMockUser } from './mockUsers';
+import { useAdminUser, useSuspendUser, useUnsuspendUser } from '../../../../app/hooks/useAdminUsers';
+import { getApiErrorMessage } from '../../../../app/lib/api-types';
 
-function formatNaira(n: number) {
-  return `₦${n.toLocaleString()}`;
+/*
+|--------------------------------------------------------------------------
+| Admin → User Profile — WIRED TO API
+|--------------------------------------------------------------------------
+| BEFORE: `findMockUser(id)` — which searched a 2-item mock array, so every
+| real user ID resolved to `undefined` and the screen always rendered
+| "User not found." It could not work in production by construction.
+|
+| AFTER: `adminUserApi.getUserById(id)` with loading / error / not-found
+| states, and the Suspend / Unsuspend button is actually wired to
+| `PATCH /admin/users/:id/suspended` and `.../unsuspend`.
+|
+| Field mapping (AdminUserDetail → screen):
+|   fullname                              → name
+|   profilePictureUrl                     → avatar (null → initials)
+|   userStatus                            → StatusPill
+|   referralCode                          → copyable code
+|   financialOverview.referralWalleBalance→ Wallet      (⚠️ sic: backend typo)
+|   financialOverview.cashback            → Cashback
+|   financialOverview.numberOfReferrals   → Referrals
+|   financialOverview.totalSpend          → Total Spend
+|   financialOverview.orderCount          → Orders
+*/
+
+function formatNaira(value: string | number | undefined) {
+  return `₦${Number(value ?? 0).toLocaleString()}`;
 }
 
 export default function UserProfile() {
   const navigate = useNavigate();
   const { id } = useParams();
-  const user = id ? findMockUser(id) : undefined;
   const [copied, setCopied] = useState(false);
 
+  const userQuery = useAdminUser(id);
+  const suspend = useSuspendUser();
+  const unsuspend = useUnsuspendUser();
+
+  const user = userQuery.data;
+
   const handleCopyReferral = async () => {
-    if (!user) return;
+    if (!user?.referralCode) return;
+
     try {
       await navigator.clipboard.writeText(user.referralCode);
       setCopied(true);
       setTimeout(() => setCopied(false), 1500);
     } catch {
-      // ignore clipboard permission errors
+      // Clipboard permission denied.
     }
   };
 
-  if (!user) {
+  const handleToggleSuspend = () => {
+    if (!id || !user) return;
+
+    const isSuspended = user.userStatus === 'SUSPENDED';
+
+    if (!isSuspended && !window.confirm(`Suspend ${user.fullname}? They will lose access immediately.`)) {
+      return;
+    }
+
+    const mutation = isSuspended ? unsuspend : suspend;
+
+    mutation.mutate(id, {
+      onError: (error) => window.alert(getApiErrorMessage(error, 'Could not update this account.')),
+    });
+  };
+
+  if (userQuery.isLoading) {
     return (
-      <div className="flex min-h-screen flex-col items-center justify-center gap-3 bg-white px-5">
-        <p className="text-sm text-gray-500">User not found.</p>
-        <button
-          type="button"
-          onClick={() => navigate('/admin/users')}
-          className="rounded-full bg-primary px-5 py-2 text-sm font-semibold text-white"
-        >
-          Back to Users
-        </button>
+      <div className="flex min-h-screen flex-col bg-[#F3F7EE] px-5 pt-6">
+        <div className="h-24 w-24 animate-pulse self-center rounded-full bg-gray-200" />
+        <div className="mt-4 h-6 w-40 animate-pulse self-center rounded bg-gray-200" />
+        <div className="mt-8 h-40 animate-pulse rounded-2xl bg-gray-200" />
       </div>
     );
   }
 
+  if (userQuery.isError || !user) {
+    return (
+      <div className="flex min-h-screen flex-col items-center justify-center gap-3 bg-white px-5">
+        <p className="text-sm text-gray-500">
+          {userQuery.isError
+            ? getApiErrorMessage(userQuery.error, 'Could not load this user.')
+            : 'User not found.'}
+        </p>
+        <div className="flex gap-3">
+          <button
+            type="button"
+            onClick={() => userQuery.refetch()}
+            className="inline-flex items-center gap-2 rounded-full border border-gray-200 px-5 py-2 text-sm font-semibold text-gray-700"
+          >
+            <RefreshCw size={14} /> Retry
+          </button>
+          <button
+            type="button"
+            onClick={() => navigate('/admin/users')}
+            className="rounded-full bg-primary px-5 py-2 text-sm font-semibold text-white"
+          >
+            Back to Users
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  const isSuspended = user.userStatus === 'SUSPENDED';
+  const financials = user.financialOverview;
+
   const details = [
     { icon: Mail, label: 'Email Address', value: user.email },
-    { icon: Phone, label: 'Phone Number', value: user.phone },
-    { icon: null as null, label: 'Delivery Address', value: user.deliveryAddress },
-    { icon: null as null, label: 'Date Joined', value: user.dateJoined },
-    { icon: null as null, label: 'Last Login', value: user.lastLogin },
+    { icon: Phone, label: 'Phone Number', value: user.phoneNumber },
+    { icon: null as null, label: 'Delivery Address', value: user.deliveryAddress ?? '—' },
+    {
+      icon: null as null,
+      label: 'Date Joined',
+      value: new Date(user.joinedAt).toLocaleDateString('en-NG', {
+        day: '2-digit',
+        month: 'short',
+        year: 'numeric',
+      }),
+    },
+    {
+      icon: null as null,
+      label: 'Last Login',
+      value: user.lastLogin
+        ? new Date(user.lastLogin).toLocaleString('en-NG', {
+            day: '2-digit',
+            month: 'short',
+            year: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit',
+          })
+        : 'Never',
+    },
   ];
 
   return (
@@ -67,32 +169,50 @@ export default function UserProfile() {
 
       <main className="flex-1 space-y-5 px-5 pt-5">
         <div className="flex flex-col items-center">
-          <img
-            src={user.avatarUrl}
-            alt={user.name}
-            className="h-24 w-24 rounded-full object-cover"
-          />
-          <h2 className="mt-3 text-xl font-bold text-gray-900">{user.name}</h2>
-          <p className="text-sm text-gray-400">
-            ID: {user.custId.replace('#', '')} <span className="mx-1">•</span>
-          </p>
+          {user.profilePictureUrl ? (
+            <img
+              src={user.profilePictureUrl}
+              alt={user.fullname}
+              className="h-24 w-24 rounded-full object-cover"
+            />
+          ) : (
+            <div className="flex h-24 w-24 items-center justify-center rounded-full bg-primary/10 text-2xl font-bold text-primary">
+              {user.fullname
+                ?.split(' ')
+                .filter(Boolean)
+                .map((p) => p[0])
+                .join('')
+                .slice(0, 2)
+                .toUpperCase() || '?'}
+            </div>
+          )}
+
+          <h2 className="mt-3 text-xl font-bold text-gray-900">{user.fullname}</h2>
+          <p className="text-sm text-gray-400">ID: {user.id.slice(0, 8)}</p>
           <div className="mt-1">
-            <StatusPill label={user.status} />
+            <StatusPill label={user.userStatus} />
           </div>
 
+          {/* Phone / Email now actually do something */}
           <div className="mt-4 flex gap-8">
-            <button type="button" className="flex flex-col items-center gap-1">
+            <a
+              href={`tel:${user.phoneNumber}`}
+              className="flex flex-col items-center gap-1"
+            >
               <span className="flex h-11 w-11 items-center justify-center rounded-full bg-white text-primary shadow-sm">
                 <Phone size={18} />
               </span>
               <span className="text-xs text-gray-500">Phone</span>
-            </button>
-            <button type="button" className="flex flex-col items-center gap-1">
+            </a>
+            <a
+              href={`mailto:${user.email}`}
+              className="flex flex-col items-center gap-1"
+            >
               <span className="flex h-11 w-11 items-center justify-center rounded-full bg-white text-primary shadow-sm">
                 <Mail size={18} />
               </span>
               <span className="text-xs text-gray-500">Email</span>
-            </button>
+            </a>
             <button type="button" className="flex flex-col items-center gap-1">
               <span className="flex h-11 w-11 items-center justify-center rounded-full bg-white text-primary shadow-sm">
                 <MessageSquare size={18} />
@@ -108,25 +228,28 @@ export default function UserProfile() {
             <div className="rounded-2xl bg-white p-4 shadow-sm">
               <p className="text-xs text-gray-400">Wallet</p>
               <p className="mt-1 text-lg font-extrabold text-gray-900">
-                {formatNaira(user.walletBalance)}
+                {/* ⚠️ `referralWalleBalance` — the typo is in the real API
+                    response, not here. Do NOT "fix" it in the type without
+                    confirming the backend first. */}
+                {formatNaira(financials?.referralWalleBalance)}
               </p>
             </div>
             <div className="rounded-2xl bg-white p-4 shadow-sm">
               <p className="text-xs text-gray-400">Cashback</p>
               <p className="mt-1 text-lg font-extrabold text-primary">
-                {formatNaira(user.cashback)}
+                {formatNaira(financials?.cashback)}
               </p>
             </div>
             <div className="rounded-2xl bg-white p-4 shadow-sm">
               <p className="text-xs text-gray-400">Referrals</p>
               <p className="mt-1 text-lg font-extrabold text-gray-900">
-                {formatNaira(user.referralEarnings)}
+                {financials?.numberOfReferrals ?? 0}
               </p>
             </div>
             <div className="rounded-2xl bg-white p-4 shadow-sm">
               <p className="text-xs text-gray-400">Total Spend</p>
               <p className="mt-1 text-lg font-extrabold text-gray-900">
-                {formatNaira(user.lifetimeSpend)}
+                {formatNaira(financials?.totalSpend)}
               </p>
             </div>
           </div>
@@ -137,6 +260,7 @@ export default function UserProfile() {
           <div className="divide-y divide-gray-100 rounded-2xl bg-white shadow-sm">
             {details.map((d) => {
               const Icon = d.icon;
+
               return (
                 <div key={d.label} className="flex items-center gap-3 px-4 py-3.5">
                   {Icon && <Icon size={16} className="text-gray-400" />}
@@ -147,6 +271,7 @@ export default function UserProfile() {
                 </div>
               );
             })}
+
             <div className="flex items-center gap-3 px-4 py-3.5">
               <div className="flex-1">
                 <p className="text-xs text-gray-400">Referral Code</p>
@@ -167,16 +292,28 @@ export default function UserProfile() {
         <div className="space-y-3">
           <button
             type="button"
-            onClick={() => navigate(`/admin/users/${user.id}/orders`)}
+            onClick={() => navigate(`/admin/users/${user.id}/financials`)}
             className="w-full rounded-full border border-gray-200 py-3.5 text-sm font-semibold text-gray-700"
           >
-            View Orders
+            View Orders &amp; Transactions
           </button>
+
           <button
             type="button"
-            className="w-full rounded-full border border-red-300 py-3.5 text-sm font-semibold text-red-500"
+            onClick={handleToggleSuspend}
+            disabled={suspend.isPending || unsuspend.isPending}
+            className={
+              'w-full rounded-full py-3.5 text-sm font-semibold disabled:opacity-60 ' +
+              (isSuspended
+                ? 'border border-primary text-primary'
+                : 'border border-red-300 text-red-500')
+            }
           >
-            🚫 Suspend Account
+            {suspend.isPending || unsuspend.isPending
+              ? 'Updating…'
+              : isSuspended
+                ? '✓ Reactivate Account'
+                : '🚫 Suspend Account'}
           </button>
         </div>
       </main>

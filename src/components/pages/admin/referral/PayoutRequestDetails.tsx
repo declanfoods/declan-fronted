@@ -2,6 +2,19 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { ArrowLeft, CheckCircle2, Landmark, RotateCcw, XCircle, AlertTriangle, Check } from 'lucide-react';
 import { mockPayoutDetails } from './mockReferralData';
 
+/*
+|--------------------------------------------------------------------------
+| ⚠️ DEMO DATA — NOT WIRED TO AN API
+|--------------------------------------------------------------------------
+| Same gap as PayoutQueue: no GET /admin/referrals/payouts/:id, no approve or
+| reject endpoints. `mockPayoutDetails` only contains key "p1", so any other
+| request ID renders the not-found state.
+|
+| The "Admin Actions" buttons (Processing / Successful / Failed) and the
+| Approve / Reject footer buttons are INERT — they have no onClick. They are
+| labelled as demo below so an admin does not believe a payout was approved.
+*/
+
 export default function PayoutRequestDetails() {
   const navigate = useNavigate();
   const { id } = useParams();
@@ -34,6 +47,18 @@ export default function PayoutRequestDetails() {
       </header>
 
       <main className="flex-1 space-y-4 px-5 pt-5">
+        {/* Honest badge — actions below are inert until the API exists. */}
+        <div className="flex items-start gap-3 rounded-2xl border border-amber-200 bg-amber-50 p-4">
+          <AlertTriangle size={18} className="mt-0.5 shrink-0 text-amber-600" />
+          <div>
+            <p className="text-sm font-bold text-amber-900">Demo data — awaiting API</p>
+            <p className="mt-1 text-xs text-amber-800">
+              Approve, Reject and status changes below are not connected. Nothing you
+              tap here affects a real payout.
+            </p>
+          </div>
+        </div>
+
         <div className="rounded-2xl bg-white p-4 shadow-sm">
           <div className="flex items-center justify-between">
             <p className="text-sm text-gray-500">Withdrawal Request</p>

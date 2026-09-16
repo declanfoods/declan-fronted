@@ -84,6 +84,91 @@ const statusStyles: Record<
     text: 'text-red-600',
     dot: 'bg-red-500',
   },
+
+  /*
+  |----------------------------------------------------------------------
+  | ADDED: user account statuses
+  |----------------------------------------------------------------------
+  | AdminUserStatus = 'PENDING_VERIFICATION' | 'ACTIVE' | 'SUSPENDED',
+  | plus the label forms the Users screens render ("Active", "Inactive").
+  | Without these the pill silently fell back to grey, which is how a
+  | suspended account ended up looking identical to a normal one.
+  */
+  ACTIVE: {
+    container: 'bg-green-50',
+    text: 'text-green-600',
+    dot: 'bg-green-500',
+  },
+
+  INACTIVE: {
+    container: 'bg-gray-100',
+    text: 'text-gray-500',
+    dot: 'bg-gray-400',
+  },
+
+  PENDING_VERIFICATION: {
+    container: 'bg-amber-50',
+    text: 'text-amber-600',
+    dot: 'bg-amber-500',
+  },
+
+  SUSPENDED: {
+    container: 'bg-red-50',
+    text: 'text-red-600',
+    dot: 'bg-red-500',
+  },
+
+  /*
+  |----------------------------------------------------------------------
+  | ADDED: referral commission eligibility
+  |----------------------------------------------------------------------
+  */
+  QUALIFIED: {
+    container: 'bg-green-50',
+    text: 'text-green-600',
+    dot: 'bg-green-500',
+  },
+
+  'NOT QUALIFIED': {
+    container: 'bg-gray-100',
+    text: 'text-gray-500',
+    dot: 'bg-gray-400',
+  },
+
+  /*
+  |----------------------------------------------------------------------
+  | ADDED: payout / withdrawal request statuses
+  |----------------------------------------------------------------------
+  */
+  SUCCESSFUL: {
+    container: 'bg-green-50',
+    text: 'text-green-600',
+    dot: 'bg-green-500',
+  },
+
+  SUCCESS: {
+    container: 'bg-green-50',
+    text: 'text-green-600',
+    dot: 'bg-green-500',
+  },
+
+  REJECTED: {
+    container: 'bg-red-50',
+    text: 'text-red-600',
+    dot: 'bg-red-500',
+  },
+
+  CREDIT: {
+    container: 'bg-green-50',
+    text: 'text-green-600',
+    dot: 'bg-green-500',
+  },
+
+  DEBIT: {
+    container: 'bg-red-50',
+    text: 'text-red-600',
+    dot: 'bg-red-500',
+  },
 };
 
 function formatLabel(label: string) {

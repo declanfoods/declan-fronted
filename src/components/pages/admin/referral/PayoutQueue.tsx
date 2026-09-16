@@ -1,7 +1,27 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, User, CheckCircle2 } from 'lucide-react';
+import { ArrowLeft, User, CheckCircle2, AlertTriangle } from 'lucide-react';
 import { mockPayoutRequests, type PayoutRequest } from './mockReferralData';
+
+/*
+|--------------------------------------------------------------------------
+| ⚠️ DEMO DATA — NOT WIRED TO AN API
+|--------------------------------------------------------------------------
+| This screen is fully built but the backend has no payout endpoints yet:
+|
+|   GET   /admin/referrals/payouts
+|   GET   /admin/referrals/payouts/:id
+|   PATCH /admin/referrals/payouts/:id/approve
+|   PATCH /admin/referrals/payouts/:id/reject
+|   PATCH /admin/referrals/payouts/:id/status
+|
+| The Approve / Reject chips below are NOT clickable actions — they are
+| static labels on mock rows. A visible banner tells the admin this is demo
+| data so nobody approves a real payout against a fake row.
+|
+| When the endpoints land: add them to adminReferralApi.ts, add hooks to
+| useAdminReferrals.ts, then replace `mockPayoutRequests` here.
+*/
 
 const filters = ['All Requests', 'Pending', 'Processing', 'Successful'];
 
@@ -38,6 +58,20 @@ export default function PayoutQueue() {
           <p className="mt-1 text-sm text-gray-500">
             Manage and approve agent withdrawal earnings.
           </p>
+        </div>
+
+        {/* Honest badge — this screen is not connected to a backend yet. */}
+        <div className="flex items-start gap-3 rounded-2xl border border-amber-200 bg-amber-50 p-4">
+          <AlertTriangle size={18} className="mt-0.5 shrink-0 text-amber-600" />
+          <div>
+            <p className="text-sm font-bold text-amber-900">
+              Demo data — awaiting API
+            </p>
+            <p className="mt-1 text-xs text-amber-800">
+              The payout endpoints aren't built on the backend yet, so these rows are
+              placeholders. Approve / Reject are not live actions.
+            </p>
+          </div>
         </div>
 
         <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">

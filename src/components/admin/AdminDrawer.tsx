@@ -17,6 +17,7 @@ import {
   LogOut,
   X,
   UtensilsCrossed,
+  ExternalLink,
 } from 'lucide-react';
 import { adminLogout } from '../../app/lib/adminAuth';
 
@@ -26,21 +27,50 @@ type AdminDrawerProps = {
   fullPage?: boolean;
 };
 
-const mainLinks = [
+/*
+|--------------------------------------------------------------------------
+| Nav model
+|--------------------------------------------------------------------------
+| `newTab: true` renders a real <a target="_blank"> instead of doing an in-app
+| navigation. Opening a new browser tab is ONLY possible through a genuine
+| anchor — a <button onClick={navigate}> can never do it, and window.open()
+| gets silently blocked by popup blockers on mobile.
+|
+| Per request: "Users" (Admin User Management) and "Referrals" (Referral
+| Dashboard) each open in their own blank tab, so an admin can keep this
+| screen open while working in them. Delete the `newTab: true` line on either
+| to put it back to normal in-app navigation.
+*/
+type DrawerLink = {
+  label: string;
+  to: string;
+  icon: typeof LayoutGrid;
+  newTab?: boolean;
+};
+
+const mainLinks: DrawerLink[] = [
   { label: 'Overview', to: '/admin', icon: LayoutGrid },
   { label: 'Products', to: '/admin/products', icon: Package },
   { label: 'Food Packs', to: '/admin/food-packs', icon: ShoppingBasket },
   { label: 'Orders', to: '/admin/orders', icon: ShoppingCart },
-  { label: 'Users', to: '/admin/users', icon: Users },
+  // Admin User Management — new blank tab.
+  { label: 'Users', to: '/admin/users', icon: Users, newTab: true },
 ];
 
-const opsLinks = [
-  { label: 'Referrals', to: '/admin/referrals', icon: Share2 },
-  { label: 'Delivery', to: '/admin/delivery', icon: Truck },
+const opsLinks: DrawerLink[] = [
+  // Referral Dashboard — new blank tab.
+  { label: 'Referrals', to: '/admin/referrals', icon: Share2, newTab: true },
+  // FIX: this pointed at '/admin/delivery', which has NO route defined in
+  // App.tsx. Clicking it fell through to the catch-all `path="*"`, so an admin
+  // tapping "Delivery" was dumped on the public marketing homepage.
+  // Delivery operations (assign rider, update status) live under /admin/orders.
+  { label: 'Delivery', to: '/admin/orders', icon: Truck },
   { label: 'Rider Management', to: '/admin/riders', icon: Bike },
 ];
 
-const insightLinks = [{ label: 'Analytics', to: '/admin/analytics', icon: BarChart3 }];
+const insightLinks: DrawerLink[] = [
+  { label: 'Analytics', to: '/admin/analytics', icon: BarChart3 },
+];
 
 const quickActions = [
   { label: 'Add Product', to: '/admin/products/add', icon: PlusCircle },
@@ -56,6 +86,51 @@ export default function AdminDrawer({ onClose, fullPage }: AdminDrawerProps) {
   const go = (to: string) => {
     navigate(to);
     onClose?.();
+  };
+
+  /*
+    Renders one nav row. Links flagged `newTab` become real anchors so the
+    browser opens them in a new tab; everything else stays an in-app button.
+    The anchor also closes the drawer, so returning to this tab leaves you on
+    a tidy screen rather than an open menu.
+  */
+  const renderLink = (link: DrawerLink, opts: { active?: boolean; tone?: 'plain' | 'primary' } = {}) => {
+    const Icon = link.icon;
+    const active = opts.active ?? false;
+    const tone = opts.tone ?? 'plain';
+
+    const classes = `flex items-center gap-3 rounded-full px-4 py-2.5 text-left text-sm font-semibold transition-colors ${
+      active
+        ? 'bg-primary text-white'
+        : tone === 'primary'
+          ? 'text-primary-dark hover:bg-primary/10'
+          : 'text-gray-700 hover:bg-gray-50'
+    }`;
+
+    if (link.newTab) {
+      return (
+        <a
+          key={link.label}
+          href={link.to}
+          target="_blank"
+          rel="noopener noreferrer"
+          onClick={() => onClose?.()}
+          className={classes}
+        >
+          <Icon size={18} strokeWidth={2} />
+          <span className="flex-1">{link.label}</span>
+          {/* Signals "this leaves this tab" so it isn't a surprise. */}
+          <ExternalLink size={14} className={active ? 'text-white/70' : 'text-gray-300'} />
+        </a>
+      );
+    }
+
+    return (
+      <button key={link.label} type="button" onClick={() => go(link.to)} className={classes}>
+        <Icon size={18} strokeWidth={2} />
+        <span className="flex-1">{link.label}</span>
+      </button>
+    );
   };
 
   const content = (
@@ -91,55 +166,13 @@ export default function AdminDrawer({ onClose, fullPage }: AdminDrawerProps) {
 
       <nav className="mt-5 flex flex-col gap-1 px-5">
         <p className="mb-1 text-xs font-semibold tracking-wide text-gray-400">MAIN</p>
-        {mainLinks.map((link) => {
-          const Icon = link.icon;
-          const active = currentPath === link.to;
-          return (
-            <button
-              key={link.label}
-              type="button"
-              onClick={() => go(link.to)}
-              className={`flex items-center gap-3 rounded-full px-4 py-2.5 text-left text-sm font-semibold transition-colors ${
-                active ? 'bg-primary text-white' : 'text-gray-700 hover:bg-gray-50'
-              }`}
-            >
-              <Icon size={18} strokeWidth={2} />
-              {link.label}
-            </button>
-          );
-        })}
+        {mainLinks.map((link) => renderLink(link, { active: currentPath === link.to }))}
 
         <p className="mb-1 mt-4 text-xs font-semibold tracking-wide text-gray-400">OPERATIONS</p>
-        {opsLinks.map((link) => {
-          const Icon = link.icon;
-          return (
-            <button
-              key={link.label}
-              type="button"
-              onClick={() => go(link.to)}
-              className="flex items-center gap-3 rounded-full px-4 py-2.5 text-left text-sm font-semibold text-gray-700 hover:bg-gray-50"
-            >
-              <Icon size={18} strokeWidth={2} />
-              {link.label}
-            </button>
-          );
-        })}
+        {opsLinks.map((link) => renderLink(link, { active: currentPath === link.to }))}
 
         <p className="mb-1 mt-4 text-xs font-semibold tracking-wide text-gray-400">INSIGHTS</p>
-        {insightLinks.map((link) => {
-          const Icon = link.icon;
-          return (
-            <button
-              key={link.label}
-              type="button"
-              onClick={() => go(link.to)}
-              className="flex items-center gap-3 rounded-full px-4 py-2.5 text-left text-sm font-semibold text-gray-700 hover:bg-gray-50"
-            >
-              <Icon size={18} strokeWidth={2} />
-              {link.label}
-            </button>
-          );
-        })}
+        {insightLinks.map((link) => renderLink(link, { active: currentPath === link.to }))}
       </nav>
 
       <div className="mt-6 px-5">

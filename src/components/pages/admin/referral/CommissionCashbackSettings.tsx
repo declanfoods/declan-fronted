@@ -1,29 +1,118 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, GitBranch, Star, Wallet, Info, Save } from 'lucide-react';
+import { ArrowLeft, GitBranch, Wallet, Info, Save, RefreshCw } from 'lucide-react';
+import {
+  useCommissionConfig,
+  useUpdateCashbackConfig,
+  useUpdateCommissionConfig,
+  useUpdateWalletConfig,
+} from '../../../../app/hooks/useAdminReferrals';
+import { getApiErrorMessage } from '../../../../app/lib/api-types';
 
-const levelDefaults = [
-  { level: 'Level 1', pct: '5', note: 'Direct' },
-  { level: 'Level 2', pct: '3', note: 'Tier 2' },
-  { level: 'Level 3', pct: '1.5', note: 'Tier 3' },
-  { level: 'Level 4', pct: '0.5', note: 'Tier 4' },
-];
+/*
+|--------------------------------------------------------------------------
+| Admin → Commission & Cashback & Wallet — WIRED TO API
+|--------------------------------------------------------------------------
+| BEFORE: 4 commission levels with invented defaults (5% / 3% / 1.5% / 0.5%),
+| an unlock threshold of "50,000", cashback 2% on "2,000", and a Save button
+| with no onClick.
+|
+| AFTER: reads GET /admin/config/commission (which returns all three blocks
+| in one payload: { commission, cashback, wallet }) and writes through three
+| separate PATCH endpoints.
+|
+| ⚠️ IMPORTANT MISMATCH — the UI showed FOUR commission levels.
+|    The backend only stores TWO:
+|        levelOneCommissionRate
+|        levelTwoCommissionRate
+|    So the Level 3 / Level 4 cards have been removed rather than displayed
+|    as decorative inputs that can never be saved. If you need L3/L4, the
+|    config table + PATCH DTO need new columns.
+|
+| Field mapping:
+|   commission.levelOneCommissionRate  ⇄ Level 1 %
+|   commission.levelTwoCommissionRate  ⇄ Level 2 %
+|   commission.unlockThreshold         ⇄ Unlock Threshold
+|   commission.minimumMonthlySpend     ⇄ Min Monthly Spend
+|   cashback.enabled / percentage / minimumSpend
+|   wallet.allowWalletUsage / enableEarnings / enableWithdrawals / autoCreditCashback
+|
+| Note: numeric fields arrive as `string | number` depending on the row, so
+| everything is normalised through Number()/String() before going into inputs.
+*/
 
 export default function CommissionCashbackSettings() {
   const navigate = useNavigate();
-  const [levels, setLevels] = useState(levelDefaults);
-  const [unlockThreshold, setUnlockThreshold] = useState('50,000');
-  const [minMonthlySpend, setMinMonthlySpend] = useState('10,000');
-  const [cashbackOn, setCashbackOn] = useState(true);
-  const [cashbackPct, setCashbackPct] = useState('2');
-  const [cashbackMinSpend, setCashbackMinSpend] = useState('2,000');
-  const [allowWalletUsage, setAllowWalletUsage] = useState(true);
-  const [enableEarnings, setEnableEarnings] = useState(true);
-  const [enableWithdrawals, setEnableWithdrawals] = useState(false);
-  const [autoCredit, setAutoCredit] = useState(true);
 
-  const updateLevel = (idx: number, pct: string) => {
-    setLevels((prev) => prev.map((l, i) => (i === idx ? { ...l, pct } : l)));
+  const configQuery = useCommissionConfig();
+  const updateCommission = useUpdateCommissionConfig();
+  const updateCashback = useUpdateCashbackConfig();
+  const updateWallet = useUpdateWalletConfig();
+
+  const config = configQuery.data;
+
+  const [levelOne, setLevelOne] = useState('0');
+  const [levelTwo, setLevelTwo] = useState('0');
+  const [unlockThreshold, setUnlockThreshold] = useState('0');
+  const [minMonthlySpend, setMinMonthlySpend] = useState('0');
+
+  const [cashbackOn, setCashbackOn] = useState(false);
+  const [cashbackPct, setCashbackPct] = useState('0');
+  const [cashbackMinSpend, setCashbackMinSpend] = useState('0');
+
+  const [allowWalletUsage, setAllowWalletUsage] = useState(false);
+  const [enableEarnings, setEnableEarnings] = useState(false);
+  const [enableWithdrawals, setEnableWithdrawals] = useState(false);
+  const [autoCredit, setAutoCredit] = useState(false);
+
+  useEffect(() => {
+    if (!config) return;
+
+    setLevelOne(String(Number(config.commission?.levelOneCommissionRate ?? 0)));
+    setLevelTwo(String(Number(config.commission?.levelTwoCommissionRate ?? 0)));
+    setUnlockThreshold(String(Number(config.commission?.unlockThreshold ?? 0)));
+    setMinMonthlySpend(String(Number(config.commission?.minimumMonthlySpend ?? 0)));
+
+    setCashbackOn(Boolean(config.cashback?.enabled));
+    setCashbackPct(String(Number(config.cashback?.percentage ?? 0)));
+    setCashbackMinSpend(String(Number(config.cashback?.minimumSpend ?? 0)));
+
+    setAllowWalletUsage(Boolean(config.wallet?.allowWalletUsage));
+    setEnableEarnings(Boolean(config.wallet?.enableEarnings));
+    setEnableWithdrawals(Boolean(config.wallet?.enableWithdrawals));
+    setAutoCredit(Boolean(config.wallet?.autoCreditCashback));
+  }, [config]);
+
+  const isSaving =
+    updateCommission.isPending || updateCashback.isPending || updateWallet.isPending;
+
+  const handleSave = async () => {
+    try {
+      // Three separate endpoints — run them together and report the first failure.
+      await Promise.all([
+        updateCommission.mutateAsync({
+          levelOneCommissionRate: Number(levelOne || 0),
+          levelTwoCommissionRate: Number(levelTwo || 0),
+          unlockThreshold: Number(unlockThreshold || 0),
+          minimumMonthlySpend: Number(minMonthlySpend || 0),
+        }),
+        updateCashback.mutateAsync({
+          enabled: cashbackOn,
+          percentage: Number(cashbackPct || 0),
+          minimumSpend: Number(cashbackMinSpend || 0),
+        }),
+        updateWallet.mutateAsync({
+          allowWalletUsage,
+          enableEarnings,
+          enableWithdrawals,
+          autoCreditCashback: autoCredit,
+        }),
+      ]);
+
+      window.alert('Commission, cashback and wallet settings saved.');
+    } catch (error) {
+      window.alert(getApiErrorMessage(error, 'Could not save all settings.'));
+    }
   };
 
   const toggles = [
@@ -53,20 +142,40 @@ export default function CommissionCashbackSettings() {
     },
   ];
 
+  if (configQuery.isLoading) {
+    return (
+      <div className="flex min-h-screen flex-col bg-[#F3F7EE] px-5 pt-6">
+        <div className="h-24 animate-pulse rounded-2xl bg-gray-200" />
+        <div className="mt-4 h-32 animate-pulse rounded-2xl bg-gray-200" />
+        <div className="mt-4 h-32 animate-pulse rounded-2xl bg-gray-200" />
+      </div>
+    );
+  }
+
+  if (configQuery.isError) {
+    return (
+      <div className="flex min-h-screen flex-col items-center justify-center gap-3 bg-white px-5">
+        <p className="text-center text-sm text-gray-500">
+          {getApiErrorMessage(configQuery.error, 'Could not load system rules.')}
+        </p>
+        <button
+          type="button"
+          onClick={() => configQuery.refetch()}
+          className="inline-flex items-center gap-2 rounded-full bg-primary px-5 py-2 text-sm font-semibold text-white"
+        >
+          <RefreshCw size={14} /> Retry
+        </button>
+      </div>
+    );
+  }
+
   return (
     <div className="flex min-h-screen flex-col bg-[#F3F7EE] pb-10">
-      <header className="flex items-center justify-between bg-white px-5 pt-6 pb-4">
-        <div className="flex items-center gap-3">
-          <button type="button" onClick={() => navigate(-1)} className="text-primary-dark">
-            <ArrowLeft size={22} strokeWidth={2} />
-          </button>
-          <h1 className="text-lg font-bold text-primary-dark">Referral &amp; Rewards</h1>
-        </div>
-        <img
-          src="https://i.pravatar.cc/60?img=5"
-          alt="Admin"
-          className="h-8 w-8 rounded-full object-cover"
-        />
+      <header className="flex items-center gap-3 bg-white px-5 pt-6 pb-4">
+        <button type="button" onClick={() => navigate(-1)} className="text-primary-dark">
+          <ArrowLeft size={22} strokeWidth={2} />
+        </button>
+        <h1 className="text-lg font-bold text-primary-dark">Referral &amp; Rewards</h1>
       </header>
 
       <main className="flex-1 space-y-5 px-5 pt-5">
@@ -80,23 +189,41 @@ export default function CommissionCashbackSettings() {
             <GitBranch size={18} className="text-primary" />
             <h3 className="text-sm font-bold text-gray-900">Multi-Level Commission</h3>
           </div>
+
           <div className="grid grid-cols-2 gap-3">
-            {levels.map((l, idx) => (
-              <div key={l.level} className="rounded-2xl border border-gray-200 bg-white p-4">
-                <p className="text-xs text-gray-500">{l.level}</p>
-                <div className="mt-1 flex items-baseline gap-1">
-                  <input
-                    value={l.pct}
-                    onChange={(e) => updateLevel(idx, e.target.value)}
-                    inputMode="decimal"
-                    className="w-12 bg-transparent text-2xl font-extrabold text-primary outline-none"
-                  />
-                  <span className="text-2xl font-extrabold text-primary">%</span>
-                  <span className="ml-1 text-xs text-gray-400">{l.note}</span>
-                </div>
+            <div className="rounded-2xl border border-gray-200 bg-white p-4">
+              <p className="text-xs text-gray-500">Level 1</p>
+              <div className="mt-1 flex items-baseline gap-1">
+                <input
+                  value={levelOne}
+                  onChange={(e) => setLevelOne(e.target.value.replace(/[^\d.]/g, ''))}
+                  inputMode="decimal"
+                  className="w-14 bg-transparent text-2xl font-extrabold text-primary outline-none"
+                />
+                <span className="text-2xl font-extrabold text-primary">%</span>
+                <span className="ml-1 text-xs text-gray-400">Direct</span>
               </div>
-            ))}
+            </div>
+
+            <div className="rounded-2xl border border-gray-200 bg-white p-4">
+              <p className="text-xs text-gray-500">Level 2</p>
+              <div className="mt-1 flex items-baseline gap-1">
+                <input
+                  value={levelTwo}
+                  onChange={(e) => setLevelTwo(e.target.value.replace(/[^\d.]/g, ''))}
+                  inputMode="decimal"
+                  className="w-14 bg-transparent text-2xl font-extrabold text-primary outline-none"
+                />
+                <span className="text-2xl font-extrabold text-primary">%</span>
+                <span className="ml-1 text-xs text-gray-400">Tier 2</span>
+              </div>
+            </div>
           </div>
+
+          <p className="mt-2 text-[11px] text-gray-400">
+            The backend currently stores two commission levels. Levels 3 and 4 were
+            removed from this screen because there is nowhere to save them.
+          </p>
         </section>
 
         <div className="rounded-2xl border border-gray-200 bg-white p-4">
@@ -105,11 +232,13 @@ export default function CommissionCashbackSettings() {
             <span className="text-gray-500">₦</span>
             <input
               value={unlockThreshold}
-              onChange={(e) => setUnlockThreshold(e.target.value)}
+              onChange={(e) => setUnlockThreshold(e.target.value.replace(/[^\d.]/g, ''))}
               className="w-full bg-transparent text-sm font-semibold text-gray-800 outline-none"
             />
           </div>
-          <p className="mt-2 text-xs text-gray-400">Min revenue to enable multilevel earnings.</p>
+          <p className="mt-2 text-xs text-gray-400">
+            Min revenue to enable multilevel earnings.
+          </p>
         </div>
 
         <div className="rounded-2xl border border-gray-200 bg-white p-4">
@@ -118,21 +247,19 @@ export default function CommissionCashbackSettings() {
             <span className="text-gray-500">₦</span>
             <input
               value={minMonthlySpend}
-              onChange={(e) => setMinMonthlySpend(e.target.value)}
+              onChange={(e) => setMinMonthlySpend(e.target.value.replace(/[^\d.]/g, ''))}
               className="w-full bg-transparent text-sm font-semibold text-gray-800 outline-none"
             />
           </div>
-          <p className="mt-2 text-xs text-gray-400">Active status requirement per month.</p>
+          <p className="mt-2 text-xs text-gray-400">
+            Spend required each month to stay commission-eligible.
+          </p>
         </div>
 
-        <div className="rounded-2xl border-2 border-primary/30 bg-primary/5 p-4">
+        {/* Cashback */}
+        <div className="rounded-2xl border border-gray-200 bg-white p-4">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <span className="flex h-7 w-7 items-center justify-center rounded-full bg-primary text-white">
-                <Star size={14} />
-              </span>
-              <p className="text-sm font-bold text-gray-900">Cashback Rewards</p>
-            </div>
+            <p className="text-sm font-bold text-gray-900">Cashback</p>
             <button
               type="button"
               onClick={() => setCashbackOn((v) => !v)}
@@ -149,14 +276,14 @@ export default function CommissionCashbackSettings() {
           </div>
 
           {cashbackOn && (
-            <div className="mt-4 space-y-3">
+            <div className="mt-4 grid grid-cols-2 gap-3">
               <div>
                 <label className="mb-1.5 block text-xs font-medium text-gray-600">
                   Percentage (%)
                 </label>
                 <input
                   value={cashbackPct}
-                  onChange={(e) => setCashbackPct(e.target.value)}
+                  onChange={(e) => setCashbackPct(e.target.value.replace(/[^\d.]/g, ''))}
                   inputMode="decimal"
                   className="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm font-semibold text-gray-800 outline-none"
                 />
@@ -169,7 +296,9 @@ export default function CommissionCashbackSettings() {
                   <span className="text-gray-500">₦</span>
                   <input
                     value={cashbackMinSpend}
-                    onChange={(e) => setCashbackMinSpend(e.target.value)}
+                    onChange={(e) =>
+                      setCashbackMinSpend(e.target.value.replace(/[^\d.]/g, ''))
+                    }
                     className="w-full bg-transparent text-sm font-semibold text-gray-800 outline-none"
                   />
                 </div>
@@ -213,18 +342,21 @@ export default function CommissionCashbackSettings() {
           <div>
             <p className="text-sm font-bold text-gray-900">Rule Processing Note</p>
             <p className="mt-1 text-xs text-gray-600">
-              Changes to commission levels and cashback percentages will only apply to new
-              transactions. Existing pending settlements will follow previously active rules.
+              Changes to commission levels and cashback percentages will only apply to
+              new transactions. Existing pending settlements will follow previously
+              active rules.
             </p>
           </div>
         </div>
 
         <button
           type="button"
-          className="flex w-full items-center justify-center gap-2 rounded-full bg-primary py-4 text-sm font-semibold text-white"
+          onClick={handleSave}
+          disabled={isSaving}
+          className="flex w-full items-center justify-center gap-2 rounded-full bg-primary py-4 text-sm font-semibold text-white disabled:opacity-60"
         >
           <Save size={16} />
-          Save Changes
+          {isSaving ? 'Saving…' : 'Save Changes'}
         </button>
       </main>
     </div>

@@ -1,29 +1,92 @@
 import api from './axios';
+import type { ApiResponse, ApiPagination } from './api-types';
 
-interface ApiResponse<T> {
-  success: boolean;
-  message: string;
-  statusCode: number;
-  timestamp: string;
-  data: T;
-}
+/*
+|--------------------------------------------------------------------------
+| ADMIN REFERRAL API
+|--------------------------------------------------------------------------
+| Changes from the previous version:
+|  - `ApiResponse<T>` now imported from the shared `api-types.ts`.
+|  - `AdminPagination` re-exported as an alias of `ApiPagination` so the
+|    existing `import type { AdminPagination } from './adminReferralApi'`
+|    in other modules keeps working.
+|  - Endpoint paths confirmed against the /api/v1/admin/config/* controller.
+|    Highlights:
+|      GET   /admin/config/commission   → { commission, cashback, wallet }
+|      PATCH /admin/config/commission   → commission only
+|      PATCH /admin/config/cashback     → cashback only
+|      PATCH /admin/config/wallet       → wallet only
+|      GET   /admin/config/referral     → referral program
+|      PATCH /admin/config/referral
+|      GET   /admin/config/withdrawal
+|      PATCH /admin/config/withdrawal
+*/
 
-export interface AdminPagination {
-  totalItems: number;
-  totalPages: number;
-  currentPage: number;
-  pageSize: number;
-  hasNextPage: boolean;
-  hasPreviousPage: boolean;
-}
+export type AdminPagination = ApiPagination;
 
 /*
 |--------------------------------------------------------------------------
 | Get User Referral Metrics — GET /admin/referrals/users/:id/metrics
 |--------------------------------------------------------------------------
-| Quirk: totalNumberOfOrders is a plain number (0) when NOT QUALIFIED, but
-| an object { totalNumberOfOrders, totalOrderValue } when QUALIFIED.
-| Kept as the union it actually is — don't assume it's always a number.
+| ⚠️ CORRECTED against the official Postman docs.
+|
+| This endpoint returns a SINGLE OBJECT under `data.referral` — NOT an array
+| of referrals. The earlier version of this file typed it as
+| `{ referrals: [...], pagination }`, which meant `data.referrals` was always
+| `undefined` and the member-detail screen rendered "No referrals in this
+| view." no matter what. Two different endpoints were being conflated:
+|
+|   GET /admin/referrals/users/:id/metrics            ← header summary (THIS)
+|   GET /admin/referrals/users/:id/direct-referrals   ← the actual list
+|
+| Real 200 response (verbatim from the docs):
+| {
+|   "data": {
+|     "referral": {
+|       "id": "08e52bee-…", "fullname": "Justice Amadi",
+|       "profilePictureUrl": "", "activeStatus": "ACTIVE",
+|       "referralCode": "0Js5PY5o", "joinedAt": "2026-09-06T07:55:34.842Z",
+|       "metrics": {
+|         "network": 10, "lifetimeCommission": 11045.5, "qualified": 3,
+|         "lifetimeRevenue": 167455, "directReferrals": 10
+|       }
+|     }
+|   }
+| }
+*/
+
+export interface AdminUserReferralSummaryMetrics {
+  network: number;
+  lifetimeCommission: number;
+  qualified: number;
+  lifetimeRevenue: number;
+  directReferrals: number;
+}
+
+export interface AdminUserReferralSummary {
+  id: string;
+  fullname: string;
+  profilePictureUrl: string | null;
+  activeStatus: string;
+  referralCode: string;
+  joinedAt: string;
+  metrics: AdminUserReferralSummaryMetrics;
+}
+
+/*
+|--------------------------------------------------------------------------
+| Get User Direct Referrals — GET /admin/referrals/users/:id/direct-referrals
+|--------------------------------------------------------------------------
+| Documents: "Fetched referral network successfully"
+|
+| Quirk CONFIRMED by the docs: `totalNumberOfOrders` is a plain number (0)
+| when NOT QUALIFIED, but an object { totalNumberOfOrders, totalOrderValue }
+| when QUALIFIED. Real example showing BOTH in one array:
+|
+|   { "commissionEligibilityStatus": "NOT QUALIFIED",
+|     "totalNumberOfOrders": 0, … }
+|   { "commissionEligibilityStatus": "QUALIFIED",
+|     "totalNumberOfOrders": { "totalNumberOfOrders": 5, "totalOrderValue": 75705 }, … }
 */
 
 export interface UserReferralMetricOrders {
@@ -165,14 +228,28 @@ export interface UpdateWithdrawalPayload {
 }
 
 export const adminReferralApi = {
-  getUserReferralMetrics: (userId: string, filters?: { page?: number; limit?: number }) =>
-    api.get<ApiResponse<{ referrals: UserReferralMetricItem[]; pagination: AdminPagination }>>(
-      `/api/v1/admin/referrals/users/${userId}/metrics`,
-      { params: filters }
+  /**
+   * GET /admin/referrals/users/:id/metrics
+   * Header summary only — ONE member's aggregate metrics, not a list.
+   * For the list of their direct referrals use `getUserDirectReferrals`.
+   */
+  getUserReferralMetrics: (userId: string) =>
+    api.get<ApiResponse<{ referral: AdminUserReferralSummary }>>(
+      `/api/v1/admin/referrals/users/${userId}/metrics`
     ),
 
+  /**
+   * GET /admin/referrals/users/:id/direct-referrals
+   * The paginated list of people this user referred directly.
+   */
+  getUserDirectReferrals: (userId: string, filters?: { page?: number; limit?: number }) =>
+    api.get<
+      ApiResponse<{ referrals: UserReferralMetricItem[]; pagination: ApiPagination }>
+    >(`/api/v1/admin/referrals/users/${userId}/direct-referrals`, { params: filters }),
+
+  /** GET /admin/referrals — the platform-wide referrer list, filterable by level. */
   getReferrals: (filters?: AdminReferralFilters) =>
-    api.get<ApiResponse<{ referrals: AdminReferralListItem[]; pagination: AdminPagination }>>(
+    api.get<ApiResponse<{ referrals: AdminReferralListItem[]; pagination: ApiPagination }>>(
       '/api/v1/admin/referrals',
       { params: filters }
     ),

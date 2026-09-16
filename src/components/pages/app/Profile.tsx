@@ -693,15 +693,24 @@ export default function Profile() {
                     </div>
                   )}
 
-                  <button
-                    type="button"
-                    onClick={() =>
-                      navigate('/app/referrals')
-                    }
-                    className="mt-2 w-full rounded-full bg-primary py-3 text-sm font-semibold text-white transition-colors hover:bg-primary-dark"
+                  {/*
+                    FIX: this used to be a client-side navigate(), which
+                    replaced the Profile page. Now it opens the full referral
+                    dashboard in a NEW TAB so the customer keeps their
+                    profile screen open.
+
+                    It's a real <a> with target="_blank" — not a button with
+                    window.open(). Anchors survive popup blockers; window.open()
+                    gets silently blocked in many mobile browsers.
+                  */}
+                  <a
+                    href="/app/referrals"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="mt-2 flex w-full items-center justify-center rounded-full bg-primary py-3 text-sm font-semibold text-white transition-colors hover:bg-primary-dark"
                   >
                     View Full Referral Dashboard ❯
-                  </button>
+                  </a>
                 </div>
               )}
             </div>
