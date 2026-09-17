@@ -42,7 +42,22 @@ export function getApiErrorMessage(error: unknown, fallback = 'Something went wr
     const message = response?.data?.message;
 
     if (Array.isArray(message)) return message.join(', ');
-    if (typeof message === 'string' && message.length > 0) return message;
+
+    if (typeof message === 'string' && message.length > 0) {
+      /*
+        Translate Express's route-not-found text before it reaches a user.
+        When a URL doesn't resolve, Express returns:
+            "Cannot PATCH /api/v1/delivery-rider/deliveries/<uuid>/pick-up"
+        That is a developer message — it tells the person tapping the button
+        nothing they can act on, and it leaked the raw path onto a rider's
+        screen in production. Anyone seeing it just retries forever.
+      */
+      if (/^Cannot (GET|POST|PATCH|PUT|DELETE)\s+\//i.test(message)) {
+        return fallback;
+      }
+
+      return message;
+    }
   }
 
   if (error instanceof Error && error.message) return error.message;

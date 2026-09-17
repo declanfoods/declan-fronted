@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { getApiErrorMessage } from '../../../app/lib/api-types';
 import { useNavigate, useParams } from 'react-router-dom';
 import {
   Phone,
@@ -52,10 +53,7 @@ export default function DeliveryDetails() {
         setDelivery(res.data.data.delivery);
       })
       .catch((err) => {
-        setError(
-          err.response?.data?.message ??
-            'Failed to load delivery.'
-        );
+        setError(getApiErrorMessage(err, 'Failed to load delivery.'));
       })
       .finally(() => {
         setLoading(false);
@@ -89,10 +87,7 @@ export default function DeliveryDetails() {
         navigate(`/rider/deliveries/${id}/verify`);
       }
     } catch (err: any) {
-      setError(
-        err.response?.data?.message ??
-          'Failed to update delivery.'
-      );
+      setError(getApiErrorMessage(err, 'Failed to update delivery.'));
     } finally {
       setActionBusy(false);
     }

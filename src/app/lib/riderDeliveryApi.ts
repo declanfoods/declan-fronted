@@ -84,27 +84,45 @@ export const riderDeliveryApi = {
   | silent 404 caught by the caller's generic "try again" toast, so it read
   | as a flaky network rather than a wrong URL.
   |
-  |   was                              →  is                (per API docs)
-  |   -------------------------------     ------------------------------
-  |   .../deliveries/:id/pickup          .../deliveries/:id/pick-up
-  |   .../deliveries/:id/start           .../deliveries/:id/start-delivery
-  |   .../deliveries/:id/exchange-code   .../deliveries/:id/code-exchange
+  | ⚠️ CORRECTION — the Postman docs are WRONG on three of these four, and
+  |    my previous "fix" made things worse by trusting them.
   |
-  | confirm-payment was already correct.
+  | I probed the live backend with an unauthenticated request. A 401 means
+  | the route exists and the auth guard stopped us first; a 404 with
+  | "Cannot PATCH …" means Express found no such route. That is a reliable
+  | way to tell the two apart without credentials.
+  |
+  |   segment              docs say            live backend      result
+  |   -------------------  ------------------  ----------------  ----------
+  |   pick up              pick-up              pickup            docs wrong
+  |   start delivery       start-delivery       start             docs wrong
+  |   code exchange        code-exchange        exchange-code     docs wrong
+  |   confirm payment      confirm-payment      confirm-payment   correct
+  |
+  | So the ORIGINAL code was right and the docs were wrong. The paths below
+  | are the live-verified ones. If these ever change, re-run the probe:
+  |
+  |   curl -s -o /dev/null -w "%{http_code}" -X PATCH \
+  |     https://api-declanfoods.onrender.com/api/v1/delivery-rider/deliveries/<id>/<segment>
+  |
+  |   401 → route exists     404 "Cannot PATCH" → route does not exist
+  |
+  | Confirmed on the live server: all four now return 401 (i.e. they resolve
+  | and wait for a token) instead of 404.
   */
   pickUpOrder: (id: string) =>
     api.patch(
-      `/api/v1/delivery-rider/deliveries/${id}/pick-up`
+      `/api/v1/delivery-rider/deliveries/${id}/pickup`
     ),
 
   startDelivery: (id: string) =>
     api.patch(
-      `/api/v1/delivery-rider/deliveries/${id}/start-delivery`
+      `/api/v1/delivery-rider/deliveries/${id}/start`
     ),
 
   exchangeCode: (id: string, code: string) =>
     api.post(
-      `/api/v1/delivery-rider/deliveries/${id}/code-exchange`,
+      `/api/v1/delivery-rider/deliveries/${id}/exchange-code`,
       { code }
     ),
 
