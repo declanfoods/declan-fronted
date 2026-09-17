@@ -71,32 +71,114 @@ export function useFoodPackCategories(): UseQueryResult<FoodPackCategory[], Erro
   });
 }
 
+/*
+|--------------------------------------------------------------------------
+| FIX: "limit must not be greater than 100"
+|--------------------------------------------------------------------------
+| The food pack tab failed on load with that validation error while the
+| product tab worked. Cause: this file asked for `limit: 200` on BOTH indexes.
+| The foodpack endpoint caps `limit` at 100 and rejects anything higher, so
+| the whole screen errored before it could render a single category.
+|
+| The product endpoint tolerated 200, which is why only one tab broke — but
+| relying on that difference is exactly the kind of thing that breaks again
+| later, so both now fetch in pages of 100.
+|
+| Paging rather than lowering the number to 100 and stopping: with a single
+| page, a catalogue of 250 items would silently report wrong per-category
+| counts. This walks the pages and only gives up at INDEX_MAX_PAGES, at which
+| point it says so on screen instead of quietly under-reporting.
+*/
+
+/** The server's hard cap on `limit` for these endpoints. Do not raise it. */
+export const INDEX_PAGE_SIZE = 100;
+
+/** Safety stop — 10 pages = 1000 catalogue items. */
+export const INDEX_MAX_PAGES = 10;
+
+export type CategoryIndex<T> = {
+  items: T[];
+  /** True when the walk stopped at INDEX_MAX_PAGES before the last page. */
+  truncated: boolean;
+  pagesFetched: number;
+};
+
 /**
- * Every product, fetched once so each category can be counted.
+ * Walks every page of a paginated admin list and returns the lot.
  *
- * `limit: 200` is a deliberate ceiling — the API paginates and there is no
- * "count by category" endpoint, so this pulls one large page and groups it.
- * The page warns when the result hits that ceiling, because past 200 items
- * the per-category counts would silently under-report.
+ * `hasNextPage` is taken from the response's pagination block. When that block
+ * is missing (it is on some endpoints), it falls back to "the page came back
+ * full, so there is probably more" — which is safe because the loop is capped.
  */
-export function useCategoryProductIndex(): UseQueryResult<AdminProduct[], Error> {
-  return useQuery<AdminProduct[], Error>({
+async function fetchAllPages<T>(
+  fetchPage: (
+    page: number
+  ) => Promise<{ items: T[]; hasNextPage?: boolean }>
+): Promise<CategoryIndex<T>> {
+  const items: T[] = [];
+  let page = 1;
+
+  while (page <= INDEX_MAX_PAGES) {
+    const { items: pageItems, hasNextPage } = await fetchPage(page);
+
+    items.push(...pageItems);
+
+    const more = hasNextPage ?? pageItems.length >= INDEX_PAGE_SIZE;
+
+    if (!more || pageItems.length === 0) {
+      return { items, truncated: false, pagesFetched: page };
+    }
+
+    page += 1;
+  }
+
+  return { items, truncated: true, pagesFetched: INDEX_MAX_PAGES };
+}
+
+/**
+ * Every product, so each category can be counted.
+ *
+ * There is no "count by category" endpoint, so the client groups the full
+ * list. Paged at INDEX_PAGE_SIZE because asking for more than the server's cap
+ * is a hard 400.
+ */
+export function useCategoryProductIndex(): UseQueryResult<CategoryIndex<AdminProduct>, Error> {
+  return useQuery<CategoryIndex<AdminProduct>, Error>({
     queryKey: queryKeys.categoryProductIndex,
-    queryFn: async () => {
-      const res = await adminProductApi.getProducts({ limit: 200, page: 1 });
-      return res.data.data.products ?? [];
-    },
+    queryFn: () =>
+      fetchAllPages<AdminProduct>(async (page) => {
+        const res = await adminProductApi.getProducts({
+          limit: INDEX_PAGE_SIZE,
+          page,
+        });
+
+        return {
+          items: res.data.data.products ?? [],
+          hasNextPage: res.data.data.pagination?.hasNextPage,
+        };
+      }),
   });
 }
 
-/** Every food pack, same reasoning as the product index above. */
-export function useCategoryFoodPackIndex(): UseQueryResult<AdminFoodPackSummary[], Error> {
-  return useQuery<AdminFoodPackSummary[], Error>({
+/** Every food pack, same reasoning and same page size as the products index. */
+export function useCategoryFoodPackIndex(): UseQueryResult<
+  CategoryIndex<AdminFoodPackSummary>,
+  Error
+> {
+  return useQuery<CategoryIndex<AdminFoodPackSummary>, Error>({
     queryKey: queryKeys.categoryFoodPackIndex,
-    queryFn: async () => {
-      const res = await adminFoodPackApi.getFoodPacks({ limit: 200, page: 1 });
-      return res.data.data.foodpacks ?? [];
-    },
+    queryFn: () =>
+      fetchAllPages<AdminFoodPackSummary>(async (page) => {
+        const res = await adminFoodPackApi.getFoodPacks({
+          limit: INDEX_PAGE_SIZE,
+          page,
+        });
+
+        return {
+          items: res.data.data.foodpacks ?? [],
+          hasNextPage: res.data.data.pagination?.hasNextPage,
+        };
+      }),
   });
 }
 
@@ -231,9 +313,9 @@ export function buildFoodPackCategoryRows(
 }
 
 /**
- * True when the index hit the 200-row ceiling, meaning the counts on screen
- * are partial. The screen shows a warning when this is the case instead of
+ * True when a page walk stopped at INDEX_MAX_PAGES, meaning the counts on
+ * screen are partial. The screen warns when this is the case instead of
  * quietly reporting wrong totals.
  */
-export const INDEX_LIMIT = 200;
-export const isIndexTruncated = (rows: unknown[]) => rows.length >= INDEX_LIMIT;
+export const isIndexTruncated = (index?: { truncated: boolean }) =>
+  index?.truncated ?? false;

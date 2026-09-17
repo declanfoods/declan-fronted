@@ -23,6 +23,20 @@
 
 const DEFAULT_COUNTRY_CODE = '234'; // Nigeria
 
+/*
+|--------------------------------------------------------------------------
+| Support line
+|--------------------------------------------------------------------------
+| The admin number riders message when something goes wrong on a delivery.
+| Displayed as "+234 814 891 8771"; stored in E.164 + with the spaces removed
+| because that is the least ambiguous form and normalisePhoneForWhatsApp()
+| strips the rest anyway. wa.me never sees a plus sign — the helper handles
+| that.
+*/
+export const SUPPORT_WHATSAPP_NUMBER = '+2348148918771';
+
+/** Pretty version for display on screen. */
+export const SUPPORT_WHATSAPP_DISPLAY = '+234 814 891 8771';
 /**
  * Normalises a phone number into the digits-only, country-coded form wa.me
  * needs. Returns null when there aren't enough digits to be a real number,

@@ -29,8 +29,9 @@ import {
   useCreateFoodPackCategory,
   buildProductCategoryRows,
   buildFoodPackCategoryRows,
-  isIndexTruncated,
-  INDEX_LIMIT,
+    isIndexTruncated,
+  INDEX_PAGE_SIZE,
+  INDEX_MAX_PAGES,
   type CategoryRow,
 } from '../../../../app/hooks/useAdminCategories';
 
@@ -95,18 +96,18 @@ export default function CategoriesOverview() {
   /* -------------------------------------------------------------- derived */
   const productRows = useMemo(
     () =>
-      buildProductCategoryRows(
+         buildProductCategoryRows(
         productCategories.data ?? [],
-        productIndex.data ?? []
+        productIndex.data?.items ?? []
       ),
     [productCategories.data, productIndex.data]
   );
 
   const foodPackRows = useMemo(
     () =>
-      buildFoodPackCategoryRows(
+            buildFoodPackCategoryRows(
         foodPackCategories.data ?? [],
-        foodPackIndex.data ?? []
+        foodPackIndex.data?.items ?? []
       ),
     [foodPackCategories.data, foodPackIndex.data]
   );
@@ -123,11 +124,11 @@ export default function CategoriesOverview() {
   const totalItems = rows.reduce((sum, r) => sum + r.itemCount, 0);
   const totalCatalogValue = rows.reduce((sum, r) => sum + r.catalogValue, 0);
 
-  /*
+   /*
     Checked per-tab. Warning about the product index while the admin is looking
     at food packs would be noise they can do nothing about.
   */
-  const truncated = isIndexTruncated(indexQuery.data ?? []);
+  const truncated = isIndexTruncated(indexQuery.data);
 
   /*
     Categories with nothing in them sort last — the admin is here to see what
@@ -258,9 +259,10 @@ export default function CategoriesOverview() {
           <div className="mt-3 flex gap-2 rounded-2xl bg-amber-50 p-3">
             <Info size={15} className="mt-0.5 shrink-0 text-amber-600" />
             <p className="text-xs text-amber-700">
-              More than {INDEX_LIMIT} {isProducts ? 'products' : 'food packs'} in
-              the catalogue, so the per-category counts below may be partial. A
-              count-by-category endpoint would fix this.
+                           This catalogue has more than {INDEX_PAGE_SIZE * INDEX_MAX_PAGES}{' '}
+              {isProducts ? 'products' : 'food packs'}, so the per-category
+              counts below may be partial. A count-by-category endpoint would
+              fix this properly.
             </p>
           </div>
         )}

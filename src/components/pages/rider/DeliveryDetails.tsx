@@ -1,9 +1,14 @@
 import { useEffect, useState } from 'react';
 import { getApiErrorMessage } from '../../../app/lib/api-types';
+import {
+  whatsappLink,
+  SUPPORT_WHATSAPP_NUMBER,
+} from '../../../app/lib/whatsapp';
 import { useNavigate, useParams } from 'react-router-dom';
 import {
   Phone,
   MessageSquare,
+  MessageCircle,
   Navigation,
   MapPin,
   AlertTriangle,
@@ -146,8 +151,37 @@ export default function DeliveryDetails() {
   const deliveryInstructions =
     delivery.order?.deliveryInstructions;
 
-  const totalAmount =
+    const totalAmount =
     delivery.order?.subTotal ?? 0;
+
+  /*
+    "Report a Delivery Issue" now opens WhatsApp to the admin/support line with
+    the order details pre-filled. The referenced order is included so whoever
+    picks it up knows which delivery is being complained about without asking —
+    on a phone call that is the first question every time.
+
+    Returns null when the number can't be normalised, in which case the button
+    is not rendered at all rather than opening a dead chat.
+  */
+  const issueReportLink = whatsappLink(
+    SUPPORT_WHATSAPP_NUMBER,
+    [
+      'Delivery issue report',
+      '',
+      `Order: #${delivery.order?.orderNumber ?? delivery.id.slice(0, 8)}`,
+      `Customer: ${customerName}`,
+      // Only this line is conditional. It is dropped with an explicit null
+      // check rather than `.filter(Boolean)`, which would also strip the empty
+      // strings above that are there to create line breaks.
+      customerPhone ? `Customer phone: ${customerPhone}` : null,
+      `Address: ${deliveryAddress}`,
+      `Rider status: ${status.replace(/_/g, ' ')}`,
+      '',
+      'Issue: ',
+    ]
+      .filter((line) => line !== null)
+      .join('\n')
+  );
 
   return (
     <div className="flex min-h-screen flex-col bg-[#F3F7EE] pb-28">
@@ -425,12 +459,17 @@ export default function DeliveryDetails() {
           </button>
         )}
 
-        <button
-          type="button"
-          className="w-full text-center text-sm font-semibold text-red-500"
-        >
-          Report a Delivery Issue
-        </button>
+              {issueReportLink && (
+          <a
+            href={issueReportLink}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex w-full items-center justify-center gap-2 text-center text-sm font-semibold text-red-500"
+          >
+            <MessageCircle size={16} />
+            Report a Delivery Issue
+          </a>
+        )}
       </div>
     </div>
   );

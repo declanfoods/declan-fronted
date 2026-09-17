@@ -3,13 +3,24 @@ import { useNavigate } from 'react-router-dom';
 import { Lock, LogOut, ChevronRight } from 'lucide-react';
 import RiderLayout from './RiderLayout';
 import { riderApi, type RiderProfile as RiderProfileData } from '../../../app/lib/riderApi';
-import { logout } from '../../../app/lib/auth';
+/*
+  FIX: this used the CUSTOMER logout from app/lib/auth.ts, which cleared
+  `customerToken` instead of `riderToken` and hard-redirected to /login —
+  the customer login page. So "logout" landed a rider on the main app's
+  sign-in screen, and left them still authenticated as a rider underneath.
+  See app/lib/riderAuth.ts.
+*/
+import { riderLogout } from '../../../app/lib/riderAuth';
 export default function RiderProfile() {
   const navigate = useNavigate();
 
-  const handleLogout = () => {
-    logout();
-    navigate('/rider/login');
+    const handleLogout = () => {
+    /*
+      riderLogout() clears the rider keys and redirects to /rider/login
+      itself. The old `navigate('/rider/login')` was dead code — it sat after
+      a `window.location.href` assignment, which tears the page down first.
+    */
+    riderLogout();
   };
 
   const [profile, setProfile] = useState<RiderProfileData | null>(null);

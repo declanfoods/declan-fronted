@@ -90,22 +90,11 @@ export default function OrderTrackingView({
             <section className="rounded-3xl border-2 border-primary bg-white p-6 shadow-sm">
               <h3 className="mb-4 text-lg font-bold text-ink">Order Progress</h3>
 
-              {/* Progress bar */}
-              <div
-                className="mb-4 grid gap-x-2 gap-y-1 text-center text-[10px] font-semibold leading-snug sm:text-xs"
-                style={{ gridTemplateColumns: `repeat(${timeline.length}, 1fr)` }}
-              >
-                {timeline.map((event, i) => (
-                  <div
-                    key={i}
-                    className={
-                      'px-0.5 ' + (event.passed ? 'text-primary' : 'text-ink-soft')
-                    }
-                  >
-                    {event.label}
-                  </div>
-                ))}
-              </div>
+                           {/*
+                REMOVED: same duplicate as the registered-user tracking screen —
+                this tiny grid repeated the stage names that the list below
+                already renders in full. The bar stays.
+              */}
               <div className="relative h-3 overflow-hidden rounded-full bg-muted">
                 <div
                   className="absolute left-0 top-0 h-full rounded-full bg-primary transition-all duration-500"

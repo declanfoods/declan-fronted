@@ -134,19 +134,13 @@ export default function OrderTracking() {
             <section className="rounded-3xl border-2 border-primary bg-white p-6 shadow-sm">
               <h3 className="mb-4 text-lg font-bold text-ink">Order Progress</h3>
 
-              {/* Progress bar */}
-              <div className="mb-4 grid text-center text-[10px] font-semibold sm:text-xs"
-                style={{ gridTemplateColumns: `repeat(${timeline.length}, 1fr)` }}
-              >
-                {timeline.map((event, i) => (
-                  <div
-                    key={i}
-                    className={event.passed ? 'text-primary' : 'text-ink-soft'}
-                  >
-                    {event.label}
-                  </div>
-                ))}
-              </div>
+                            {/*
+                REMOVED: a row of tiny stage labels sat above this bar, listing
+                the same stage names that the list underneath already shows in
+                full. Every stage appeared twice on one screen — once at
+                text-[10px] with no state or timestamp, once properly below.
+                The bar stays; the duplicate text is gone.
+              */}
               <div className="relative h-3 overflow-hidden rounded-full bg-muted">
                 <div
                   className="absolute left-0 top-0 h-full rounded-full bg-primary transition-all duration-500"
