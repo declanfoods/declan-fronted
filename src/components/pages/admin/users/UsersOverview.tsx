@@ -426,10 +426,28 @@ export default function UsersOverview() {
                           goTo(resolveUserId(user), `/admin/users/${resolveUserId(user)}/financials`),
                       },
                       {
+                        /*
+                          REVERSED per request — this new-tab link landed on a
+                          blank page. In-app navigation now.
+
+                          It also went to /admin/referrals/members/ with an
+                          EMPTY id whenever the server sent no id, which just
+                          bounced the admin back to the members list. The
+                          guard below keeps the row out of the menu when there
+                          is no id to navigate to.
+                        */
                         label: 'View Referral Network',
                         icon: <Share2 size={15} />,
-                        href: `/admin/referrals/members/${resolveUserId(user) ?? ''}`,
-                        newTab: true,
+                        onClick: () => {
+                          const userId = resolveUserId(user);
+                          if (!userId) {
+                            window.alert(
+                              'Cannot open the referral network — the server did not send an ID for this account.'
+                            );
+                            return;
+                          }
+                          goTo(userId, `/admin/referrals/members/${userId}`);
+                        },
                       },
                       {
                         label: isSuspended ? 'Reactivate Account' : 'Suspend Account',

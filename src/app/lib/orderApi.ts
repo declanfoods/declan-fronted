@@ -68,6 +68,34 @@ export interface CreateOrderPayload {
     paymentMethodId: string;
   };
   deliveryInstructions?: string;
+  /*
+  |--------------------------------------------------------------------------
+  | FIX: `deliveryAddressId` was missing from this type entirely
+  |--------------------------------------------------------------------------
+  | The collection's example body for POST /api/v1/orders is:
+  |
+  |   {
+  |     "payment": { "paymentMethodId": "05ee8152-..." },
+  |     "deliveryInstructions": "Leave at the door",
+  |     "deliveryAddressId": "96bfb8b3-896c-46f8-a343-e017cbed7ece"
+  |   }
+  |
+  | The checkout screen was sending only `payment` and `deliveryInstructions`,
+  | so orders went through WITHOUT a delivery address — the order could be
+  | created with nowhere to deliver it, or rejected outright depending on how
+  | strictly the backend validates.
+  |
+  | This also accepts a nested `deliveryAddress` object, which is what the
+  | guest endpoint takes. Only one gets sent; see Checkout.tsx.
+  */
+  deliveryAddressId?: string;
+  deliveryAddress?: {
+    nameOfCustomer: string;
+    addressLine: string;
+    phoneNumber: string;
+    state?: string;
+    country?: string;
+  };
 }
 
 interface ApiResponse<T> {

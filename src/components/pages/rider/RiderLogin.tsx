@@ -26,11 +26,27 @@ export default function RiderLogin() {
         return;
       }
 
-      localStorage.setItem('token', token);
-localStorage.setItem('role', 'rider');
+      /*
+      |----------------------------------------------------------------------
+      | FIX: this stored the token under `token`, but the axios interceptor
+      | looks for `riderToken` (see app/lib/axios.ts). The result was that no
+      | rider request ever carried an Authorization header, and the backend
+      | replied "Authorization header missing" — starting with the
+      | forced password change, which is the first authenticated call a rider
+      | makes. That's why it looked like a password bug.
+      |
+      | `token` was also a dangerously generic key: all three apps share this
+      | origin, so anything else writing `token` would silently hijack the
+      | rider session.
+      */
+      localStorage.setItem('riderToken', token);
+      localStorage.setItem('role', 'rider');
 
-const mustChangePassword = d?.data?.mustChangePassword ?? d?.data?.isTemporaryPassword ?? false;
-navigate(mustChangePassword ? '/rider/change-password?forced=1' : '/rider/home');
+      const mustChangePassword =
+        d?.data?.mustChangePassword ?? d?.data?.isTemporaryPassword ?? false;
+      navigate(
+        mustChangePassword ? '/rider/change-password?forced=1' : '/rider/home'
+      );
     } catch (err: any) {
       setError(err.response?.data?.message ?? 'Login failed. Please try again.');
     } finally {

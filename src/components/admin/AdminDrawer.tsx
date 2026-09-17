@@ -16,10 +16,12 @@ import {
   UserPlus,
   LogOut,
   X,
-  UtensilsCrossed,
+  ArrowLeft,
   ExternalLink,
 } from 'lucide-react';
 import { adminLogout } from '../../app/lib/adminAuth';
+// Same asset the public site uses (see components/ui/Logo.tsx).
+import brandLogo from '../../assets/brandlogo.png';
 
 
 type AdminDrawerProps = {
@@ -133,24 +135,48 @@ export default function AdminDrawer({ onClose, fullPage }: AdminDrawerProps) {
     );
   };
 
-  const content = (
+  const content = (fullPage: boolean) => (
     <div className="flex h-full w-full max-w-[380px] flex-col overflow-y-auto bg-white">
       <div className="flex items-center justify-between px-5 pt-6">
+        {/*
+          Was a green circle with a generic cutlery glyph — a placeholder that
+          shipped. Now the real brand mark.
+        */}
         <div className="flex items-center gap-2">
-          <span className="flex h-9 w-9 items-center justify-center rounded-full bg-primary text-white">
-            <UtensilsCrossed size={18} strokeWidth={2} />
-          </span>
+          <img
+            src={brandLogo}
+            alt="Declan Foods"
+            className="h-9 w-9 rounded-full object-contain"
+          />
           <span className="text-lg font-bold text-primary">Declan Foods</span>
         </div>
-        {onClose && (
+        {/*
+          Overlay mode: ✕ closes it.
+          Full-page mode (/admin/more): there is no overlay to dismiss, so an
+          explicit Back control returns to the dashboard. Previously this slot
+          rendered NOTHING here and the page was a dead end.
+        */}
+        {fullPage ? (
           <button
             type="button"
-            onClick={onClose}
-            aria-label="Close menu"
-            className="text-gray-400 hover:text-primary"
+            onClick={() => navigate('/admin')}
+            aria-label="Back to dashboard"
+            className="flex items-center gap-1 rounded-full border border-gray-200 px-3 py-1.5 text-xs font-semibold text-gray-600 hover:border-primary hover:text-primary"
           >
-            <X size={22} />
+            <ArrowLeft size={14} />
+            Back
           </button>
+        ) : (
+          onClose && (
+            <button
+              type="button"
+              onClick={onClose}
+              aria-label="Close menu"
+              className="text-gray-400 hover:text-primary"
+            >
+              <X size={22} />
+            </button>
+          )
         )}
       </div>
 
@@ -196,13 +222,18 @@ export default function AdminDrawer({ onClose, fullPage }: AdminDrawerProps) {
       </div>
 
       <div className="mt-auto flex items-center gap-3 border-t border-gray-100 px-5 py-4">
+        {/*
+          Was a random stock face from i.pravatar.cc ("Alexander Pierce") —
+          a placeholder person, and an external image call on every open.
+          Now the company mark. The "Senior Admin" role label stays.
+        */}
         <img
-          src="https://i.pravatar.cc/80?img=12"
-          alt="Admin"
-          className="h-10 w-10 rounded-full object-cover"
+          src={brandLogo}
+          alt="Declan Foods"
+          className="h-10 w-10 rounded-full bg-white object-contain"
         />
         <div className="flex-1">
-          <p className="text-sm font-bold text-gray-900">Alexander Pierce</p>
+          <p className="text-sm font-bold text-gray-900">Declan Foods</p>
           <p className="text-xs text-gray-400">Senior Admin</p>
         </div>
         <span className="rounded-full bg-gray-100 px-2 py-0.5 text-[10px] font-semibold text-gray-400">
@@ -221,14 +252,26 @@ export default function AdminDrawer({ onClose, fullPage }: AdminDrawerProps) {
     </div>
   );
 
+  /*
+  |--------------------------------------------------------------------------
+  | FIX: /admin/more had no way out
+  |--------------------------------------------------------------------------
+  | In `fullPage` mode this rendered the drawer body as a standalone page with
+  | no header control at all: the ✕ only renders when `onClose` is passed, and
+  | the /admin/more route passes nothing. The only escape was the browser's
+  | back button — which on a PWA feels like being stuck.
+  |
+  | `content` now takes a `fullPage` flag so the header renders a labelled
+  | Back control that returns to the admin dashboard.
+  */
   if (fullPage) {
-    return <div className="min-h-screen bg-white">{content}</div>;
+    return <div className="min-h-screen bg-white">{content(true)}</div>;
   }
 
   return (
     <div className="fixed inset-0 z-50 flex">
       <div className="absolute inset-0 bg-black/40" onClick={onClose} />
-      <div className="relative z-10 h-full shadow-xl">{content}</div>
+      <div className="relative z-10 h-full shadow-xl">{content(false)}</div>
     </div>
   );
 }

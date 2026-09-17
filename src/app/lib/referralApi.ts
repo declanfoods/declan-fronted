@@ -113,37 +113,95 @@ export interface ReferralDownline {
 
 /*
 |--------------------------------------------------------------------------
-| Withdrawal request — POST /api/v1/referrals/withdraw
+| Withdrawal requests — the real endpoints (NEW, docs-verified)
 |--------------------------------------------------------------------------
-| ⚠️ THIS ENDPOINT DOES NOT EXIST ON THE BACKEND YET.
+| The old code posted to `POST /api/v1/referrals/withdraw`, which never
+| existed. The backend has since shipped a proper two-sided flow:
 |
-| It is referenced here on purpose so the customer Withdraw screen is 100%
-| finished on the frontend and starts working the moment the backend adds the
-| route — no frontend change needed. Until then the call returns 404 and the
-| screen shows an explicit "not live yet" message rather than faking success.
+|   Customer  (folder: Referrals > Withdrawal Request)
+|     POST   /api/v1/referrals/withdrawals/requests/initiate
+|     POST   /api/v1/referrals/withdrawals/requests/:id/request-verification
+|     GET    /api/v1/referrals/withdrawals/requests
+|     PATCH  /api/v1/referrals/withdrawals/requests/:id/verify
+|     PATCH  /api/v1/referrals/withdrawals/requests/:id/cancel-request
 |
-| The field names below are what I've asked the backend to implement (see the
-| backend ticket). If the backend dev picks different names, change them here
-| and nowhere else.
+|   Admin     (folder: Admin Referrals > Referral Payout)
+|     GET    /api/v1/admin/referrals/withdrawal-requests
+|     GET    /api/v1/admin/referrals/withdrawal-requests/:id
+|     PATCH  /api/v1/admin/referrals/withdrawal-requests/:id/approve
+|     PATCH  /api/v1/admin/referrals/withdrawal-requests/:id/reject
+|
+| HOW THE FLOW WORKS (per the collection's saved responses):
+|   1. Customer submits the form        → initiate        → UNVERIFIED / PENDING
+|      The response says "Check email for verification code".
+|   2. Customer types the emailed code  → verify          → VERIFIED  / PENDING
+|   3. Admin approves or rejects        → approve/reject
+|   4. Customer may cancel while PENDING → cancel-request → CANCELLED
+|
+| ⚠️ DATA QUIRKS — confirmed in the saved responses, do not "clean up":
+|   • `amount` is a STRING ("2000.00") on every read endpoint, but a NUMBER
+|     in the initiate request body and in the initiate RESPONSE (500).
+|     Always read it through Number().
+|   • Statuses are split across TWO independent fields:
+|       verificationStatus: 'UNVERIFIED' | 'VERIFIED'
+|       requestStatus:      'PENDING' | 'CANCELLED' | (approved/rejected TBD)
+|     A request can be VERIFIED and still PENDING — they are not one field.
+|   • The admin list calls the bank block `accountDetails`; the customer
+|     list calls the same thing `bankDetails`. Normalised in `bankOf()`.
+|   • The initiate endpoint returns HTTP 201 but the body's own `statusCode`
+|     says 200. Trust the HTTP status, not the body field.
+|   • `verifiedAt` / `approvedAt` come back as null even when the request is
+|     already VERIFIED in the same payload. Treat them as best-effort.
 */
 
-export interface WithdrawalRequestPayload {
-  /** Naira amount, e.g. 5000. Validate against availableBalance before sending. */
-  amount: number;
-  bankName: string;
-  /** 10-digit NUBAN account number. */
-  accountNumber: string;
+export type PayoutVerificationStatus = 'UNVERIFIED' | 'VERIFIED';
+export type PayoutRequestStatus = 'PENDING' | 'CANCELLED' | 'APPROVED' | 'REJECTED';
+
+/** Bank block. The API returns this under two different key names. */
+export interface PayoutBankDetails {
   accountName: string;
+  accountNumber: string;
+  bankName: string;
 }
 
-export interface WithdrawalRequestResult {
+/**
+ * Accepts either key name and always returns a bank block.
+ * Admin list/detail → `accountDetails`; customer list → `bankDetails`.
+ */
+export function bankOf(request: {
+  bankDetails?: PayoutBankDetails | null;
+  accountDetails?: PayoutBankDetails | null;
+}): PayoutBankDetails | null {
+  return request.bankDetails ?? request.accountDetails ?? null;
+}
+
+/** One payout request as the CUSTOMER sees it. */
+export interface PayoutRequest {
   id: string;
-  amount: string;
-  status: 'PENDING' | 'PROCESSING' | 'SUCCESSFUL' | 'FAILED' | 'REJECTED' | string;
-  bankName: string;
-  accountNumber: string;
-  accountName: string;
+  /** String on reads ("500.00"), number on the initiate response (500). */
+  amount: string | number;
+  verificationStatus: PayoutVerificationStatus;
+  requestStatus: PayoutRequestStatus;
+  /** Present on the customer endpoints. */
+  bankDetails?: PayoutBankDetails;
   createdAt: string;
+  verifiedAt?: string | null;
+  approvedAt?: string | null;
+}
+
+/** Body for POST /referrals/withdrawals/requests/initiate. */
+export interface InitiateWithdrawalPayload {
+  /** Number, not string — matches the collection's example body. */
+  amount: number;
+  accountName: string;
+  /** 10-digit NUBAN. */
+  accountNumber: string;
+  bankName: string;
+}
+
+export interface WithdrawalRequestsPage {
+  payoutRequests: PayoutRequest[];
+  pagination: ApiPagination;
 }
 
 // ─── Endpoints ──────────────────────────────────────────────────────────
@@ -184,14 +242,60 @@ export const referralApi = {
     api.get<ApiResponse<{ metrics: ReferralMetrics }>>('/api/v1/referrals/metrics'),
 
   /**
-   * POST /api/v1/referrals/withdraw
+   * POST /api/v1/referrals/withdrawals/requests/initiate
    *
-   * ⚠️ Not implemented on the backend yet — returns 404 until it is.
-   * The Withdraw screen detects the 404 and says so plainly instead of
-   * pretending the request was accepted.
+   * Step 1 of the withdrawal flow. Returns the created request plus the
+   * message "Successfully initiated payout. Check email for verification code".
+   * HTTP 201.
    */
-  requestWithdrawal: (payload: WithdrawalRequestPayload) =>
-    api.post<ApiResponse<WithdrawalRequestResult>>('/api/v1/referrals/withdraw', payload),
+  initiateWithdrawal: (payload: InitiateWithdrawalPayload) =>
+    api.post<ApiResponse<{ payoutRequest: PayoutRequest }>>(
+      '/api/v1/referrals/withdrawals/requests/initiate',
+      payload
+    ),
+
+  /**
+   * POST /api/v1/referrals/withdrawals/requests/:id/request-verification
+   *
+   * Re-sends the emailed verification code. Use when the customer says the
+   * code never arrived — it does NOT create a second request.
+   * HTTP 201.
+   */
+  requestWithdrawalVerification: (id: string) =>
+    api.post<ApiResponse<{ payoutRequest: PayoutRequest }>>(
+      `/api/v1/referrals/withdrawals/requests/${id}/request-verification`
+    ),
+
+  /** GET /api/v1/referrals/withdrawals/requests → the customer's own requests. */
+  getWithdrawalRequests: (filters?: ReferralFilters) =>
+    api.get<ApiResponse<WithdrawalRequestsPage>>(
+      '/api/v1/referrals/withdrawals/requests',
+      { params: filters }
+    ),
+
+  /**
+   * PATCH /api/v1/referrals/withdrawals/requests/:id/verify
+   *
+   * Step 2. `verificationCode` is the code emailed by initiate. On success
+   * `verificationStatus` flips to VERIFIED while `requestStatus` stays PENDING
+   * — the request now sits in the admin payout queue awaiting approval.
+   */
+  verifyWithdrawal: (id: string, verificationCode: string) =>
+    api.patch<ApiResponse<{ payoutRequest: PayoutRequest }>>(
+      `/api/v1/referrals/withdrawals/requests/${id}/verify`,
+      { verificationCode }
+    ),
+
+  /**
+   * PATCH /api/v1/referrals/withdrawals/requests/:id/cancel-request
+   *
+   * Customer withdraws their own request. Only meaningful while PENDING —
+   * the UI hides it once a request is approved or rejected.
+   */
+  cancelWithdrawal: (id: string) =>
+    api.patch<ApiResponse<{ payoutRequest: PayoutRequest }>>(
+      `/api/v1/referrals/withdrawals/requests/${id}/cancel-request`
+    ),
 };
 
 export default referralApi;

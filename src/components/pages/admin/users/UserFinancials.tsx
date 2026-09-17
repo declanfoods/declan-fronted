@@ -49,7 +49,13 @@ function iconFor(tx: AdminUserTransaction) {
   return tx.transactionType === 'DEBIT' ? Landmark : CreditCard;
 }
 
-const PAGE_SIZE = 15;
+/*
+  This is a RECENT transactions list, not a full ledger — 5 is enough to show
+  the shape of a customer's activity, and the endpoint takes ?limit=5.
+  It uses GET /api/v1/admin/users/:id/transactions (the normal transactions
+  endpoint) rather than the referral-transactions one.
+*/
+const RECENT_LIMIT = 5;
 
 export default function UserFinancials() {
   const navigate = useNavigate();
@@ -58,7 +64,10 @@ export default function UserFinancials() {
 
   const userQuery = useAdminUser(id);
   const walletQuery = useAdminUserWallet(id);
-  const transactionsQuery = useAdminUserTransactions(id, { page, limit: PAGE_SIZE });
+  const transactionsQuery = useAdminUserTransactions(id, {
+    page,
+    limit: RECENT_LIMIT,
+  });
 
   const user = userQuery.data;
   const wallet = walletQuery.data;

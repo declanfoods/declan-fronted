@@ -54,6 +54,8 @@ export const queryKeys = {
   referralHistory: (filters?: { page?: number; limit?: number }) =>
     ['referral', 'history', filters ?? {}] as const,
   referralDownline: (id: string) => ['referral', 'downline', id] as const,
+  /** Customer's own payout requests — folder "Referrals > Withdrawal Request". */
+  withdrawalRequests: ['referral', 'withdrawal-requests'] as const,
 
   // ── Admin users ────────────────────────────────────────────────────
   adminUsers: (filters?: Record<string, unknown>) => ['admin', 'users', filters ?? {}] as const,
@@ -74,6 +76,13 @@ export const queryKeys = {
     ['admin', 'referrals', filters ?? {}] as const,
   adminUserReferralMetrics: (userId: string, filters?: Record<string, unknown>) =>
     ['admin', 'referrals', 'users', userId, 'metrics', filters ?? {}] as const,
+
+  // ── Admin referral payouts (folder: Admin Referrals > Referral Payout) ──
+  // The prefix ['admin','referrals','payouts'] is intentional: the approve and
+  // reject mutations invalidate that whole prefix to refresh the queue.
+  adminPayoutRequests: (filters?: Record<string, unknown>) =>
+    ['admin', 'referrals', 'payouts', filters ?? {}] as const,
+  adminPayoutRequest: (id: string) => ['admin', 'referrals', 'payouts', id] as const,
 
   // ── Admin config ───────────────────────────────────────────────────
   adminCommissionConfig: ['admin', 'config', 'commission'] as const,

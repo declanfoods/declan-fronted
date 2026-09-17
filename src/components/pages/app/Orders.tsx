@@ -8,6 +8,45 @@ import { formatNaira } from '../../data/products';
 import { orderApi, type Order } from '../../../app/lib/orderApi';
 import { LogIn } from 'lucide-react';
 import { isAuthenticated } from '../../../app/lib/auth';
+import { useToast } from '../../ui/Toast';
+
+/*
+|--------------------------------------------------------------------------
+| Past-order status presentation
+|--------------------------------------------------------------------------
+| Keyed by normalised status so odd casing or spacing from the API still maps
+| to the right colour. Anything unknown falls back to neutral grey rather than
+| pretending to be a success.
+*/
+function statusKey(status?: string) {
+  return (status ?? '').toUpperCase().replace(/[\s-]+/g, '_');
+}
+
+const PAST_STATUS_PILL: Record<string, string> = {
+  DELIVERED: 'bg-green-100 text-green-700',
+  COMPLETED: 'bg-green-100 text-green-700',
+  CANCELLED: 'bg-red-100 text-red-600',
+  REJECTED: 'bg-red-100 text-red-600',
+  FAILED: 'bg-red-100 text-red-600',
+  PENDING: 'bg-amber-100 text-amber-700',
+  PROCESSING: 'bg-blue-100 text-blue-700',
+  OUT_FOR_DELIVERY: 'bg-blue-100 text-blue-700',
+  ASSIGNED: 'bg-blue-100 text-blue-700',
+  IN_TRANSIT: 'bg-blue-100 text-blue-700',
+};
+
+const PAST_STATUS_TILE: Record<string, string> = {
+  DELIVERED: 'bg-green-50 text-green-700',
+  COMPLETED: 'bg-green-50 text-green-700',
+  CANCELLED: 'bg-red-50 text-red-600',
+  REJECTED: 'bg-red-50 text-red-600',
+  FAILED: 'bg-red-50 text-red-600',
+  PENDING: 'bg-amber-50 text-amber-700',
+  PROCESSING: 'bg-blue-50 text-blue-700',
+  OUT_FOR_DELIVERY: 'bg-blue-50 text-blue-700',
+  ASSIGNED: 'bg-blue-50 text-blue-700',
+  IN_TRANSIT: 'bg-blue-50 text-blue-700',
+};
 
 const formatDate = (iso: string) =>
   new Date(iso).toLocaleDateString('en-NG', {
@@ -20,6 +59,7 @@ const PAGE_SIZE = 10;
 
 export default function Orders() {
   const navigate = useNavigate();
+  const { showToast } = useToast();
 
   const [activeOrder, setActiveOrder] = useState<Order | null>(null);
   const [pastOrders, setPastOrders] = useState<Order[]>([]);
@@ -71,12 +111,34 @@ export default function Orders() {
     fetchPast();
   }, [pastPage]);
 
+  /*
+  |--------------------------------------------------------------------------
+  | FIX: "Re-order" silently did nothing
+  |--------------------------------------------------------------------------
+  | Two separate bugs, both here:
+  |
+  | 1. WRONG DESTINATION. `POST /orders/:id/readd` adds the items to the
+  |    REORDER cart, not the main cart. This then navigated to /app/cart,
+  |    which shows the main cart — so the items were added successfully and
+  |    the customer was shown an empty basket. Now goes to /app/reorder-cart,
+  |    the screen that actually reads this cart.
+  |
+  | 2. SWALLOWED ERRORS. `catch {}` ate every failure, including expired
+  |    sessions and out-of-stock items, so the button looked dead no matter
+  |    what happened. Now it tells the customer.
+  */
   const handleReadd = async (orderId: string) => {
     setReaddingId(orderId);
     try {
       await orderApi.readdOrder(orderId);
-      navigate('/app/cart');
-    } catch {
+      showToast('Items added to your reorder cart.', 'success');
+      navigate('/app/reorder-cart');
+    } catch (err: any) {
+      showToast(
+        err?.response?.data?.message ??
+          'Could not re-order that order. Please try again.',
+        'error'
+      );
     } finally {
       setReaddingId(null);
     }
@@ -282,20 +344,40 @@ if (!isAuthenticated()) {
                   key={order.id}
                   className="flex items-center gap-4 rounded-2xl border-2 border-primary bg-white p-4 shadow-sm"
                 >
-                  {/* Icon */}
-                  <div className="flex h-20 w-20 flex-shrink-0 items-center justify-center rounded-xl bg-green-50 text-3xl">
-                    ✅
-                  </div>
+                  {/*
+                    FIX: this tile was a hardcoded "✅" and the badge below was
+                    hardcoded "Delivered" — for EVERY past order, whatever its
+                    real status. A cancelled order still showed a green tick.
+
+                    Now it shows the first product's photo when the API gives
+                    one, and falls back to a status-coloured tile when it
+                    doesn't (imageUrls is optional).
+                  */}
+                  {order.items?.[0]?.imageUrls?.[0] ? (
+                    <img
+                      src={order.items[0].imageUrls[0]}
+                      alt={order.items[0].itemName ?? 'Order item'}
+                      className="h-20 w-20 flex-shrink-0 rounded-xl object-cover"
+                    />
+                  ) : (
+                    <div
+                      className={`flex h-20 w-20 flex-shrink-0 items-center justify-center rounded-xl text-xs font-bold ${PAST_STATUS_TILE[statusKey(order.orderStatus)] ?? 'bg-gray-100 text-gray-500'}`}
+                    >
+                      {order.items?.[0]?.itemName?.slice(0, 12) ?? 'Order'}
+                    </div>
+                  )}
 
                   {/* Details */}
                   <div className="flex-1 min-w-0">
-                    <span className="inline-flex rounded-full bg-green-100 px-3 py-1 text-xs font-semibold text-green-700">
-                      Delivered
+                    <span
+                      className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ${PAST_STATUS_PILL[statusKey(order.orderStatus)] ?? 'bg-gray-100 text-gray-600'}`}
+                    >
+                      {order.orderStatus?.replace(/_/g, ' ') ?? 'UNKNOWN'}
                     </span>
                     <p className="mt-2 text-sm text-ink-soft">
-                      {formatDate(order.items?.[0]
-                        ? new Date().toISOString()
-                        : new Date().toISOString())}
+                      {/* Was `new Date().toISOString()` in both branches — i.e.
+                          always "now". Uses the real order date. */}
+                      {formatDate(order.createdAt)}
                     </p>
                     <p className="text-base font-semibold text-ink">
                       {order.orderNumber} ·{' '}

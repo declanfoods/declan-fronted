@@ -15,11 +15,15 @@ export default function RiderChangePassword() {
   const [showOld, setShowOld] = useState(false);
   const [showNew, setShowNew] = useState(false);
   const [error, setError] = useState('');
+  // True when the failure was a dead session rather than a bad password — used
+  // to offer a way back to the sign-in screen.
+  const [sessionExpired, setSessionExpired] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+    setSessionExpired(false);
 
     if (newPassword.length < 6) {
       setError('New password must be at least 6 characters.');
@@ -32,10 +36,34 @@ export default function RiderChangePassword() {
 
     setSubmitting(true);
     try {
-      await riderApi.changePassword({ oldPassword, newPassword, newPasswordConfirmation });
+      await riderApi.changePassword({
+        oldPassword,
+        newPassword,
+        newPasswordConfirmation,
+      });
       navigate('/rider/home');
     } catch (err: any) {
-      setError(err.response?.data?.message ?? 'Failed to change password.');
+      const status = err?.response?.status;
+      const message: string = err?.response?.data?.message ?? '';
+
+      /*
+        A 401 here almost always means the session token is missing or expired
+        — not that the passwords were wrong. "Authorization header missing" is
+        a server-side phrasing that means nothing to a rider, so translate it.
+        (Root cause of that recurring error was the rider token being stored
+        under the wrong localStorage key — fixed in RiderLogin.tsx + axios.ts.)
+      */
+      if (status === 401) {
+        setSessionExpired(true);
+        setError(
+          'Your session has expired. Please sign in again to set your password.'
+        );
+      } else if (/authorization/i.test(message)) {
+        setSessionExpired(true);
+        setError('Could not verify your session. Please sign in again.');
+      } else {
+        setError(message || 'Failed to change password.');
+      }
     } finally {
       setSubmitting(false);
     }
@@ -128,9 +156,23 @@ export default function RiderChangePassword() {
           </div>
 
           {error && (
-            <p className="rounded-xl bg-red-50 px-4 py-3 text-sm font-medium text-red-600">
-              {error}
-            </p>
+            <div className="rounded-xl bg-red-50 px-4 py-3">
+              <p className="text-sm font-medium text-red-600">{error}</p>
+              {sessionExpired && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    localStorage.removeItem('riderToken');
+                    localStorage.removeItem('token');
+                    localStorage.removeItem('role');
+                    navigate('/rider/login');
+                  }}
+                  className="mt-2 text-sm font-semibold text-primary underline"
+                >
+                  Go to sign in
+                </button>
+              )}
+            </div>
           )}
 
           <button

@@ -1,5 +1,9 @@
 import { useState } from 'react';
 import {
+  whatsappLink,
+  defaultCustomerMessage,
+} from '../../../../app/lib/whatsapp';
+import {
   X,
   Eye,
   Bike,
@@ -41,10 +45,22 @@ export default function OrderActionsSheet({
     }
   };
 
+  /*
+    Was `customerPhone.replace(/[^\d+]/g,'').replace('+','')`, which only works
+    for numbers already in international form. A local number like
+    "09139935930" produced https://wa.me/09139935930 — a dead link, because
+    wa.me needs digits-only WITH the country code. The shared helper handles
+    the +, the 0-prefix, and punctuation, and returns null for anything that
+    can't be dialled (the button is disabled in that case).
+  */
+  const whatsappUrl = whatsappLink(
+    customerPhone,
+    defaultCustomerMessage(undefined, `your order ${displayNumber}`)
+  );
+
   const handleMessageCustomer = () => {
-    if (!customerPhone) return;
-    const digitsOnly = customerPhone.replace(/[^\d+]/g, '');
-    window.open(`https://wa.me/${digitsOnly.replace('+', '')}`, '_blank');
+    if (!whatsappUrl) return;
+    window.open(whatsappUrl, '_blank', 'noopener,noreferrer');
   };
 
   const actions = [
@@ -61,7 +77,7 @@ export default function OrderActionsSheet({
       label: 'Message on WhatsApp',
       icon: MessageSquare,
       onClick: handleMessageCustomer,
-      disabled: !customerPhone,
+      disabled: !whatsappUrl,
     },
    
   ];

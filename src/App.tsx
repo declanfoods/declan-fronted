@@ -6,6 +6,7 @@ import SignUp from './components/pages/user/SignUp';
 import Login from './components/pages/user/Login';
 import Cart from './components/pages/user/Cart';
 import Checkout from './components/pages/app/Checkout';
+import ReorderCart from './components/pages/app/ReorderCart';
 import DashboardHome from './components/pages/app/DashboardHome';
 import Shop from './components/pages/app/Shop';
 import AppCart from './components/pages/app/Cart';
@@ -106,6 +107,9 @@ export default function App() {
           <Route path="/app/orders/:orderId" element={<OrderDetail />} />
           <Route path="/app/saved" element={<SavedProducts />} />
           <Route path="/app/checkout" element={<Checkout />} />
+          {/* The reorder cart is a SEPARATE cart from /app/cart — see the
+              header comment in ReorderCart.tsx. */}
+          <Route path="/app/reorder-cart" element={<ReorderCart />} />
           <Route path="/app/orders/:orderId/tracking" element={<OrderTracking />} />
           <Route path="/track-order" element={<GuestOrderTracking />} />
           {/* referral: */}

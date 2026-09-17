@@ -245,10 +245,14 @@ export default function ReferralMembers() {
                     actions={
                       [
                         {
+                          /*
+                            REVERSED per request — was a new-tab link that
+                            landed blank. In-app navigation now, same as the
+                            other rows in this menu.
+                          */
                           label: 'View Referral Network',
                           icon: <Share2 size={15} />,
-                          href: `/admin/referrals/members/${m.id}`,
-                          newTab: true,
+                          onClick: () => navigate(`/admin/referrals/members/${m.id}`),
                         },
                         {
                           label: 'View Full Details',

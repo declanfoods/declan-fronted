@@ -9,6 +9,7 @@ import {
   UserX,
   Phone,
   Mail,
+  MessageSquare,
   ChevronRight,
   ExternalLink,
   RefreshCw,
@@ -21,6 +22,10 @@ import {
   useVerifyUser,
 } from '../../../../app/hooks/useAdminUsers';
 import { getApiErrorMessage } from '../../../../app/lib/api-types';
+import {
+  whatsappLink,
+  defaultCustomerMessage,
+} from '../../../../app/lib/whatsapp';
 
 /*
 |--------------------------------------------------------------------------
@@ -62,6 +67,8 @@ type ActionRow = {
   newTab?: boolean;
   /** Set when the action has no backend endpoint yet. Renders greyed + badged. */
   unavailable?: boolean;
+  /** Overrides the default "SOON" badge on an unavailable row. */
+  badge?: string;
 };
 
 export default function UserActions() {
@@ -150,11 +157,15 @@ export default function UserActions() {
 
   const referralRows: ActionRow[] = [
     {
+      /*
+        REVERSED per request. This opened in a new browser tab, which landed
+        on a blank page — a second tab boots the whole app cold at a deep URL
+        instead of reusing the running one. It now navigates in-app, which is
+        what every other row in this menu does.
+      */
       label: 'View Referral Network',
       icon: Share2,
-      // Opens in a new tab so the admin keeps this profile screen open.
-      href: `/admin/referrals/members/${user.id}`,
-      newTab: true,
+      onClick: () => navigate(`/admin/referrals/members/${user.id}`),
     },
     {
       label: 'View Referral Earnings',
@@ -167,6 +178,15 @@ export default function UserActions() {
   // NOTE: "WALLET & TRANSACTIONS" section removed on request.
   // (Credit Wallet / Debit Wallet / Issue Refund — no backend endpoints.)
 
+  /*
+    WhatsApp deep link for this customer. Null when there's no usable number,
+    which greys the row out rather than offering a dead link.
+  */
+  const whatsappUrl = whatsappLink(
+    user.phoneNumber,
+    defaultCustomerMessage(user.fullname)
+  );
+
   const commsRows: ActionRow[] = [
     {
       label: 'Call Customer',
@@ -178,8 +198,22 @@ export default function UserActions() {
       icon: Mail,
       href: `mailto:${user.email}`,
     },
-    // NOTE: "Send Notification" removed on request.
-    // (POST /admin/users/:id/notify does not exist.)
+    /*
+      Replaces the removed "Send Notification" row.
+      (POST /admin/users/:id/notify does not exist on the backend, so that
+      button could never have worked.) WhatsApp needs no endpoint — it opens
+      the admin's own WhatsApp with the customer's number.
+      `unavailable` greys the row out when the number is missing.
+    */
+    {
+      label: 'Admin message customer',
+      icon: MessageSquare,
+      href: whatsappUrl ?? undefined,
+      unavailable: !whatsappUrl,
+      // Not "SOON" — WhatsApp works; this account just has no usable number.
+      badge: 'NO NUMBER',
+      newTab: true,
+    },
   ];
 
   const renderSection = (title: string, rows: ActionRow[]) => (
@@ -207,7 +241,7 @@ export default function UserActions() {
                 {row.label}
                 {row.unavailable && (
                   <span className="ml-2 rounded-full bg-gray-100 px-2 py-0.5 text-[10px] font-bold text-gray-400">
-                    SOON
+                    {row.badge ?? 'SOON'}
                   </span>
                 )}
               </span>

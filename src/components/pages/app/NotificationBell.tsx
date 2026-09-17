@@ -27,14 +27,16 @@ const fetchNotifications = async () => {
   setLoading(true);
   try {
     const res = await notificationApi.getNotifications();
-    const d = res.data.data as any;
-    const list: Notification[] =
-      d?.notifications ??
-      d?.items ??
-      d?.data ??
-      (Array.isArray(d) ? d : []);
-    setNotifications(list);
+    /*
+      The API layer already maps `isRead` → `read`, so this is just the list.
+      Before, this read `d.notifications` raw and the objects carried `isRead`,
+      so `!n.read` was always true and everything looked unread forever —
+      which is why "Mark all as read" seemed to do nothing.
+    */
+    const d = res.data.data as { notifications?: Notification[] } | undefined;
+    setNotifications(d?.notifications ?? []);
   } catch {
+    // Leave the previous list on screen; the poll will retry.
   } finally {
     setLoading(false);
   }

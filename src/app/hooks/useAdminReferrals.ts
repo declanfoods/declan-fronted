@@ -1,8 +1,11 @@
 import { useMutation, useQuery, useQueryClient, type UseQueryResult } from '@tanstack/react-query';
 import { adminReferralApi } from '../lib/adminReferralApi';
 import type {
+  AdminPayoutRequest,
+  AdminPayoutRequestDetail,
   AdminReferralFilters,
   AdminReferralListItem,
+  PayoutRequestFilters,
   AdminUserReferralSummary,
   CommissionConfig,
   CashbackConfig,
@@ -220,27 +223,106 @@ export function useUpdateWithdrawalConfig() {
 
 /*
 |--------------------------------------------------------------------------
-| ⛔ BACKEND GAP — payout / withdrawal requests
+| STATUS: every admin referral screen is now live on a real endpoint
 |--------------------------------------------------------------------------
-| PayoutQueue.tsx and PayoutRequestDetails.tsx are fully built in the UI, but
-| there is NO endpoint in referralApi.ts or adminReferralApi.ts for:
+| The two payout screens were the last holdouts. They ran on mock data behind
+| a "Demo data — awaiting API" badge because the backend had no payout routes
+| at all — the old code called /admin/referrals/payouts*, which never existed.
 |
-|   GET   /admin/referrals/payouts            (list requests)
-|   GET   /admin/referrals/payouts/:id        (single request)
-|   PATCH /admin/referrals/payouts/:id/approve
-|   PATCH /admin/referrals/payouts/:id/reject
-|   PATCH /admin/referrals/payouts/:id/status
-|
-| Also missing on the customer side:
-|   POST  /referrals/withdraw                (used by app/referral/Withdraw.tsx)
-|
-| Two options — pick one and I'll finish it:
-|   (a) Get those 5 endpoints added to the backend, then swap these screens
-|       over exactly like the others.
-|   (b) Keep them mock-only behind a feature flag until the API lands.
-|
-| Both screens currently render their mock data but are clearly badged in the
-| UI as "Demo data — awaiting API". They are NOT silently faking it.
+| The backend has since shipped the whole "Admin Referrals > Referral Payout"
+| folder (list / detail / approve / reject), so those screens are live now and
+| the demo badge is gone. See useAdminPayoutRequests and friends at the bottom
+| of this file.
 */
 
 export type { CommissionConfig, CashbackConfig, WalletConfig };
+
+// ─── Admin Referrals → Referral Payout ──────────────────────────────────
+
+/**
+ * GET /admin/referrals/withdrawal-requests — the payout queue.
+ *
+ * Same defensive pattern as the other list hooks: the collection documents no
+ * query params on any endpoint, so if the server rejects ours we retry once
+ * params-free rather than showing an empty queue on a working backend.
+ */
+export function useAdminPayoutRequests(filters?: PayoutRequestFilters) {
+  return useQuery<
+    { payoutRequests: AdminPayoutRequest[]; pagination: ApiPagination },
+    Error
+  >({
+    queryKey: queryKeys.adminPayoutRequests(filters as Record<string, unknown> | undefined),
+    queryFn: async () => {
+      try {
+        const res = await adminReferralApi.getPayoutRequests(filters);
+        return res.data.data;
+      } catch (error) {
+        const status = (error as { response?: { status?: number } })?.response?.status;
+        const sentParams = Boolean(
+          filters && (filters.page || filters.limit || filters.requestStatus)
+        );
+
+        if (sentParams && (status === 400 || status === 422)) {
+          // eslint-disable-next-line no-console
+          console.warn(
+            '[admin] GET /admin/referrals/withdrawal-requests rejected our query params (HTTP ' +
+              status +
+              '). Retrying without them.'
+          );
+
+          const fallback = await adminReferralApi.getPayoutRequests();
+          return fallback.data.data;
+        }
+
+        throw error;
+      }
+    },
+    placeholderData: (previous) => previous,
+  });
+}
+
+/** GET /admin/referrals/withdrawal-requests/:id — one request + approver context. */
+export function useAdminPayoutRequest(id?: string) {
+  return useQuery<AdminPayoutRequestDetail, Error>({
+    queryKey: queryKeys.adminPayoutRequest(id ?? ''),
+    queryFn: async () => {
+      const res = await adminReferralApi.getPayoutRequestById(id as string);
+      return res.data.data.payoutRequest;
+    },
+    enabled: Boolean(id),
+  });
+}
+
+/**
+ * PATCH .../:id/approve — no request body.
+ *
+ * Invalidates the queue, this request, AND the admin users list: approving
+ * moves money, so every wallet balance shown elsewhere in the admin is stale.
+ */
+export function useApprovePayout() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (id: string) => adminReferralApi.approvePayout(id),
+    onSuccess: (_data, id) => {
+      queryClient.invalidateQueries({ queryKey: ['admin', 'referrals', 'payouts'] });
+      queryClient.invalidateQueries({ queryKey: queryKeys.adminPayoutRequest(id) });
+      queryClient.invalidateQueries({ queryKey: ['admin', 'users'] });
+    },
+  });
+}
+
+/** PATCH .../:id/reject — `reason` is required and is what the customer sees. */
+export function useRejectPayout() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ id, reason }: { id: string; reason: string }) =>
+      adminReferralApi.rejectPayout(id, reason),
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['admin', 'referrals', 'payouts'] });
+      queryClient.invalidateQueries({ queryKey: queryKeys.adminPayoutRequest(variables.id) });
+      queryClient.invalidateQueries({ queryKey: ['admin', 'users'] });
+    },
+  });
+}

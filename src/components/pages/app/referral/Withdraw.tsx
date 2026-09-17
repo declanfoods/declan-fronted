@@ -14,35 +14,58 @@ import {
   Copy,
   Check,
   Info,
+  MailCheck,
+  XCircle,
 } from 'lucide-react';
 import ReferralLayout from './ReferralLayout';
 import {
   useReferralWallet,
-  useRequestWithdrawal,
+  useInitiateWithdrawal,
+  useVerifyWithdrawal,
+  useResendWithdrawalCode,
+  useCancelWithdrawal,
+  useWithdrawalRequests,
 } from '../../../../app/hooks/useReferrals';
 import { getApiErrorMessage } from '../../../../app/lib/api-types';
-import type { WithdrawalRequestResult } from '../../../../app/lib/referralApi';
+import { bankOf, type PayoutRequest } from '../../../../app/lib/referralApi';
 
 /*
 |--------------------------------------------------------------------------
-| Withdraw Funds — FULLY DESIGNED
+| Withdraw Funds — LIVE (wired to the real endpoints)
 |--------------------------------------------------------------------------
-| What the user does here:
-|   1. Enter the amount
-|   2. Pick / enter the bank
-|   3. Enter the account number (10-digit NUBAN)
-|   4. Enter the account name
-|   5. Request the withdrawal
+| The backend has shipped the whole "Referrals > Withdrawal Request" folder,
+| so this screen is no longer speculative. It's a TWO-STEP flow:
 |
-| EVERYTHING on this screen is real except the POST itself, which the backend
-| hasn't built yet. The form validates properly (amount vs balance, NUBAN
-| length, required fields), shows inline field errors, has a pending state, and
-| on a successful response shows a confirmation receipt.
+|   STEP 1 — form
+|     amount → bank → account number → account name
+|     POST /referrals/withdrawals/requests/initiate
+|     Response: { id, verificationStatus: 'UNVERIFIED', requestStatus: 'PENDING' }
+|     and the message "Check email for verification code".
 |
-| Because `POST /referrals/withdraw` currently 404s, the submit path detects
-| that specific status and shows an explicit "not live yet" notice — it never
-| fakes a success screen. The moment the backend adds the route, this screen
-| works with zero frontend changes.
+|   STEP 2 — verification code
+|     The customer types the 6-digit code from their email.
+|     PATCH /referrals/withdrawals/requests/:id/verify  { verificationCode }
+|     On success verificationStatus → 'VERIFIED', requestStatus stays 'PENDING'.
+|     The request now sits in the admin payout queue for approval.
+|
+|   STEP 3 — done
+|
+| Also wired:
+|   • "Resend code"  → POST .../:id/request-verification  (does NOT create a
+|     second request — it re-sends for the existing one)
+|   • "Cancel"       → PATCH .../:id/cancel-request
+|
+| ⚠️ The 404 "not live yet" branch from the previous version is gone. It was
+| correct when the endpoint didn't exist; leaving it in now would be dead code.
+|
+| ⚠️ Status is TWO fields, not one:
+|     verificationStatus: UNVERIFIED | VERIFIED
+|     requestStatus:      PENDING | CANCELLED | APPROVED | REJECTED
+|   A request is routinely VERIFIED *and* PENDING at the same time — that's
+|   the normal "waiting for admin approval" state, not a bug.
+|
+| ⚠️ `amount` arrives as a string ("500.00") on reads and a number on the
+|   initiate response, so every read goes through Number().
 */
 
 const NIGERIAN_BANKS = [
@@ -82,12 +105,37 @@ interface FieldErrors {
   accountName?: string;
 }
 
+type Step = 'form' | 'verify' | 'done';
+
+/** Turns 'PENDING' → 'Pending', 'NOT QUALIFIED' → 'Not Qualified'. */
+function titleCase(value?: string) {
+  if (!value) return '—';
+  return value
+    .toLowerCase()
+    .split(' ')
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+    .join(' ');
+}
+
+const STATUS_TONE: Record<string, string> = {
+  PENDING: 'bg-amber-50 text-amber-700',
+  APPROVED: 'bg-green-50 text-green-700',
+  CANCELLED: 'bg-gray-100 text-gray-500',
+  REJECTED: 'bg-red-50 text-red-600',
+};
+
 export default function Withdraw() {
   const navigate = useNavigate();
 
   const walletQuery = useReferralWallet();
-  const withdrawal = useRequestWithdrawal();
+  const requestsQuery = useWithdrawalRequests();
 
+  const initiate = useInitiateWithdrawal();
+  const verify = useVerifyWithdrawal();
+  const resendCode = useResendWithdrawalCode();
+  const cancelRequest = useCancelWithdrawal();
+
+  const [step, setStep] = useState<Step>('form');
   const [amount, setAmount] = useState('');
   const [bank, setBank] = useState('');
   const [customBank, setCustomBank] = useState('');
@@ -95,8 +143,10 @@ export default function Withdraw() {
   const [accountName, setAccountName] = useState('');
   const [touched, setTouched] = useState<Record<string, boolean>>({});
   const [submitError, setSubmitError] = useState('');
-  const [notLive, setNotLive] = useState(false);
-  const [receipt, setReceipt] = useState<WithdrawalRequestResult | null>(null);
+  const [code, setCode] = useState('');
+  const [codeError, setCodeError] = useState('');
+  const [request, setRequest] = useState<PayoutRequest | null>(null);
+  const [codeSentTo, setCodeSentTo] = useState('');
   const [copiedRef, setCopiedRef] = useState(false);
 
   const available = Number(walletQuery.data?.availableBalance ?? 0);
@@ -105,6 +155,18 @@ export default function Withdraw() {
 
   const bankName = bank === 'Other' ? customBank.trim() : bank;
   const numericAmount = Number(amount);
+
+  const previousRequests = requestsQuery.data?.payoutRequests ?? [];
+
+  /*
+    If the customer already started a request and never entered the code, we
+    surface that instead of letting them create a duplicate. Initiate on the
+    backend creates a NEW request every time, so this guard is the difference
+    between one payout and three.
+  */
+  const unfinished = previousRequests.find(
+    (r) => r.verificationStatus === 'UNVERIFIED' && r.requestStatus === 'PENDING'
+  );
 
   // ── Validation ────────────────────────────────────────────────────────
   const errors: FieldErrors = useMemo(() => {
@@ -144,7 +206,6 @@ export default function Withdraw() {
     const cleaned = raw.replace(/[^\d.]/g, '').replace(/(\..*)\./g, '$1');
     setAmount(cleaned);
     setSubmitError('');
-    setNotLive(false);
   };
 
   const setQuickAmount = (pct: number) => {
@@ -153,10 +214,10 @@ export default function Withdraw() {
     setTouched((t) => ({ ...t, amount: true }));
   };
 
+  // ── STEP 1 — initiate ─────────────────────────────────────────────────
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSubmitError('');
-    setNotLive(false);
 
     // Mark everything touched so all errors surface at once.
     setTouched({ amount: true, bank: true, accountNumber: true, accountName: true });
@@ -164,26 +225,102 @@ export default function Withdraw() {
     if (!isValid) return;
 
     try {
-      const res = await withdrawal.mutateAsync({
+      const res = await initiate.mutateAsync({
+        // Number, not string — matches the collection's example body.
         amount: numericAmount,
-        bankName,
-        accountNumber,
         accountName: accountName.trim(),
+        accountNumber,
+        bankName,
       });
 
-      setReceipt(res.data.data ?? null);
+      const created = res.data.data?.payoutRequest ?? null;
+      setRequest(created);
+      setCode('');
+      setCodeError('');
+      setStep('verify');
     } catch (error) {
-      const status = (error as { response?: { status?: number } })?.response?.status;
-
-      // 404 = route not implemented yet. Say so honestly.
-      if (status === 404) {
-        setNotLive(true);
-      } else {
-        setSubmitError(
-          getApiErrorMessage(error, 'Could not submit your withdrawal request.')
-        );
-      }
+      setSubmitError(
+        getApiErrorMessage(error, 'Could not submit your withdrawal request.')
+      );
     }
+  };
+
+  // ── STEP 2 — verify ───────────────────────────────────────────────────
+  const handleVerify = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setCodeError('');
+
+    if (!request?.id) {
+      setCodeError('This request is missing its ID. Please start again.');
+      return;
+    }
+
+    if (code.trim().length < 4) {
+      setCodeError('Enter the verification code from your email.');
+      return;
+    }
+
+    try {
+      const res = await verify.mutateAsync({
+        id: request.id,
+        verificationCode: code.trim(),
+      });
+
+      setRequest(res.data.data?.payoutRequest ?? request);
+      setStep('done');
+    } catch (error) {
+      setCodeError(
+        getApiErrorMessage(error, 'That code was not accepted. Check it and try again.')
+      );
+    }
+  };
+
+  const handleResend = async () => {
+    if (!request?.id) return;
+    setCodeError('');
+
+    try {
+      await resendCode.mutateAsync(request.id);
+      setCodeSentTo('sent');
+      setTimeout(() => setCodeSentTo(''), 4000);
+    } catch (error) {
+      setCodeError(getApiErrorMessage(error, 'Could not resend the code.'));
+    }
+  };
+
+  const handleCancel = async () => {
+    if (!request?.id) {
+      setStep('form');
+      setRequest(null);
+      return;
+    }
+
+    if (!window.confirm('Cancel this withdrawal request? The money stays in your wallet.')) {
+      return;
+    }
+
+    try {
+      await cancelRequest.mutateAsync(request.id);
+      setRequest(null);
+      setStep('form');
+      setAmount('');
+      setCode('');
+    } catch (error) {
+      setCodeError(getApiErrorMessage(error, 'Could not cancel this request.'));
+    }
+  };
+
+  /** Jump back into an unfinished request found in the history. */
+  const resumeUnfinished = () => {
+    if (!unfinished) return;
+    const bankBlock = bankOf(unfinished);
+    setRequest(unfinished);
+    setAccountName(bankBlock?.accountName ?? '');
+    setAccountNumber(bankBlock?.accountNumber ?? '');
+    setAmount(String(Number(unfinished.amount ?? 0)));
+    setCode('');
+    setCodeError('');
+    setStep('verify');
   };
 
   const copyReference = async (ref: string) => {
@@ -196,9 +333,11 @@ export default function Withdraw() {
     }
   };
 
-  // ── Success receipt ───────────────────────────────────────────────────
-  if (receipt) {
-    const reference = receipt.id ? receipt.id.slice(0, 8).toUpperCase() : '—';
+  /* ── STEP 3 — done ─────────────────────────────────────────────────── */
+  if (step === 'done' && request) {
+    const bankBlock = bankOf(request);
+    const verified = request.verificationStatus === 'VERIFIED';
+    const reference = request.id ? request.id.slice(0, 8).toUpperCase() : '—';
 
     return (
       <ReferralLayout>
@@ -207,24 +346,38 @@ export default function Withdraw() {
             <CheckCircle2 size={34} className="text-primary" />
           </div>
 
-          <h1 className="mt-4 text-xl font-bold text-primary">Request Submitted</h1>
+          <h1 className="mt-4 text-xl font-bold text-primary">
+            {verified ? 'Request Verified' : 'Request Submitted'}
+          </h1>
           <p className="mt-2 text-sm text-ink-soft">
-            Your withdrawal request is being reviewed. You'll be notified once it's
-            processed.
+            {verified
+              ? "You're all set. An admin will review and pay out your request shortly."
+              : 'Your request was created. Enter the code we emailed you to finish.'}
           </p>
 
           <div className="mt-6 rounded-2xl bg-white p-5 text-left shadow-sm ring-1 ring-gray-100">
             <p className="text-center text-3xl font-extrabold text-primary">
-              ₦{Number(receipt.amount ?? numericAmount).toLocaleString()}
+              ₦{Number(request.amount ?? numericAmount).toLocaleString()}
             </p>
 
             <div className="mt-5 space-y-3 border-t border-gray-100 pt-4 text-sm">
-              <Row label="Bank" value={receipt.bankName ?? bankName} />
-              <Row label="Account Number" value={receipt.accountNumber ?? accountNumber} />
-              <Row label="Account Name" value={receipt.accountName ?? accountName} />
+              <Row label="Bank" value={bankBlock?.bankName ?? bankName} />
+              <Row label="Account Number" value={bankBlock?.accountNumber ?? accountNumber} />
+              <Row label="Account Name" value={bankBlock?.accountName ?? accountName} />
+              <Row
+                label="Verification"
+                value={titleCase(request.verificationStatus)}
+                valueClass={
+                  verified ? 'font-bold text-green-600' : 'font-bold text-amber-600'
+                }
+              />
+              {/*
+                Shown as-is. VERIFIED + PENDING is the normal "waiting for
+                admin approval" state — not a contradiction.
+              */}
               <Row
                 label="Status"
-                value={receipt.status ?? 'PENDING'}
+                value={titleCase(request.requestStatus)}
                 valueClass="font-bold text-amber-600"
               />
               <div className="flex items-center justify-between">
@@ -253,7 +406,120 @@ export default function Withdraw() {
     );
   }
 
-  // ── Form ──────────────────────────────────────────────────────────────
+  /* ── STEP 2 — verification code ────────────────────────────────────── */
+  if (step === 'verify') {
+    return (
+      <ReferralLayout>
+        <div className="mx-auto max-w-md">
+          <div className="mb-6 flex items-center justify-between md:hidden">
+            <button
+              onClick={() => setStep('form')}
+              className="text-primary"
+              aria-label="Back"
+            >
+              <ArrowLeft size={22} />
+            </button>
+            <h1 className="text-base font-bold text-primary">Verify Withdrawal</h1>
+            <span className="w-6" />
+          </div>
+
+          <div className="mb-5 rounded-2xl bg-primary p-5 text-white">
+            <div className="flex items-center gap-2">
+              <MailCheck size={18} />
+              <p className="text-sm">Check your email</p>
+            </div>
+            <p className="mt-2 text-sm text-white/80">
+              We sent a verification code to the email on your account. Enter it below to
+              finish your ₦{Number(request?.amount ?? numericAmount).toLocaleString()}{' '}
+              withdrawal.
+            </p>
+          </div>
+
+          <form onSubmit={handleVerify} className="space-y-4" noValidate>
+            <div>
+              <label htmlFor="code" className="mb-2 block text-sm font-semibold text-primary">
+                Verification Code
+              </label>
+
+              <div
+                className={`flex items-center rounded-xl border bg-white px-4 py-3 transition-colors ${
+                  codeError ? 'border-red-400' : 'border-gray-300 focus-within:border-primary'
+                }`}
+              >
+                <Hash size={18} className="mr-2 shrink-0 text-primary" />
+                <input
+                  id="code"
+                  type="text"
+                  inputMode="numeric"
+                  autoComplete="one-time-code"
+                  value={code}
+                  onChange={(e) => {
+                    setCode(e.target.value.replace(/\D/g, '').slice(0, 8));
+                    setCodeError('');
+                  }}
+                  placeholder="6-digit code"
+                  className="w-full bg-transparent text-lg tracking-[0.4em] text-ink outline-none"
+                />
+              </div>
+
+              {codeError && (
+                <p className="mt-1.5 text-xs font-semibold text-red-500">{codeError}</p>
+              )}
+            </div>
+
+            {codeSentTo === 'sent' && (
+              <div className="flex gap-3 rounded-2xl border border-green-100 bg-green-50 p-4">
+                <CheckCircle2 size={18} className="mt-0.5 shrink-0 text-green-600" />
+                <p className="text-xs font-semibold text-green-700">
+                  A new code is on its way. Check your spam folder too.
+                </p>
+              </div>
+            )}
+
+            <button
+              type="submit"
+              disabled={verify.isPending}
+              className="mt-2 flex w-full items-center justify-center gap-2 rounded-full bg-primary py-4 text-base font-bold text-white transition-opacity hover:bg-primary-dark disabled:opacity-50"
+            >
+              {verify.isPending ? (
+                <>
+                  <Loader2 size={18} className="animate-spin" /> Verifying…
+                </>
+              ) : (
+                'Verify & Submit'
+              )}
+            </button>
+
+            <div className="flex items-center justify-between text-xs">
+              <button
+                type="button"
+                onClick={handleResend}
+                disabled={resendCode.isPending}
+                className="font-semibold text-primary disabled:opacity-50"
+              >
+                {resendCode.isPending ? 'Sending…' : 'Resend code'}
+              </button>
+
+              <button
+                type="button"
+                onClick={handleCancel}
+                disabled={cancelRequest.isPending}
+                className="font-semibold text-gray-400 disabled:opacity-50"
+              >
+                Cancel request
+              </button>
+            </div>
+
+            <p className="flex items-center justify-center gap-1.5 pb-2 text-center text-[11px] text-ink-soft">
+              <Info size={13} /> The code goes to the email on your account.
+            </p>
+          </form>
+        </div>
+      </ReferralLayout>
+    );
+  }
+
+  /* ── STEP 1 — the form ─────────────────────────────────────────────── */
   return (
     <ReferralLayout>
       <div className="mx-auto max-w-md">
@@ -269,6 +535,29 @@ export default function Withdraw() {
         <h1 className="mb-6 hidden text-2xl font-bold text-primary md:block">
           Withdraw Funds
         </h1>
+
+        {/* A previously started request that never got verified. */}
+        {unfinished && (
+          <div className="mb-5 flex gap-3 rounded-2xl border border-amber-200 bg-amber-50 p-4">
+            <AlertTriangle size={18} className="mt-0.5 shrink-0 text-amber-600" />
+            <div className="flex-1">
+              <p className="text-sm font-bold text-amber-900">
+                You have an unfinished request
+              </p>
+              <p className="mt-1 text-xs text-amber-800">
+                ₦{Number(unfinished.amount ?? 0).toLocaleString()} is waiting on a
+                verification code. Finish it instead of starting a new one.
+              </p>
+              <button
+                type="button"
+                onClick={resumeUnfinished}
+                className="mt-2 rounded-full bg-amber-500 px-4 py-1.5 text-xs font-bold text-white"
+              >
+                Finish that request
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* Balance card */}
         <div className="mb-5 rounded-2xl bg-primary p-5 text-white">
@@ -294,10 +583,7 @@ export default function Withdraw() {
         <form onSubmit={handleSubmit} className="space-y-4" noValidate>
           {/* Amount */}
           <div>
-            <label
-              htmlFor="amount"
-              className="mb-2 block text-sm font-semibold text-primary"
-            >
+            <label htmlFor="amount" className="mb-2 block text-sm font-semibold text-primary">
               Amount to Withdraw
             </label>
 
@@ -502,33 +788,18 @@ export default function Withdraw() {
             </div>
           )}
 
-          {/* Processing note */}
+          {/* What happens next */}
           <div className="flex gap-3 rounded-2xl bg-primary/10 p-4">
             <Clock size={16} className="mt-0.5 shrink-0 text-primary" />
             <div>
-              <p className="text-sm font-semibold text-primary">Processing Time</p>
-              <p className="mt-1 text-xs text-primary/80">
-                Requests are reviewed by an admin, then paid out within 2–3 business
-                days depending on your bank.
-              </p>
+              <p className="text-sm font-semibold text-primary">What happens next</p>
+              <ol className="mt-1 list-decimal space-y-0.5 pl-4 text-xs text-primary/80">
+                <li>You submit this request.</li>
+                <li>We email you a verification code — enter it to confirm.</li>
+                <li>An admin reviews it, then your bank is paid within 2–3 days.</li>
+              </ol>
             </div>
           </div>
-
-          {/* Not-live notice (backend 404) */}
-          {notLive && (
-            <div className="flex gap-3 rounded-2xl border border-amber-200 bg-amber-50 p-4">
-              <AlertTriangle size={18} className="mt-0.5 shrink-0 text-amber-600" />
-              <div>
-                <p className="text-sm font-bold text-amber-900">
-                  Withdrawals aren't live yet
-                </p>
-                <p className="mt-1 text-xs text-amber-800">
-                  Your details are valid, but the payout endpoint hasn't been built on
-                  the backend, so nothing was submitted and no money has moved.
-                </p>
-              </div>
-            </div>
-          )}
 
           {/* Server error */}
           {submitError && (
@@ -540,10 +811,10 @@ export default function Withdraw() {
 
           <button
             type="submit"
-            disabled={withdrawal.isPending || available <= 0}
+            disabled={initiate.isPending || available <= 0}
             className="mt-2 flex w-full items-center justify-center gap-2 rounded-full bg-primary py-4 text-base font-bold text-white transition-opacity hover:bg-primary-dark disabled:opacity-50"
           >
-            {withdrawal.isPending ? (
+            {initiate.isPending ? (
               <>
                 <Loader2 size={18} className="animate-spin" /> Submitting…
               </>
@@ -562,6 +833,69 @@ export default function Withdraw() {
             <ShieldCheck size={13} /> Your bank details are only used to pay you.
           </p>
         </form>
+
+        {/* Request history */}
+        {previousRequests.length > 0 && (
+          <div className="mt-8">
+            <h2 className="mb-3 text-sm font-bold text-primary">Your Requests</h2>
+
+            <div className="space-y-2">
+              {previousRequests.map((r) => {
+                const bankBlock = bankOf(r);
+                const cancellable = r.requestStatus === 'PENDING';
+                const tone = STATUS_TONE[r.requestStatus] ?? 'bg-gray-100 text-gray-500';
+
+                return (
+                  <div key={r.id} className="rounded-2xl bg-white p-4 shadow-sm">
+                    <div className="flex items-start justify-between">
+                      <div>
+                        <p className="font-bold text-ink">
+                          ₦{Number(r.amount ?? 0).toLocaleString()}
+                        </p>
+                        <p className="mt-0.5 text-xs text-ink-soft">
+                          {bankBlock?.bankName ?? '—'} ·{' '}
+                          {bankBlock?.accountNumber
+                            ? `••••${bankBlock.accountNumber.slice(-4)}`
+                            : '—'}
+                        </p>
+                      </div>
+
+                      <span className={`rounded-full px-2.5 py-1 text-[10px] font-bold ${tone}`}>
+                        {titleCase(r.requestStatus)}
+                      </span>
+                    </div>
+
+                    <div className="mt-2 flex items-center justify-between text-[11px] text-ink-soft">
+                      <span>
+                        {r.createdAt
+                          ? new Date(r.createdAt).toLocaleDateString('en-NG', {
+                              day: '2-digit',
+                              month: 'short',
+                              year: 'numeric',
+                            })
+                          : '—'}
+                      </span>
+
+                      {cancellable && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setRequest(r);
+                            handleCancel();
+                          }}
+                          disabled={cancelRequest.isPending}
+                          className="flex items-center gap-1 font-semibold text-red-500 disabled:opacity-50"
+                        >
+                          <XCircle size={12} /> Cancel
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
       </div>
     </ReferralLayout>
   );

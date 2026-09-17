@@ -13,6 +13,10 @@ import {
 import StatusPill from '../../../admin/StatusPill';
 import { useAdminUser, useSuspendUser, useUnsuspendUser } from '../../../../app/hooks/useAdminUsers';
 import { getApiErrorMessage } from '../../../../app/lib/api-types';
+import {
+  whatsappLink,
+  defaultCustomerMessage,
+} from '../../../../app/lib/whatsapp';
 
 /*
 |--------------------------------------------------------------------------
@@ -52,6 +56,16 @@ export default function UserProfile() {
   const unsuspend = useUnsuspendUser();
 
   const user = userQuery.data;
+
+  /*
+    WhatsApp deep link for the action row above. Null when the account has no
+    dialable number — the button renders disabled rather than opening a dead
+    chat.
+  */
+  const whatsappUrl = whatsappLink(
+    user?.phoneNumber,
+    defaultCustomerMessage(user?.fullname)
+  );
 
   const handleCopyReferral = async () => {
     if (!user?.referralCode) return;
@@ -99,6 +113,29 @@ export default function UserProfile() {
             ? getApiErrorMessage(userQuery.error, 'Could not load this user.')
             : 'User not found.'}
         </p>
+
+        {/*
+          FIX: the error used to be a single vague line. If the backend fails,
+          its body is often a generic "An error occurred", which tells an admin
+          nothing and tells a developer even less. The route is only reachable
+          with a real id, so a failure here is almost always the request itself
+          — surface which one failed and with what status.
+        */}
+        {userQuery.isError && (
+          <p className="max-w-sm text-center text-xs text-gray-400">
+            Request: <span className="font-mono">GET /admin/users/{id ?? '(no id in URL)'}</span>
+            {typeof (userQuery.error as { response?: { status?: number } })?.response?.status ===
+              'number' && (
+              <>
+                {' '}
+                &middot; HTTP{' '}
+                <span className="font-mono">
+                  {(userQuery.error as { response?: { status?: number } }).response?.status}
+                </span>
+              </>
+            )}
+          </p>
+        )}
         <div className="flex gap-3">
           <button
             type="button"
@@ -188,7 +225,11 @@ export default function UserProfile() {
           )}
 
           <h2 className="mt-3 text-xl font-bold text-gray-900">{user.fullname}</h2>
-          <p className="text-sm text-gray-400">ID: {user.id.slice(0, 8)}</p>
+          {/* FIX: `user.id.slice` crashed the whole screen when the API
+              omitted `id` — a blank page with no explanation. */}
+          <p className="text-sm text-gray-400">
+            {user.id ? `ID: ${user.id.slice(0, 8)}` : 'ID: —'}
+          </p>
           <div className="mt-1">
             <StatusPill label={user.userStatus} />
           </div>
@@ -213,12 +254,38 @@ export default function UserProfile() {
               </span>
               <span className="text-xs text-gray-500">Email</span>
             </a>
-            <button type="button" className="flex flex-col items-center gap-1">
+            {/*
+              FIX: this was an inert <button> with no handler at all — tapping
+              it did nothing, which is what "Admin message customer is broken"
+              meant. It now opens WhatsApp to the customer's number.
+
+              WhatsApp (not an in-app notification) because the notify endpoint
+              doesn't exist on the backend — see app/lib/whatsapp.ts. The
+              button is disabled, with a tooltip, when the number is missing
+              or unusable, instead of silently doing nothing.
+            */}
+            <a
+              href={whatsappUrl ?? undefined}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={(e) => {
+                if (!whatsappUrl) e.preventDefault();
+              }}
+              aria-disabled={!whatsappUrl}
+              title={
+                whatsappUrl
+                  ? `Message ${user.fullname ?? 'customer'} on WhatsApp`
+                  : 'No usable phone number on this account'
+              }
+              className={`flex flex-col items-center gap-1 ${
+                whatsappUrl ? '' : 'cursor-not-allowed opacity-40'
+              }`}
+            >
               <span className="flex h-11 w-11 items-center justify-center rounded-full bg-white text-primary shadow-sm">
                 <MessageSquare size={18} />
               </span>
               <span className="text-xs text-gray-500">Message</span>
-            </button>
+            </a>
           </div>
         </div>
 

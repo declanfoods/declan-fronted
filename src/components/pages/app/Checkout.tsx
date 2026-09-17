@@ -25,6 +25,11 @@ export default function Checkout() {
   const [error, setError] = useState('');
 
   const [selectedPayment, setSelectedPayment] = useState<string>('');
+  /*
+    Which saved address this order goes to. Was hard-wired to `addresses[0]`,
+    which is why customers with more than one address had no way to choose.
+  */
+  const [selectedAddressId, setSelectedAddressId] = useState<string>('');
   const [instructions, setInstructions] = useState('');
   const [placing, setPlacing] = useState(false);
 
@@ -73,9 +78,14 @@ export default function Checkout() {
 
         // Saved delivery addresses
         if (!guest && addressRes.status === 'fulfilled' && addressRes.value) {
-          setAddresses(
-            addressRes.value.data.data.deliveryAddresses ?? []
-          );
+          const saved = addressRes.value.data.data.deliveryAddresses ?? [];
+          setAddresses(saved);
+
+          // Pre-select the first so the form is valid immediately; the
+          // customer can switch before paying.
+          if (saved.length > 0) {
+            setSelectedAddressId((current) => current || saved[0].id);
+          }
         }
       } catch {
         setError('Failed to load checkout.');
@@ -168,6 +178,12 @@ export default function Checkout() {
           paymentMethodId: selectedPayment,
         },
         deliveryInstructions: instructions || undefined,
+        /*
+          FIX: this was missing. The API requires deliveryAddressId for a
+          registered-user order (it is in the collection's example body), so
+          orders were being created without a delivery address.
+        */
+        deliveryAddressId: address.id,
       });
 
       const order = res.data.data.order;
@@ -332,7 +348,11 @@ export default function Checkout() {
   }
 
   // Authoritative saved address from /api/v1/delivery-addresses
-  const address = addresses[0];
+  // Resolve the chosen address. Falls back to the first one so the form is
+  // never left with nothing selected, but never silently overrides a real
+  // choice the customer made.
+  const address =
+    addresses.find((a) => a.id === selectedAddressId) ?? addresses[0];
 
   const canPlaceOrder = guest
     ? !!guestEmail &&
@@ -464,22 +484,21 @@ export default function Checkout() {
                 </div>
               </div>
             ) : (
-              <div className="mt-3 rounded-2xl bg-primary/10 p-5">
-                {address ? (
-                  <>
-                    <p className="text-lg font-bold text-ink">
-                      {address.state}
-                    </p>
+              /*
+                FIX: this used to render `addresses[0]` and nothing else, so a
+                customer with several saved addresses had no way to pick one —
+                their order silently went to whichever address was first.
 
-                    <p className="mt-1 text-sm leading-relaxed text-ink-soft">
-                      {address.addressLine}, {address.country}
-                    </p>
-                  </>
-                ) : (
-                  <div>
+                Now every saved address is listed and selectable when there is
+                more than one. With exactly one, it renders as a plain summary
+                as before (a one-option picker is just noise).
+              */
+              <div className="mt-3 space-y-2">
+                {addresses.length === 0 && (
+                  <div className="rounded-2xl bg-primary/10 p-5">
                     <p className="text-sm text-ink-soft">
-                      No saved address. Please add one in your
-                      profile before ordering.
+                      No saved address. Please add one in your profile before
+                      ordering.
                     </p>
 
                     <button
@@ -490,6 +509,66 @@ export default function Checkout() {
                       Add Address
                     </button>
                   </div>
+                )}
+
+                {addresses.map((a) => {
+                  const selected = a.id === selectedAddressId;
+
+                  return (
+                    <button
+                      key={a.id}
+                      type="button"
+                      onClick={() => setSelectedAddressId(a.id)}
+                      className={`flex w-full items-start gap-3 rounded-2xl border-2 p-4 text-left transition-colors ${
+                        selected
+                          ? 'border-primary bg-primary/10'
+                          : 'border-gray-200 bg-white hover:border-primary/40'
+                      }`}
+                    >
+                      {/* Radio marker — explicit so it reads as a choice. */}
+                      <span
+                        className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 ${
+                          selected ? 'border-primary bg-primary' : 'border-gray-300'
+                        }`}
+                      >
+                        {selected && (
+                          <span className="h-2 w-2 rounded-full bg-white" />
+                        )}
+                      </span>
+
+                      <span className="min-w-0 flex-1">
+                        <span className="flex items-center gap-2">
+                          <span className="truncate text-base font-bold text-ink">
+                            {a.state}
+                          </span>
+                          {selected && (
+                            <span className="shrink-0 rounded-full bg-primary px-2 py-0.5 text-[10px] font-bold text-white">
+                              SELECTED
+                            </span>
+                          )}
+                        </span>
+
+                        <span className="mt-1 block text-sm leading-relaxed text-ink-soft">
+                          {a.addressLine}
+                          {a.country ? `, ${a.country}` : ''}
+                        </span>
+
+                        {a.nameOfCustomer && (
+                          <span className="mt-1 block text-xs text-ink-soft">
+                            {a.nameOfCustomer}
+                            {a.phoneNumber ? ` · ${a.phoneNumber}` : ''}
+                          </span>
+                        )}
+                      </span>
+                    </button>
+                  );
+                })}
+
+                {addresses.length > 1 && (
+                  <p className="pt-1 text-xs text-ink-soft">
+                    You have {addresses.length} saved addresses — pick the one
+                    this order should go to.
+                  </p>
                 )}
               </div>
             )}
