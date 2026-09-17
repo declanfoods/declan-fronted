@@ -48,12 +48,53 @@ const PAST_STATUS_TILE: Record<string, string> = {
   IN_TRANSIT: 'bg-blue-50 text-blue-700',
 };
 
-const formatDate = (iso: string) =>
-  new Date(iso).toLocaleDateString('en-NG', {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-  });
+/*
+|--------------------------------------------------------------------------
+| Order date
+|--------------------------------------------------------------------------
+| FIX: every past order used to read "Invalid date".
+|
+| `order.createdAt` is not returned by the orders endpoints — see the note on
+| the Order type in app/lib/orderApi.ts. The old code passed it straight into
+| `new Date()`, which produced an Invalid Date object, and
+| `.toLocaleDateString()` on that prints the literal words "Invalid date".
+|
+| This walks the date sources that actually exist, in order of reliability,
+| and returns null when there is genuinely nothing to show:
+|
+|   1. createdAt          — not sent today; used the moment the backend adds it
+|   2. timeline "Order Placed" — the real creation time, on the detail payload
+|   3. first timeline step that has a passedAt
+|
+| Callers render the line only when this returns something, so a missing date
+| is simply absent instead of a lie or a crash.
+*/
+function orderDate(order: Order): string | null {
+  const candidates: Array<string | null | undefined> = [
+    order.createdAt,
+    order.orderTimeline?.find((t) => /order\s*placed/i.test(t.label ?? ''))
+      ?.passedAt,
+    order.orderTimeline?.find((t) => t.passedAt)?.passedAt,
+  ];
+
+  for (const candidate of candidates) {
+    if (!candidate) continue;
+
+    const d = new Date(candidate);
+
+    // Number.isNaN(d.getTime()) is the reliable "is this date valid?" check.
+    // `d.toString() === 'Invalid Date'` also works but is stringly-typed.
+    if (!Number.isNaN(d.getTime())) {
+      return d.toLocaleDateString('en-NG', {
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric',
+      });
+    }
+  }
+
+  return null;
+}
 
 const PAGE_SIZE = 10;
 
@@ -339,7 +380,11 @@ if (!isAuthenticated()) {
 
           {!pastLoading && pastOrders.length > 0 && (
             <div className="flex flex-col gap-4">
-              {pastOrders.map((order) => (
+              {pastOrders.map((order) => {
+                // Computed once per row rather than once per render branch.
+                const date = orderDate(order);
+
+                return (
                 <div
                   key={order.id}
                   className="flex items-center gap-4 rounded-2xl border-2 border-primary bg-white p-4 shadow-sm"
@@ -374,11 +419,16 @@ if (!isAuthenticated()) {
                     >
                       {order.orderStatus?.replace(/_/g, ' ') ?? 'UNKNOWN'}
                     </span>
-                    <p className="mt-2 text-sm text-ink-soft">
-                      {/* Was `new Date().toISOString()` in both branches — i.e.
-                          always "now". Uses the real order date. */}
-                      {formatDate(order.createdAt)}
-                    </p>
+                    {/*
+                      Was `new Date().toISOString()` in both branches — i.e.
+                      always "now" — and then briefly `formatDate(createdAt)`,
+                      which printed "Invalid date" because that field does not
+                      exist. Renders only when a real date is available; see
+                      `orderDate()` above.
+                    */}
+                    {date && (
+                      <p className="mt-2 text-sm text-ink-soft">{date}</p>
+                    )}
                     <p className="text-base font-semibold text-ink">
                       {order.orderNumber} ·{' '}
                       {order.totalQuantityOfItems}{' '}
@@ -408,7 +458,8 @@ if (!isAuthenticated()) {
                     </button>
                   </div>
                 </div>
-              ))}
+                );
+              })}
             </div>
           )}
 

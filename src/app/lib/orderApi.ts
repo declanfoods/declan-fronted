@@ -41,7 +41,32 @@ export interface Order {
   numberOfItems: number;
   totalQuantityOfItems: number;
   orderStatus: string;
-  createdAt: string;        
+  /*
+  |--------------------------------------------------------------------------
+  | FIX: `createdAt` is NOT returned by the orders endpoints
+  |--------------------------------------------------------------------------
+  | This was declared as a required `string`, which is what put "Invalid date"
+  | on every row of the customer Orders page: the field is missing from the
+  | response, so `new Date(undefined)` rendered as "Invalid date".
+  |
+  | Checked every order response in the collection — GET /orders,
+  | GET /orders/:orderId, GET /orders/active, GET /admin/orders,
+  | GET /admin/users/:id/orders, POST /orders, POST /orders/reorder — and
+  | **not one of them contains a `createdAt` key** on the order object.
+  |
+  | The only real timestamp available is in `orderTimeline`, e.g.
+  |   { "label": "Order Placed", "passed": true, "passedAt": "2026-06-28T…" }
+  | and that is only populated on the DETAIL endpoint — on the list it comes
+  | back null. So the list genuinely has no date to show.
+  |
+  | Marked optional so TypeScript forces every caller to handle its absence
+  | instead of printing a broken date. See `orderDate()` in Orders.tsx.
+  |
+  | ⚠️ This is a backend gap. Ask them to add `createdAt` (ISO string) to the
+  |    order object on GET /api/v1/orders. Until they do, there is no date to
+  |    display on the list — nothing the frontend can derive it from.
+  */
+  createdAt?: string;
   updatedAt?: string;      
   items: OrderItem[];
   isGuestOrder: boolean;

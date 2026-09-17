@@ -281,7 +281,7 @@ export default function ReorderCart() {
 
   return (
     <AppLayout title="Reorder Cart">
-      <div className="space-y-6 px-4 pb-40 pt-2">
+      <div className="space-y-6 px-4 pb-52 pt-2">
         <div className="rounded-2xl bg-primary/10 px-4 py-3">
           <p className="text-sm text-ink-soft">
             These are the items from your past order. Adjust anything, then
@@ -489,7 +489,7 @@ export default function ReorderCart() {
       </div>
 
       {/* ====================== STICKY TOTAL BAR ====================== */}
-      <div className="fixed inset-x-0 bottom-0 z-30 border-t border-gray-200 bg-white px-4 py-4 shadow-lg">
+          <div className="fixed inset-x-0 bottom-24 z-30 border-t border-gray-200 bg-white px-4 py-4 shadow-lg">
         <div className="mx-auto flex max-w-lg items-center justify-between gap-4">
           <div>
             <p className="text-xs text-ink-soft">
