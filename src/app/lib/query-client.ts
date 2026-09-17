@@ -84,8 +84,20 @@ export const queryKeys = {
     ['admin', 'referrals', 'payouts', filters ?? {}] as const,
   adminPayoutRequest: (id: string) => ['admin', 'referrals', 'payouts', id] as const,
 
-  // ── Admin config ───────────────────────────────────────────────────
-  adminCommissionConfig: ['admin', 'config', 'commission'] as const,
+   adminCommissionConfig: ['admin', 'config', 'commission'] as const,
   adminReferralConfig: ['admin', 'config', 'referral'] as const,
   adminWithdrawalConfig: ['admin', 'config', 'withdrawal'] as const,
+
+  // ── Admin categories ───────────────────────────────────────────────
+  // The whole ['admin','categories'] prefix is invalidated after a create so
+  // both tabs refresh together.
+  productCategories: ['admin', 'categories', 'products'] as const,
+  foodPackCategories: ['admin', 'categories', 'food-packs'] as const,
+  /**
+   * Full product / foodpack lists, fetched only to count how many catalogue
+   * items sit in each category. Separate keys from the paginated list screens
+   * so a filter change over there doesn't churn this.
+   */
+  categoryProductIndex: ['admin', 'categories', 'product-index'] as const,
+  categoryFoodPackIndex: ['admin', 'categories', 'food-pack-index'] as const,
 };

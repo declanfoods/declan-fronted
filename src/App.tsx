@@ -48,6 +48,7 @@ import FoodPackDetails from './components/pages/admin/foodpacks/FoodPackDetails'
 import CreateFoodPack from './components/pages/admin/foodpacks/CreateFoodPack';
 import EditFoodPack from './components/pages/admin/foodpacks/EditFoodPack';
 import AdminProductList from './components/pages/admin/products/ProductList';
+import AdminCategoriesOverview from './components/pages/admin/categories/CategoriesOverview';
 import AdminProductDetails from './components/pages/admin/products/ProductDetails';
 import AdminAddProduct from './components/pages/admin/products/AddProduct';
 import AdminEditProduct from './components/pages/admin/products/EditProduct';
@@ -214,6 +215,14 @@ export default function App() {
             element={
               <AdminProtectedRoute>
                 <AdminProductList />
+              </AdminProtectedRoute>
+            }
+          />
+                   <Route
+            path="/admin/categories"
+            element={
+              <AdminProtectedRoute>
+                <AdminCategoriesOverview />
               </AdminProtectedRoute>
             }
           />

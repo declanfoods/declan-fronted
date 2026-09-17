@@ -18,6 +18,7 @@ import {
   X,
   ArrowLeft,
   ExternalLink,
+  FolderTree,
 } from 'lucide-react';
 import { adminLogout } from '../../app/lib/adminAuth';
 // Same asset the public site uses (see components/ui/Logo.tsx).
@@ -54,7 +55,9 @@ const mainLinks: DrawerLink[] = [
   { label: 'Overview', to: '/admin', icon: LayoutGrid },
   { label: 'Products', to: '/admin/products', icon: Package },
   { label: 'Food Packs', to: '/admin/food-packs', icon: ShoppingBasket },
-  { label: 'Orders', to: '/admin/orders', icon: ShoppingCart },
+  // Catalogue structure — product + food pack categories.
+  { label: 'Categories', to: '/admin/categories', icon: FolderTree },
+    { label: 'Orders', to: '/admin/orders', icon: ShoppingCart },
   // Admin User Management — new blank tab.
   { label: 'Users', to: '/admin/users', icon: Users, newTab: true },
 ];
