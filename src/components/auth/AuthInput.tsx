@@ -1,9 +1,11 @@
 import { type InputHTMLAttributes, useState } from 'react';
 import { Eye, EyeOff } from 'lucide-react';
+
 type AuthInputProps = InputHTMLAttributes<HTMLInputElement> & {
   label?: string;
-  type?: 'text' | 'email' | 'password'|'tel';
+  type?: 'text' | 'email' | 'password' | 'tel';
   trailingIcon?: React.ReactNode;
+  prefix?: string;
 };
 
 export default function AuthInput({
@@ -11,6 +13,7 @@ export default function AuthInput({
   type = 'text',
   className,
   trailingIcon,
+  prefix,
   ...rest
 }: AuthInputProps) {
   const [show, setShow] = useState(false);
@@ -27,28 +30,48 @@ export default function AuthInput({
           {label}
         </label>
       )}
-      <div className="relative">
+
+      <div
+        className="flex items-center rounded-full border-2 border-primary bg-white
+                   focus-within:ring-2 focus-within:ring-primary/30"
+      >
+        {prefix && (
+          <>
+            <span className="shrink-0 pl-6 pr-4 text-base font-medium text-primary">
+              {prefix}
+            </span>
+            <span className="self-stretch w-px bg-primary/30" aria-hidden="true" />
+          </>
+        )}
+
         <input
           type={actualType}
-          className={
-            'w-full rounded-full border-2 border-primary bg-white px-6 py-4 text-base text-ink placeholder:text-ink-soft focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30 ' +
-            (isPassword || trailingIcon ? 'pr-14' : '') +
-            (className ?? '')
-          }
+          className={[
+            'min-w-0 flex-1 bg-transparent py-4 text-base text-ink',
+            'placeholder:text-ink-soft focus:outline-none',
+            prefix ? 'pl-4' : 'pl-6',
+            isPassword || trailingIcon ? 'pr-14' : 'pr-6',
+            className ?? '',
+          ].join(' ')}
           {...rest}
         />
+
         {isPassword && (
           <button
             type="button"
             onClick={() => setShow((v) => !v)}
             aria-label={show ? 'Hide password' : 'Show password'}
-            className="absolute right-5 top-1/2 -translate-y-1/2 text-xl text-primary"
+            className="mr-5 shrink-0 text-primary"
           >
             {show ? <EyeOff size={20} /> : <Eye size={20} />}
           </button>
         )}
+
         {!isPassword && trailingIcon && (
-          <span className="pointer-events-none absolute right-5 top-1/2 -translate-y-1/2 text-xl text-primary">
+          <span
+            aria-hidden="true"
+            className="pointer-events-none mr-5 shrink-0 text-primary"
+          >
             {trailingIcon}
           </span>
         )}
