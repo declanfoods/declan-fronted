@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Download, Eye, Wallet, History, Search } from 'lucide-react';
+import { Download, Eye, Wallet, History, Search, MessageCircle } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import ReferralLayout from './ReferralLayout';
 import DesktopShell from './DesktopShell';
@@ -12,6 +12,7 @@ import {
   useReferralWallet,
 } from '../../../../app/hooks/useReferrals';
 import type { DirectReferral } from '../../../../app/lib/referralApi';
+import MessageModal from '../../../ui/MessageModal';
 
 /*
 |--------------------------------------------------------------------------
@@ -63,8 +64,9 @@ export default function ReferralList() {
   const codeQuery = useReferralCode();
   const walletQuery = useReferralWallet();
   const metricsQuery = useReferralMetrics();
+  const [messageTarget, setMessageTarget] = useState<DirectReferral | null>(null);
   const networksQuery = useReferralNetworks({ page, limit: PAGE_SIZE });
-
+  
   const firstName = deriveFirstName(codeQuery.data);
   const metrics = metricsQuery.data;
   const wallet = walletQuery.data;
@@ -91,6 +93,12 @@ export default function ReferralList() {
             Retry
           </button>
         </div>
+        {messageTarget && (
+      <MessageModal
+        referral={messageTarget}
+        onClose={() => setMessageTarget(null)}
+      />
+    )}
       </ReferralLayout>
     );
   }
@@ -260,7 +268,7 @@ export default function ReferralList() {
                 : 'No referrals match this filter.'}
             </p>
           ) : (
-            filtered.map((r) => <MobileReferralCard key={r.id} referral={r} />)
+            filtered.map((r) => <MobileReferralCard key={r.id} referral={r} onMessage={setMessageTarget}/>)
           )}
         </div>
 
@@ -273,11 +281,24 @@ export default function ReferralList() {
           </button>
         )}
       </div>
+
+      {messageTarget && (
+        <MessageModal
+          referral={messageTarget}
+          onClose={() => setMessageTarget(null)}
+        />
+      )}
     </ReferralLayout>
   );
 }
 
-function MobileReferralCard({ referral }: { referral: DirectReferral }) {
+function MobileReferralCard({ 
+  referral,
+  onMessage
+}: { 
+  referral: DirectReferral,
+  onMessage: (r: DirectReferral) => void
+}) {
   const initials =
     referral.fullname
       ?.split(' ')
@@ -290,7 +311,7 @@ function MobileReferralCard({ referral }: { referral: DirectReferral }) {
   const progress = Math.min(100, Math.max(0, referral.percentageReached ?? 0));
   const isActive = isQualified && referral.numberOfOrders > 0;
   const status = isQualified ? 'Qualified' : isActive ? 'Active' : 'Pending';
-
+  console.log("In here")
   return (
     <div className="rounded-2xl border border-gray-200 bg-white p-4">
       <div className="flex items-start justify-between">
@@ -345,6 +366,33 @@ function MobileReferralCard({ referral }: { referral: DirectReferral }) {
           </p>
         </div>
       </div>
+       
+<div className="flex items-center gap-2">
+    <span
+      className={
+        'rounded-full px-3 py-1 text-xs font-semibold ' +
+        (isQualified
+          ? 'bg-primary text-white'
+          : isActive
+            ? 'bg-primary/20 text-primary'
+            : 'bg-orange-100 text-orange-700')
+      }
+    >
+      {status}
+    </span>
+    <button
+      onClick={() => onMessage(referral)}
+      aria-label={`Message ${referral.fullname}`}
+      className="flex h-8 w-8 items-center justify-center rounded-full
+                 border border-primary/30 bg-primary/5 text-primary
+                 hover:bg-primary/15 active:scale-95"
+    >
+      <MessageCircle size={15} />
+    </button>
+  </div>
+    
     </div>
+
+    
   );
 }
