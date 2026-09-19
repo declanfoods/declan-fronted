@@ -1,4 +1,4 @@
-import { Download, Share2, Wallet, User } from 'lucide-react';
+import { Download, Share2, Wallet, User, MessageCircle } from 'lucide-react';
 import ReferralLayout from './ReferralLayout';
 import DesktopShell from './DesktopShell';
 import SplashLoader from '../../../ui/SplashLoader';
@@ -9,6 +9,9 @@ import {
   useReferralNetworks,
   useReferralWallet,
 } from '../../../../app/hooks/useReferrals';
+import type { DirectReferral } from '../../../../app/lib/referralApi';
+import { useState } from 'react';
+import MessageModal from '../../../ui/MessageModal';
 
 /*
 |--------------------------------------------------------------------------
@@ -32,12 +35,13 @@ export default function ReferralNetwork() {
   const walletQuery = useReferralWallet();
   const metricsQuery = useReferralMetrics();
   const networksQuery = useReferralNetworks({ page: 1, limit: 50 });
+  const [messageTarget, setMessageTarget] = useState<DirectReferral | null>(null);
 
   const firstName = deriveFirstName(codeQuery.data);
   const metrics = metricsQuery.data;
   const wallet = walletQuery.data;
   const referrals = networksQuery.data?.referrals ?? [];
-
+  
   if (codeQuery.isLoading || networksQuery.isLoading) {
     return (
       <ReferralLayout firstName={firstName}>
@@ -277,6 +281,15 @@ export default function ReferralNetwork() {
                         </p>
                       </div>
                     </div>
+                    <button
+                        onClick={() => setMessageTarget(r)}
+                        aria-label={`Message ${r.fullname}`}
+                        className="flex h-8 w-8 items-center justify-center rounded-full
+                                  border border-primary/30 bg-primary/5 text-primary
+                                  hover:bg-primary/15 active:scale-95"
+                    >
+                      <MessageCircle size={15} />
+                    </button>
                     <span
                       className={
                         'rounded-full px-3 py-1 text-xs font-semibold ' +
@@ -287,6 +300,7 @@ export default function ReferralNetwork() {
                     >
                       {isPending ? 'Pending' : 'Active'}
                     </span>
+                    
                   </div>
 
                   <div className="mt-3">
@@ -324,6 +338,12 @@ export default function ReferralNetwork() {
           </div>
         </div>
       </div>
+      {messageTarget && (
+        <MessageModal
+          referral={messageTarget}
+          onClose={() => setMessageTarget(null)}
+        />
+      )}
     </ReferralLayout>
   );
 }
