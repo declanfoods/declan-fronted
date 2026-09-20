@@ -49,6 +49,8 @@ import CreateFoodPack from './components/pages/admin/foodpacks/CreateFoodPack';
 import EditFoodPack from './components/pages/admin/foodpacks/EditFoodPack';
 import AdminProductList from './components/pages/admin/products/ProductList';
 import AdminCategoriesOverview from './components/pages/admin/categories/CategoriesOverview';
+import AdminPaymentMethods from './components/pages/admin/payments/PaymentMethods';
+import AdminStockHistory from './components/pages/admin/stocks/StockHistory';
 import AdminProductDetails from './components/pages/admin/products/ProductDetails';
 import AdminAddProduct from './components/pages/admin/products/AddProduct';
 import AdminEditProduct from './components/pages/admin/products/EditProduct';
@@ -218,11 +220,27 @@ export default function App() {
               </AdminProtectedRoute>
             }
           />
-                   <Route
+          <Route
             path="/admin/categories"
             element={
               <AdminProtectedRoute>
                 <AdminCategoriesOverview />
+              </AdminProtectedRoute>
+            }
+          />
+          <Route
+            path="/admin/payments"
+            element={
+              <AdminProtectedRoute>
+                <AdminPaymentMethods />
+              </AdminProtectedRoute>
+            }
+          />
+          <Route
+            path="/admin/stocks"
+            element={
+              <AdminProtectedRoute>
+                <AdminStockHistory />
               </AdminProtectedRoute>
             }
           />

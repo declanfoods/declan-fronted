@@ -1,5 +1,6 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { toast } from 'sonner';
 import {
   ChevronDown,
   ChevronUp,
@@ -7,6 +8,9 @@ import {
   Plus,
   Edit2,
   LogIn,
+  Camera,
+  Loader2,
+  Trash2,
 } from 'lucide-react';
 
 import AppLayout from '../../app/AppLayout';
@@ -15,10 +19,17 @@ import { formatNaira } from '../../data/products';
 
 import {
   userApi,
+  userAvatarUrl,
   type UserProfile,
   type OrderOverview,
   type ReferralsMetrics,
 } from '../../../app/lib/userApi';
+
+import { uploadApi, extractUploadedUrl } from '../../../app/lib/adminUploadApi';
+import {
+  readAvatarOverride,
+  writeAvatarOverride,
+} from '../../../app/lib/userAvatar';
 
 import { logout, isAuthenticated } from '../../../app/lib/auth';
 
@@ -39,6 +50,87 @@ export default function Profile() {
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+
+  // ─────────────────────────────────────────────
+  // Profile picture
+  // ─────────────────────────────────────────────
+
+  const [avatarOverride, setAvatarOverride] = useState<string | null>(null);
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
+  const photoInputRef = useRef<HTMLInputElement>(null);
+
+  /*
+    Load any locally-chosen picture for this user. Runs after the profile
+    arrives, because the override is keyed by user id.
+  */
+  useEffect(() => {
+    if (profile?.id) {
+      setAvatarOverride(readAvatarOverride(profile.id));
+    }
+  }, [profile?.id]);
+
+  /*
+    Uploads a chosen file through the ONE upload endpoint the API has
+    (POST /api/v1/files, multipart field "files") and shows it immediately.
+
+    Validated before the round-trip so a 12 MB RAW file never leaves the
+    device: 5 MB ceiling and images only, matching what the admin upload
+    widget allows.
+  */
+  const handlePhotoSelected = async (
+    event: React.ChangeEvent<HTMLInputElement>
+  ) => {
+    const file = event.target.files?.[0];
+
+    // Let the same file be picked again after a failure.
+    event.target.value = '';
+    if (!file || !profile?.id) return;
+
+    if (!file.type.startsWith('image/')) {
+      toast.error('Please choose an image file.');
+      return;
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error('That image is larger than 5MB. Please choose a smaller one.');
+      return;
+    }
+
+    setUploadingPhoto(true);
+
+    try {
+      const res = await uploadApi.uploadFile(file);
+      const url = extractUploadedUrl(res.data.data);
+
+      if (!url) {
+        toast.error('The upload succeeded but no image URL came back.');
+        return;
+      }
+
+      /*
+        TODO(backend): replace this with a real save once an endpoint exists.
+        Right now the URL is only kept on this device — see userAvatar.ts.
+      */
+      writeAvatarOverride(profile.id, url);
+      setAvatarOverride(url);
+
+      toast.success('Profile picture updated.');
+    } catch (err: any) {
+      toast.error(
+        err.response?.data?.message ?? 'Could not upload the picture.'
+      );
+    } finally {
+      setUploadingPhoto(false);
+    }
+  };
+
+  const handleRemovePhoto = () => {
+    if (!profile?.id) return;
+
+    writeAvatarOverride(profile.id, null);
+    setAvatarOverride(null);
+    toast.success('Profile picture removed.');
+  };
 
   // ─────────────────────────────────────────────
   // Accordions
@@ -224,8 +316,17 @@ export default function Profile() {
       ? `${firstName} ${lastName}`.trim()
       : profile?.email ?? 'User';
 
-  const photoUrl =
-    profile?.profile?.profilePhoto?.url ?? null;
+  /*
+    The real avatar. `userAvatarUrl` reads the flat `profilePictureUrl` the API
+    actually sends; the previous code read `profile.profile.profilePhoto.url`,
+    a field that does not exist anywhere in the API, which is why this screen
+    always showed initials.
+
+    `avatarOverride` is a device-local value set by the upload below — see
+    `app/lib/userAvatar.ts` for why, and for the two-line change that removes
+    it once the backend can store the URL.
+  */
+  const photoUrl = avatarOverride ?? userAvatarUrl(profile);
 
   const initials =
     firstName || lastName
@@ -354,17 +455,57 @@ export default function Profile() {
         {/* Avatar */}
 
         <div className="relative flex flex-col items-center">
+          <div className="relative">
+            {photoUrl ? (
+              <img
+                src={photoUrl}
+                alt={fullName}
+                className="h-28 w-28 rounded-full border-4 border-primary object-cover shadow-md"
+              />
+            ) : (
+              <div className="flex h-28 w-28 items-center justify-center rounded-full border-4 border-primary bg-white text-4xl font-bold text-primary shadow-md">
+                {initials || '👤'}
+              </div>
+            )}
 
-          {photoUrl ? (
-            <img
-              src={photoUrl}
-              alt={fullName}
-              className="h-28 w-28 rounded-full border-4 border-primary object-cover shadow-md"
+            {/*
+              The picker. A native file input behind a styled button, so it
+              opens the phone's photo library / camera on mobile rather than a
+              file browser.
+            */}
+            <input
+              ref={photoInputRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={handlePhotoSelected}
             />
-          ) : (
-            <div className="flex h-28 w-28 items-center justify-center rounded-full border-4 border-primary bg-white text-4xl font-bold text-primary shadow-md">
-              {initials || '👤'}
-            </div>
+
+            <button
+              type="button"
+              disabled={uploadingPhoto}
+              onClick={() => photoInputRef.current?.click()}
+              aria-label={photoUrl ? 'Change profile picture' : 'Add a profile picture'}
+              className="absolute -bottom-1 -right-1 flex h-10 w-10 items-center justify-center rounded-full border-4 border-white bg-primary text-white shadow-md transition-transform hover:scale-105 disabled:opacity-60"
+            >
+              {uploadingPhoto ? (
+                <Loader2 size={16} className="animate-spin" />
+              ) : (
+                <Camera size={16} />
+              )}
+            </button>
+          </div>
+
+          {/* Only offered when there is actually something to remove. */}
+          {photoUrl && !uploadingPhoto && (
+            <button
+              type="button"
+              onClick={handleRemovePhoto}
+              className="mt-3 flex items-center gap-1.5 text-xs font-medium text-gray-400 hover:text-red-500"
+            >
+              <Trash2 size={13} />
+              Remove picture
+            </button>
           )}
 
           <h2 className="mt-4 text-2xl font-bold text-ink">

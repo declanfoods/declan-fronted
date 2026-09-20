@@ -81,6 +81,52 @@ export interface ReferralLevelEarning {
   percentage: number;
 }
 
+/*
+|--------------------------------------------------------------------------
+| Referral tree  (NEW — backend shipped these)
+|--------------------------------------------------------------------------
+|   GET /api/v1/referrals/tree              → the shape of the tree itself
+|   GET /api/v1/referrals/tree/:treeLevel   → the people AT one level
+|
+| These two replace guessing how many levels a member has. Previously the
+| Network screen derived its level list from
+| `metrics.networkPerformance.amountEarnedPerlevel`, which only contains
+| levels that have actually earned something — so a member whose L1 had not
+| earned yet saw a short or empty ladder. `tree` is the authoritative list:
+| every level the member has, its rate, and how many people sit at it.
+|
+| ⚠️ `commissionPercentage` is the RATE for that level, not money and not a
+|    progress figure: 1 → 1%, 0.25 → 0.25%, 0.125 → 0.125%. The screens show
+|    it as a percentage, which is what "L1: 1%" means.
+*/
+
+/** One rung of the ladder. `tree[]` on GET /referrals/tree. */
+export interface ReferralTreeLevel {
+  level: number;
+  /** Rate for this level. 1 = 1%, 0.25 = 0.25%. */
+  commissionPercentage: number;
+  /** How many people sit at this level right now. */
+  numberOfReferrals: number;
+}
+
+/** Envelope of GET /api/v1/referrals/tree. */
+export interface ReferralTree {
+  userId: string;
+  referralCode: string;
+  /** Everyone across every level. */
+  totalNetwork: number;
+  tree: ReferralTreeLevel[];
+}
+
+/** Envelope of GET /api/v1/referrals/tree/:treeLevel. */
+export interface ReferralTreeLevelData {
+  referrals: DirectReferral[];
+  treeLevel: number;
+  /** Convenience copy of the rate for this level, from the server. */
+  commissionPercentage: number;
+  pagination: ApiPagination;
+}
+
 export interface ReferralMetrics {
   qualifiedCount: number;
   totalNetwork: number;
@@ -240,6 +286,35 @@ export const referralApi = {
   /** GET /api/v1/referrals/metrics → network size, qualified count, per-level earnings. */
   getMetrics: () =>
     api.get<ApiResponse<{ metrics: ReferralMetrics }>>('/api/v1/referrals/metrics'),
+
+  /*
+  |--------------------------------------------------------------------------
+  | Referral tree (NEW)
+  |--------------------------------------------------------------------------
+  | `getTree()` tells the screen how long the ladder is and how many people
+  | are at each rung. `getTreeLevel(level)` fetches the actual people at one
+  | rung. Tapping a level chip in the UI switches which one is loaded — so the
+  | default view (level 1) and every tapped view use the same call.
+  |
+  | Note these are paginated: a level with 200 people returns the first page
+  | plus a pagination block, not all 200.
+  */
+
+  /** GET /api/v1/referrals/tree → every level, its rate, and its head-count. */
+  getTree: () => api.get<ApiResponse<ReferralTree>>('/api/v1/referrals/tree'),
+
+  /**
+   * GET /api/v1/referrals/tree/:treeLevel → the people at one level.
+   *
+   * ⚠️ `treeLevel` is a PATH SEGMENT, not a query param. Sending
+   * `?treeLevel=2` or omitting it would 404 — the route is literally
+   * `/referrals/tree/2`.
+   */
+  getTreeLevel: (treeLevel: number, filters?: ReferralFilters) =>
+    api.get<ApiResponse<ReferralTreeLevelData>>(
+      `/api/v1/referrals/tree/${treeLevel}`,
+      { params: filters }
+    ),
 
   /**
    * POST /api/v1/referrals/withdrawals/requests/initiate

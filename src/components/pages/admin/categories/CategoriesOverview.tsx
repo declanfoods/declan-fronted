@@ -19,19 +19,18 @@ import AdminBottomNav from '../../../admin/AdminBottomNav';
 import { formatNaira } from '../../../data/products';
 import { getApiErrorMessage } from '../../../../app/lib/api-types';
 import {
-  useProductCategories,
-  useFoodPackCategories,
-  useCategoryProductIndex,
-  useCategoryFoodPackIndex,
+  useProductCategoryOverview,
+  useFoodPackCategoryOverview,
+  useProductCategoryMetrics,
+  useFoodPackCategoryMetrics,
   useCreateProductCategory,
   useUpdateProductCategory,
   useDeleteProductCategory,
   useCreateFoodPackCategory,
-  buildProductCategoryRows,
-  buildFoodPackCategoryRows,
-    isIndexTruncated,
-  INDEX_PAGE_SIZE,
-  INDEX_MAX_PAGES,
+  useUpdateFoodPackCategory,
+  useDeleteFoodPackCategory,
+  toProductCategoryRows,
+  toFoodPackCategoryRows,
   type CategoryRow,
 } from '../../../../app/hooks/useAdminCategories';
 
@@ -40,33 +39,51 @@ import {
 | ADMIN → CATEGORIES   /admin/categories
 |==========================================================================
 |
-| Two catalogues, one screen:
-|   • Products    — full CRUD (create / rename / delete)
-|   • Food Packs  — create only; the backend has no update or delete route
+| Two catalogues, one screen. Both now have full CRUD:
+|   • Products    — create / rename / delete
+|   • Food Packs  — create / rename / delete
 |
-| WHAT IS REAL HERE
+| EVERYTHING ON THIS PAGE IS SERVER-COMPUTED
 |
-| Every category name, every item count, and every catalogue value on this
-| page comes from the live API. Nothing is mocked:
+|   GET /api/v1/admin/product-categories           → categories[] with
+|                                                     productCount,
+|                                                     catalogValue,
+|                                                     revenueGenerated,
+|                                                     isActive, products[]
+|   GET /api/v1/admin/foodpack-categories          → foodpackCategories[] with
+|                                                     foodpackCount, catalogValue,
+|                                                     revenueGenerated,
+|                                                     isActive, foodpacks[]
+|   GET /api/v1/admin/product-categories/metrics   → numberOfCategories,
+|                                                     numberOfProducts,
+|                                                     totalRevenue, catalogValue
+|   GET /api/v1/admin/foodpack-categories/metrics  → the same four fields
 |
-|   GET /api/v1/products/categories    → the product categories
-|   GET /api/v1/foodpacks/categories   → the food pack categories
-|   GET /api/v1/admin/products         → grouped to count items per category
-|   GET /api/v1/admin/foodpacks        → same, for packs
+| WHAT THIS SCREEN USED TO DO, AND NO LONGER DOES
 |
-| WHAT IS NOT
+| It used to fetch every product and every foodpack in the catalogue purely to
+| count how many were in each category, because the category payloads carried
+| nothing but { id, name }. It also printed "AWAITING BACKEND" where the
+| revenue figure belonged, because revenue needs orders joined to categories
+| and the client could not compute it.
 |
-| "Revenue generated" per category. There is no endpoint for it and it cannot
-| be derived on the client — it needs orders joined to categories, and the
-| category objects are only `{ id, name }`. Rather than print a plausible
-| number next to a real one (which is how you end up making budget decisions
-| on fiction), the revenue slot renders an explicit "awaiting backend" state.
-| `backend-message-latest.md` has the request.
+| Both are gone. `productCount` / `foodpackCount` / `catalogValue` /
+| `revenueGenerated` are fields now, the header cards read the /metrics
+| endpoints, and the per-row and expanded notes about a missing metric have
+| been deleted. The paging dance and its "more than 1000 items" warning went
+| with them — nothing is counted client-side any more.
 |
 | CATALOGUE VALUE ≠ REVENUE
-| The number shown per row is what the stock is worth at list price. It is
-| labelled "Catalog value" everywhere so it is never mistaken for money
-| already earned.
+| Two different numbers, both real, both shown:
+|   Catalog value      — what the stock is worth at list price.
+|   Revenue generated  — money actually taken from orders in that category.
+| They are labelled separately everywhere so one is never read as the other.
+|
+| DELETING MOVES THE ITEMS
+| DELETE takes { fallbackCategoryId }: the items inside a deleted category
+| have to land somewhere. The confirm dialog now collects that destination
+| instead of the old text that told the admin to go and move things first
+| and then come back.
 */
 
 type Tab = 'products' | 'food-packs';
@@ -79,56 +96,69 @@ export default function CategoriesOverview() {
   const [createOpen, setCreateOpen] = useState(false);
   const [renaming, setRenaming] = useState<CategoryRow | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<CategoryRow | null>(null);
+  /*
+    Where the deleted category's items go. Required by the API's
+    { fallbackCategoryId } body, so it is part of the delete flow rather than
+    a separate step the admin has to remember.
+  */
+  const [fallbackId, setFallbackId] = useState<string>('');
   const [actionError, setActionError] = useState('');
 
   /* ---------------------------------------------------------------- reads */
-  const productCategories = useProductCategories();
-  const foodPackCategories = useFoodPackCategories();
-  const productIndex = useCategoryProductIndex();
-  const foodPackIndex = useCategoryFoodPackIndex();
+  const productOverview = useProductCategoryOverview();
+  const foodPackOverview = useFoodPackCategoryOverview();
+  const productMetrics = useProductCategoryMetrics();
+  const foodPackMetrics = useFoodPackCategoryMetrics();
 
   /* --------------------------------------------------------------- writes */
   const createProductCategory = useCreateProductCategory();
   const updateProductCategory = useUpdateProductCategory();
   const deleteProductCategory = useDeleteProductCategory();
   const createFoodPackCategory = useCreateFoodPackCategory();
+  const updateFoodPackCategory = useUpdateFoodPackCategory();
+  const deleteFoodPackCategory = useDeleteFoodPackCategory();
 
   /* -------------------------------------------------------------- derived */
   const productRows = useMemo(
-    () =>
-         buildProductCategoryRows(
-        productCategories.data ?? [],
-        productIndex.data?.items ?? []
-      ),
-    [productCategories.data, productIndex.data]
+    () => toProductCategoryRows(productOverview.data ?? []),
+    [productOverview.data]
   );
 
   const foodPackRows = useMemo(
-    () =>
-            buildFoodPackCategoryRows(
-        foodPackCategories.data ?? [],
-        foodPackIndex.data?.items ?? []
-      ),
-    [foodPackCategories.data, foodPackIndex.data]
+    () => toFoodPackCategoryRows(foodPackOverview.data ?? []),
+    [foodPackOverview.data]
   );
 
   const isProducts = tab === 'products';
   const rows = isProducts ? productRows : foodPackRows;
 
-  const categoriesQuery = isProducts ? productCategories : foodPackCategories;
-  const indexQuery = isProducts ? productIndex : foodPackIndex;
+  const categoriesQuery = isProducts ? productOverview : foodPackOverview;
+  const metricsQuery = isProducts ? productMetrics : foodPackMetrics;
+  const metrics = metricsQuery.data;
 
-  const isLoading = categoriesQuery.isLoading || indexQuery.isLoading;
-  const isError = categoriesQuery.isError || indexQuery.isError;
+  const isLoading = categoriesQuery.isLoading;
+  const isError = categoriesQuery.isError;
 
-  const totalItems = rows.reduce((sum, r) => sum + r.itemCount, 0);
-  const totalCatalogValue = rows.reduce((sum, r) => sum + r.catalogValue, 0);
-
-   /*
-    Checked per-tab. Warning about the product index while the admin is looking
-    at food packs would be noise they can do nothing about.
+  /*
+    Totals now come from the /metrics endpoints rather than being summed off
+    the rows. Two reasons: the server's figures cover the whole catalogue (the
+    row list is one flat response, but that is the server's business, not
+    something this screen should assume), and "revenue generated" is no longer
+    a number the client could total by itself.
   */
-  const truncated = isIndexTruncated(indexQuery.data);
+  const totalCategories = metrics?.numberOfCategories ?? rows.length;
+  const totalItems = metrics?.numberOfItems ?? 0;
+  const totalCatalogValue = metrics?.catalogValue ?? 0;
+  const totalRevenue = metrics?.totalRevenue ?? 0;
+
+  /*
+    The delete destination picker needs every OTHER category on this tab.
+    Same catalogue, so the rows already in hand are the right source.
+  */
+  const fallbackOptions = useMemo(
+    () => (confirmDelete ? rows.filter((r) => r.id !== confirmDelete.id) : []),
+    [rows, confirmDelete]
+  );
 
   /*
     Categories with nothing in them sort last — the admin is here to see what
@@ -172,7 +202,7 @@ export default function CategoriesOverview() {
           type="button"
           onClick={() => {
             categoriesQuery.refetch();
-            indexQuery.refetch();
+            metricsQuery.refetch();
           }}
           aria-label="Refresh"
           className="text-primary-dark"
@@ -220,7 +250,7 @@ export default function CategoriesOverview() {
               {isProducts ? 'Product categories' : 'Food pack categories'}
             </p>
             <p className="mt-1 text-2xl font-extrabold text-gray-900">
-              {categoriesQuery.isLoading ? '—' : rows.length}
+              {metricsQuery.isLoading ? '—' : totalCategories}
             </p>
           </div>
 
@@ -229,40 +259,38 @@ export default function CategoriesOverview() {
               {isProducts ? 'Products filed' : 'Packs filed'}
             </p>
             <p className="mt-1 text-2xl font-extrabold text-gray-900">
-              {indexQuery.isLoading ? '—' : totalItems}
+              {metricsQuery.isLoading ? '—' : totalItems}
             </p>
           </div>
 
           <div className="rounded-2xl bg-[#F3F7EE] p-4">
             <p className="text-xs text-gray-500">Catalog value</p>
             <p className="mt-1 text-lg font-extrabold text-primary">
-              {indexQuery.isLoading ? '—' : formatNaira(totalCatalogValue)}
+              {metricsQuery.isLoading ? '—' : formatNaira(totalCatalogValue)}
             </p>
+            <p className="mt-0.5 text-[10px] text-gray-400">Stock at list price</p>
           </div>
 
-          <div className="rounded-2xl bg-gray-50 p-4">
+          <div className="rounded-2xl bg-[#F3F7EE] p-4">
             <p className="text-xs text-gray-500">Revenue generated</p>
-            {/*
-              Deliberately blank. There is no endpoint behind this number, and
-              a made-up figure sitting beside three real ones is worse than an
-              obvious gap.
-            */}
-            <p className="mt-1 text-lg font-extrabold text-gray-300">—</p>
-            <p className="mt-0.5 text-[10px] font-semibold text-amber-600">
-              AWAITING BACKEND
+            <p className="mt-1 text-lg font-extrabold text-gray-900">
+              {metricsQuery.isLoading ? '—' : formatNaira(totalRevenue)}
             </p>
+            <p className="mt-0.5 text-[10px] text-gray-400">From delivered orders</p>
           </div>
         </div>
 
-        {/* ─── Caveats, only when they actually apply ─── */}
-        {truncated && (
+        {/* ─── Scenario: categories exist but the metrics call failed ───
+            The rows are still perfectly usable, so the screen carries on and
+            says only that the header totals are missing. Previously this was
+            three separate "—" placeholders with no explanation.
+        */}
+        {metricsQuery.isError && !categoriesQuery.isError && (
           <div className="mt-3 flex gap-2 rounded-2xl bg-amber-50 p-3">
             <Info size={15} className="mt-0.5 shrink-0 text-amber-600" />
             <p className="text-xs text-amber-700">
-                           This catalogue has more than {INDEX_PAGE_SIZE * INDEX_MAX_PAGES}{' '}
-              {isProducts ? 'products' : 'food packs'}, so the per-category
-              counts below may be partial. A count-by-category endpoint would
-              fix this properly.
+              Could not load the totals for this tab. The categories below are
+              current.
             </p>
           </div>
         )}
@@ -272,7 +300,7 @@ export default function CategoriesOverview() {
           <div className="mt-4 rounded-2xl bg-white p-5 text-center shadow-sm">
             <p className="text-sm text-gray-500">
               {getApiErrorMessage(
-                categoriesQuery.error ?? indexQuery.error,
+                categoriesQuery.error,
                 'Could not load categories.'
               )}
             </p>
@@ -280,7 +308,7 @@ export default function CategoriesOverview() {
               type="button"
               onClick={() => {
                 categoriesQuery.refetch();
-                indexQuery.refetch();
+                categoriesQuery.refetch();
               }}
               className="mt-3 rounded-full bg-primary px-5 py-2 text-sm font-semibold text-white"
             >
@@ -356,14 +384,32 @@ export default function CategoriesOverview() {
                         <span className="mt-0.5 block text-xs text-gray-400">
                           {row.itemCount} {isProducts ? 'product' : 'pack'}
                           {row.itemCount === 1 ? '' : 's'}
-                          {row.itemCount > 0 && (
+                          {!row.isActive && (
                             <>
                               {' · '}
-                              <span className="text-gray-500">
-                                {formatNaira(row.catalogValue)} catalog value
+                              <span className="font-semibold text-amber-600">
+                                inactive
                               </span>
                             </>
                           )}
+                        </span>
+
+                        {/*
+                          Both figures are real and they are NOT the same
+                          number. Catalog value is what the stock is worth at
+                          list price; revenue generated is money actually taken
+                          from orders. Shown on separate lines so neither is
+                          read as the other.
+                        */}
+                        <span className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-[11px]">
+                          <span className="text-gray-500">
+                            {formatNaira(row.catalogValue)}{' '}
+                            <span className="text-gray-400">catalog value</span>
+                          </span>
+                          <span className="text-primary">
+                            {formatNaira(row.revenueGenerated)}{' '}
+                            <span className="text-gray-400">revenue</span>
+                          </span>
                         </span>
                       </span>
 
@@ -374,8 +420,13 @@ export default function CategoriesOverview() {
                       )}
                     </button>
 
-                    {/* Rename + delete exist for product categories only. */}
-                    {isProducts && (
+                    {/*
+                      Rename + delete. These used to be gated behind
+                      `isProducts` because foodpack categories had no update or
+                      delete route. Both routes exist now, so the gate is gone
+                      and both tabs get the same controls.
+                    */}
+                    {(
                       <div className="flex shrink-0 items-center gap-1">
                         <button
                           type="button"
@@ -392,6 +443,7 @@ export default function CategoriesOverview() {
                           type="button"
                           onClick={() => {
                             setActionError('');
+                            setFallbackId('');
                             setConfirmDelete(row);
                           }}
                           aria-label={`Delete ${row.name}`}
@@ -426,21 +478,26 @@ export default function CategoriesOverview() {
                                 </span>
                               )}
 
+                              {/*
+                                No price here on purpose. The embedded
+                                products[]/foodpacks[] arrays carry only
+                                { id, name, imageUrl } — there is no per-item
+                                price in this payload, and inventing one would
+                                mean fetching the full catalogue again, which is
+                                exactly what these endpoints were built to stop.
+                              */}
                               <span className="min-w-0 flex-1 truncate text-xs font-medium text-gray-700">
                                 {item.name}
-                              </span>
-
-                              <span className="shrink-0 text-xs font-semibold text-gray-500">
-                                {formatNaira(item.price)}
                               </span>
                             </div>
                           ))}
                         </div>
                       )}
 
-                      <p className="mt-3 text-[10px] text-amber-600">
-                        Revenue generated in this category: awaiting backend
-                        metric.
+                      <p className="mt-3 text-[10px] text-gray-400">
+                        Revenue generated: {formatNaira(row.revenueGenerated)}.
+                        Item prices are not part of this payload — open the
+                        product to see its price.
                       </p>
                     </div>
                   )}
@@ -450,12 +507,6 @@ export default function CategoriesOverview() {
           </div>
         )}
 
-        {!isProducts && !isLoading && !isError && (
-          <p className="mt-4 rounded-2xl bg-gray-50 p-3 text-center text-[11px] text-gray-400">
-            Food pack categories can be created but not renamed or deleted — the
-            backend has no update or delete route for them.
-          </p>
-        )}
       </main>
 
       {/* ─── Create / rename / delete ─── */}
@@ -490,7 +541,17 @@ export default function CategoriesOverview() {
           title="Rename Category"
           submitLabel="Save"
           initialValue={renaming.name}
-          busy={updateProductCategory.isPending}
+          /*
+            Rename is per-tab now. It used to always call the product mutation,
+            which was fine only because the food pack tab had no rename button
+            at all. With both tabs offering it, sending a foodpack category id
+            to the product endpoint would 404.
+          */
+          busy={
+            isProducts
+              ? updateProductCategory.isPending
+              : updateFoodPackCategory.isPending
+          }
           error={actionError}
           onCancel={() => {
             setRenaming(null);
@@ -498,7 +559,10 @@ export default function CategoriesOverview() {
           }}
           onSubmit={async (name) => {
             const ok = await runAction(
-              () => updateProductCategory.mutateAsync({ id: renaming.id, name }),
+              () =>
+                isProducts
+                  ? updateProductCategory.mutateAsync({ id: renaming.id, name })
+                  : updateFoodPackCategory.mutateAsync({ id: renaming.id, name }),
               'Could not rename the category.'
             );
             if (ok) {
@@ -518,21 +582,59 @@ export default function CategoriesOverview() {
               Delete “{confirmDelete.name}”?
             </h2>
 
+            {/*
+              The API's DELETE takes { fallbackCategoryId }: the items in a
+              deleted category have to be reassigned, not orphaned. So when
+              there is anything to move, this dialog collects the destination
+              rather than telling the admin to go and do it themselves first.
+            */}
             {confirmDelete.itemCount > 0 ? (
-              /*
-                Deleting a category that still has products in it is the one
-                genuinely destructive action on this screen — say so plainly.
-              */
-              <p className="mt-2 rounded-xl bg-amber-50 p-3 text-sm text-amber-700">
-                {confirmDelete.itemCount}{' '}
-                {confirmDelete.itemCount === 1 ? 'product is' : 'products are'} still
-                filed under this category. Deleting it will leave{' '}
-                {confirmDelete.itemCount === 1 ? 'that product' : 'those products'}{' '}
-                without a category. Move them somewhere else first.
-              </p>
+              <>
+                <p className="mt-2 rounded-xl bg-amber-50 p-3 text-sm text-amber-700">
+                  {confirmDelete.itemCount}{' '}
+                  {isProducts
+                    ? confirmDelete.itemCount === 1
+                      ? 'product is'
+                      : 'products are'
+                    : confirmDelete.itemCount === 1
+                      ? 'food pack is'
+                      : 'food packs are'}{' '}
+                  still filed under this category. Choose where{' '}
+                  {confirmDelete.itemCount === 1 ? 'it' : 'they'} should move —
+                  they are not deleted.
+                </p>
+
+                {fallbackOptions.length === 0 ? (
+                  <p className="mt-3 rounded-xl bg-red-50 p-3 text-sm text-red-600">
+                    This is the only category on this tab, so there is nowhere to
+                    move {confirmDelete.itemCount === 1 ? 'it' : 'them'}. Create
+                    another category first.
+                  </p>
+                ) : (
+                  <div className="mt-3">
+                    <label className="mb-1.5 block text-sm font-medium text-gray-700">
+                      Move{' '}
+                      {confirmDelete.itemCount === 1 ? 'it' : 'them'} to
+                    </label>
+                    <select
+                      value={fallbackId}
+                      onChange={(e) => setFallbackId(e.target.value)}
+                      className="w-full rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm text-gray-800 outline-none focus:border-primary"
+                    >
+                      <option value="">Select a category…</option>
+                      {fallbackOptions.map((opt) => (
+                        <option key={opt.id} value={opt.id}>
+                          {opt.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+              </>
             ) : (
               <p className="mt-2 text-sm text-gray-500">
-                This category is empty. Deleting it cannot be undone.
+                This category is empty, so there is nothing to move. Deleting it
+                cannot be undone.
               </p>
             )}
 
@@ -547,6 +649,7 @@ export default function CategoriesOverview() {
                 type="button"
                 onClick={() => {
                   setConfirmDelete(null);
+                  setFallbackId('');
                   setActionError('');
                 }}
                 className="flex-1 rounded-full border border-gray-200 py-3 text-sm font-semibold text-gray-700"
@@ -555,20 +658,38 @@ export default function CategoriesOverview() {
               </button>
               <button
                 type="button"
-                disabled={deleteProductCategory.isPending}
+                /* Blocked until a destination is chosen when items must move. */
+                disabled={
+                  isProducts
+                    ? deleteProductCategory.isPending ||
+                      (confirmDelete.itemCount > 0 && !fallbackId)
+                    : deleteFoodPackCategory.isPending ||
+                      (confirmDelete.itemCount > 0 && !fallbackId)
+                }
                 onClick={async () => {
                   const ok = await runAction(
-                    () => deleteProductCategory.mutateAsync(confirmDelete.id),
+                    () =>
+                      isProducts
+                        ? deleteProductCategory.mutateAsync({
+                            id: confirmDelete.id,
+                            fallbackCategoryId: fallbackId,
+                          })
+                        : deleteFoodPackCategory.mutateAsync({
+                            id: confirmDelete.id,
+                            fallbackCategoryId: fallbackId,
+                          }),
                     'Could not delete the category.'
                   );
                   if (ok) {
                     setConfirmDelete(null);
+                    setFallbackId('');
                     setActionError('');
                   }
                 }}
                 className="flex flex-1 items-center justify-center gap-2 rounded-full bg-red-500 py-3 text-sm font-semibold text-white disabled:opacity-60"
               >
-                {deleteProductCategory.isPending && (
+                {(deleteProductCategory.isPending ||
+                  deleteFoodPackCategory.isPending) && (
                   <Loader2 size={15} className="animate-spin" />
                 )}
                 Delete

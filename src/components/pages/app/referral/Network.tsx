@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { Download, Share2, Wallet, User, MessageCircle } from 'lucide-react';
 import ReferralLayout from './ReferralLayout';
 import DesktopShell from './DesktopShell';
@@ -6,11 +7,17 @@ import {
   deriveFirstName,
   useReferralCode,
   useReferralMetrics,
-  useReferralNetworks,
   useReferralWallet,
+  useReferralTree,
+  useReferralsAtLevel,
 } from '../../../../app/hooks/useReferrals';
+/*
+  ⚠️ MERGE NOTE — these three imports and everything they drive come from the
+  `zion/fixes` messaging feature, which landed on feature/ezekiel-branch AFTER
+  this screen was rewritten for the referral tree. They are the developer's
+  work, preserved here so the interactive tree does not clobber them.
+*/
 import type { DirectReferral } from '../../../../app/lib/referralApi';
-import { useState } from 'react';
 import MessageModal from '../../../ui/MessageModal';
 
 /*
@@ -30,19 +37,83 @@ import MessageModal from '../../../ui/MessageModal';
 | instead of being a constant 60%.
 */
 
+/*
+  Formats a commission rate for a level chip.
+
+  The API sends these as decimals: 1, 0.25, 0.125, 0.0625, 0.0313. Printed
+  raw, "0.0625%" is unreadable and "1%" vs "1.000%" is inconsistent. So:
+    integers stay whole          1        → "1"
+    otherwise trim trailing zeros 0.2500  → "0.25"
+    cap at 4 decimals             0.0625  → "0.0625", 0.03125 → "0.0313"
+
+  Returns a string with no percent sign — the caller adds it.
+*/
+function formatCommissionRate(rate: number | null | undefined): string {
+  const n = Number(rate);
+
+  if (!Number.isFinite(n)) return '0';
+  if (Number.isInteger(n)) return String(n);
+
+  // toFixed(4) then strip trailing zeros keeps 0.0313 readable without
+  // turning 0.25 into 0.2500.
+  return parseFloat(n.toFixed(4)).toString();
+}
+
 export default function ReferralNetwork() {
   const codeQuery = useReferralCode();
   const walletQuery = useReferralWallet();
   const metricsQuery = useReferralMetrics();
-  const networksQuery = useReferralNetworks({ page: 1, limit: 50 });
+  const treeQuery = useReferralTree();
+
+  /*
+    Which level the customer is looking at.
+
+    DEFAULT IS 1 — the Network tab opens on the direct referrals, per request:
+    "When user click the network tabs it should load all the direct referrals
+    (i.e level 1 referrals) that the user has".
+
+    Tapping a chip in the ladder changes this, which swaps both the green
+    highlight AND the list underneath in one move, because the list is driven
+    by the same value.
+  */
+  const [selectedLevel, setSelectedLevel] = useState(1);
+
+  /*
+    Which referral the messaging modal is open for, or null when it is closed.
+
+    Reached from the message button on a card. Works for any level: the modal
+    only needs `fullname` and `phoneNumber`, and a tree-level referral carries
+    both — so a level-3 member can be messaged exactly like a direct one.
+  */
   const [messageTarget, setMessageTarget] = useState<DirectReferral | null>(null);
+
+  const levelQuery = useReferralsAtLevel(selectedLevel, { page: 1, limit: 50 });
 
   const firstName = deriveFirstName(codeQuery.data);
   const metrics = metricsQuery.data;
   const wallet = walletQuery.data;
-  const referrals = networksQuery.data?.referrals ?? [];
-  
-  if (codeQuery.isLoading || networksQuery.isLoading) {
+
+  /*
+    The ladder comes from GET /referrals/tree. Falling back to the metrics
+    per-level array keeps the screen usable if the tree call fails — that
+    array only lists levels that have earned, so it can be short, but a short
+    ladder beats an empty screen.
+  */
+  const treeLevels =
+    treeQuery.data?.tree ??
+    (metrics?.networkPerformance?.amountEarnedPerlevel ?? []).map((l) => ({
+      level: l.level,
+      commissionPercentage: l.percentage,
+      numberOfReferrals: 0,
+    }));
+
+  const totalNetwork = treeQuery.data?.totalNetwork ?? metrics?.totalNetwork ?? 0;
+
+  // The people at the selected level.
+  const referrals = levelQuery.data?.referrals ?? [];
+  const levelPagination = levelQuery.data?.pagination;
+
+  if (codeQuery.isLoading || treeQuery.isLoading) {
     return (
       <ReferralLayout firstName={firstName}>
         <SplashLoader />
@@ -58,7 +129,7 @@ export default function ReferralNetwork() {
       {/* ═══ DESKTOP VIEW ═══ */}
       <DesktopShell
         firstName={firstName}
-        totalReferrals={metrics?.totalNetwork ?? 0}
+        totalReferrals={totalNetwork}
         activeReferrals={metrics?.qualifiedCount ?? 0}
         totalEarnings={Number(wallet?.lifetimeEarned ?? 0).toLocaleString()}
         thisMonth={Number(wallet?.availableBalance ?? 0).toLocaleString()}
@@ -74,7 +145,7 @@ export default function ReferralNetwork() {
             </div>
             <div className="flex items-center gap-3">
               <span className="rounded-full bg-primary px-4 py-2 text-sm font-semibold text-white">
-                {metrics?.totalNetwork ?? 0} Total Members
+                {totalNetwork} Total Members
               </span>
               <button className="flex items-center gap-2 rounded-full border border-gray-300 px-4 py-2 text-sm font-semibold text-ink hover:bg-gray-50">
                 <Download size={16} /> Export Tree
@@ -133,11 +204,37 @@ export default function ReferralNetwork() {
                       </p>
                     </div>
                   </div>
-                  <div className="text-right">
-                    <p className="text-sm font-bold text-primary">
-                      ₦{Number(r.totalCommissionEarnedOnReferral ?? 0).toLocaleString()}
-                    </p>
-                    <p className="text-xs text-ink-soft">Level 1</p>
+                  <div className="flex items-center gap-3">
+                    {/*
+                      Message this referral. The dev's button — same markup and
+                      classes on both views so the desktop tree and the mobile
+                      cards behave identically.
+
+                      Guarded on `phoneNumber` because MessageModal calls
+                      `.replace()` on it unconditionally: a referral whose
+                      payload has no number would crash the modal on open.
+                      Hiding the button is the smaller surprise. If the backend
+                      ever guarantees the field, the guard can go.
+                    */}
+                    {r.phoneNumber && (
+                      <button
+                        type="button"
+                        onClick={() => setMessageTarget(r)}
+                        aria-label={`Message ${r.fullname}`}
+                        className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full
+                                  border border-primary/30 bg-primary/5 text-primary
+                                  hover:bg-primary/15 active:scale-95"
+                      >
+                        <MessageCircle size={15} />
+                      </button>
+                    )}
+
+                    <div className="text-right">
+                      <p className="text-sm font-bold text-primary">
+                        ₦{Number(r.totalCommissionEarnedOnReferral ?? 0).toLocaleString()}
+                      </p>
+                      <p className="text-xs text-ink-soft">Level {selectedLevel}</p>
+                    </div>
                   </div>
                 </div>
               ))}
@@ -168,7 +265,7 @@ export default function ReferralNetwork() {
           <div className="rounded-2xl border border-gray-200 bg-white p-4">
             <p className="text-xs text-primary">Total Network</p>
             <p className="mt-1 text-2xl font-bold text-primary">
-              {metrics?.totalNetwork ?? 0}
+              {totalNetwork}
             </p>
           </div>
           <div className="rounded-2xl border border-gray-200 bg-white p-4">
@@ -191,23 +288,68 @@ export default function ReferralNetwork() {
               <User size={20} className="text-white" />
             </div>
 
-            {levels.length === 0 && (
-              <p className="text-xs text-ink-soft">No commission earned yet.</p>
+            {treeLevels.length === 0 && (
+              <p className="text-xs text-ink-soft">
+                Your referral tree is still empty.
+              </p>
             )}
 
-            {levels.map((level, idx) => (
-              <div key={level.level} className="flex flex-col items-center gap-4">
-                {idx > 0 && <div className="h-6 w-0.5 bg-gray-300" />}
-                <span
-                  className={
-                    'rounded-full px-4 py-1.5 text-xs font-bold ' +
-                    (idx === 0 ? 'bg-primary text-white' : 'bg-gray-100 text-ink')
-                  }
-                >
-                  L{level.level}: {level.percentage}%
-                </span>
-              </div>
-            ))}
+            {/*
+              INTERACTIVE LADDER.
+
+              Each chip is a button. Tapping one moves the green highlight to
+              that level AND swaps the "Your Network" list underneath to the
+              people at that level — one state value, `selectedLevel`, drives
+              both. Previously only index 0 was ever green, so the ladder was
+              decoration.
+
+              The percentage is `commissionPercentage` from GET /referrals/tree
+              (1 → "1%", 0.25 → "0.25%"), not an earnings figure and not a
+              progress bar.
+            */}
+            {treeLevels.map((level, idx) => {
+              const isSelected = level.level === selectedLevel;
+
+              return (
+                <div key={level.level} className="flex flex-col items-center gap-4">
+                  {idx > 0 && (
+                    <div
+                      className={
+                        'h-6 w-0.5 ' +
+                        (level.level <= selectedLevel ? 'bg-primary' : 'bg-gray-300')
+                      }
+                    />
+                  )}
+
+                  <button
+                    type="button"
+                    onClick={() => setSelectedLevel(level.level)}
+                    aria-pressed={isSelected}
+                    aria-label={`Level ${level.level}, ${formatCommissionRate(
+                      level.commissionPercentage
+                    )} percent, ${level.numberOfReferrals} referrals`}
+                    className={
+                      'rounded-full px-4 py-1.5 text-xs font-bold transition-colors ' +
+                      (isSelected
+                        ? 'bg-primary text-white'
+                        : 'bg-gray-100 text-ink hover:bg-primary/10')
+                    }
+                  >
+                    L{level.level}: {formatCommissionRate(level.commissionPercentage)}%
+                    {level.numberOfReferrals > 0 && (
+                      <span
+                        className={
+                          'ml-1.5 font-semibold ' +
+                          (isSelected ? 'text-white/80' : 'text-ink-soft')
+                        }
+                      >
+                        · {level.numberOfReferrals}
+                      </span>
+                    )}
+                  </button>
+                </div>
+              );
+            })}
           </div>
         </div>
 
@@ -243,15 +385,66 @@ export default function ReferralNetwork() {
           </div>
         </div>
 
-        {/* Your Network */}
+        {/* Your Network — the people at the SELECTED level */}
         <div>
-          <p className="mb-3 text-sm font-bold text-ink">Your Network</p>
-          <div className="space-y-3">
-            {referrals.length === 0 && (
-              <p className="rounded-2xl border border-gray-200 bg-white p-4 text-center text-sm text-ink-soft">
-                Nobody has joined with your code yet.
-              </p>
+          <div className="mb-3 flex items-center justify-between">
+            <p className="text-sm font-bold text-ink">
+              Your Network
+              <span className="ml-2 rounded-full bg-primary/10 px-2 py-0.5 text-[11px] font-bold text-primary">
+                Level {selectedLevel}
+                {selectedLevel === 1 ? ' · Direct' : ''}
+              </span>
+            </p>
+
+            {(levelPagination?.totalItems ?? referrals.length) > 0 && (
+              <span className="text-xs text-ink-soft">
+                {levelPagination?.totalItems ?? referrals.length}{' '}
+                {(levelPagination?.totalItems ?? referrals.length) === 1
+                  ? 'person'
+                  : 'people'}
+              </span>
             )}
+          </div>
+
+          {/* Loading this level — keep the previous level's cards visible */}
+          {levelQuery.isFetching && referrals.length > 0 && (
+            <p className="mb-2 text-center text-xs font-medium text-primary animate-pulse">
+              Loading level {selectedLevel}...
+            </p>
+          )}
+
+          {/* This level failed but others may not have */}
+          {levelQuery.isError && (
+            <div className="rounded-2xl border border-gray-200 bg-white p-4 text-center">
+              <p className="text-sm text-ink-soft">
+                Could not load level {selectedLevel}.
+              </p>
+              <button
+                type="button"
+                onClick={() => levelQuery.refetch()}
+                className="mt-2 text-sm font-semibold text-primary"
+              >
+                Retry
+              </button>
+            </div>
+          )}
+
+          <div className="space-y-3">
+            {/*
+              The empty message is level-specific now. "Nobody has joined with
+              your code yet" only makes sense for level 1 — at level 4 it was
+              simply wrong, and would have read as "you have no network" while
+              the customer was looking at a level-1 list of ten people.
+            */}
+            {!levelQuery.isLoading &&
+              !levelQuery.isError &&
+              referrals.length === 0 && (
+                <p className="rounded-2xl border border-gray-200 bg-white p-4 text-center text-sm text-ink-soft">
+                  {selectedLevel === 1
+                    ? 'Nobody has joined with your code yet.'
+                    : `Nobody in your network has reached level ${selectedLevel} yet.`}
+                </p>
+              )}
 
             {referrals.slice(0, 3).map((r) => {
               const isPending = r.commissionEligibilityStatus !== 'ACTIVE';
@@ -281,15 +474,29 @@ export default function ReferralNetwork() {
                         </p>
                       </div>
                     </div>
-                    <button
+                    {/*
+                      Message this referral. The dev's button — same markup and
+                      classes on both views so the desktop tree and the mobile
+                      cards behave identically.
+
+                      Guarded on `phoneNumber` because MessageModal calls
+                      `.replace()` on it unconditionally: a referral whose
+                      payload has no number would crash the modal on open.
+                      Hiding the button is the smaller surprise. If the backend
+                      ever guarantees the field, the guard can go.
+                    */}
+                    {r.phoneNumber && (
+                      <button
+                        type="button"
                         onClick={() => setMessageTarget(r)}
                         aria-label={`Message ${r.fullname}`}
-                        className="flex h-8 w-8 items-center justify-center rounded-full
+                        className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full
                                   border border-primary/30 bg-primary/5 text-primary
                                   hover:bg-primary/15 active:scale-95"
-                    >
-                      <MessageCircle size={15} />
-                    </button>
+                      >
+                        <MessageCircle size={15} />
+                      </button>
+                    )}
                     <span
                       className={
                         'rounded-full px-3 py-1 text-xs font-semibold ' +
@@ -300,7 +507,6 @@ export default function ReferralNetwork() {
                     >
                       {isPending ? 'Pending' : 'Active'}
                     </span>
-                    
                   </div>
 
                   <div className="mt-3">
@@ -338,6 +544,12 @@ export default function ReferralNetwork() {
           </div>
         </div>
       </div>
+
+      {/*
+        Rendered once, outside the mobile/desktop split, so whichever view is
+        visible shares the same modal. The dev placed it inside the mobile
+        block; hoisting it here covers the desktop tree too.
+      */}
       {messageTarget && (
         <MessageModal
           referral={messageTarget}

@@ -7,6 +7,8 @@ import {
 import { referralApi } from '../lib/referralApi';
 import type {
   DirectReferral,
+  ReferralTree,
+  ReferralTreeLevelData,
   ReferralCodeData,
   ReferralFilters,
   ReferralHistoryItem,
@@ -88,6 +90,52 @@ export function useReferralNetworks(filters?: ReferralFilters) {
       const res = await referralApi.getNetworks(filters);
       return res.data.data;
     },
+    placeholderData: (previous) => previous,
+  });
+}
+
+/*
+|==========================================================================
+| Referral tree
+|==========================================================================
+| Powers the interactive Network screen. Two hooks:
+|
+|   useReferralTree()            → the ladder: every level, its rate, head-count
+|   useReferralsAtLevel(level)   → the people at one rung
+|
+| The screen loads level 1 by default and swaps `level` when a chip is tapped.
+| TanStack caches each level separately, so tapping back and forth is instant
+| after the first visit.
+*/
+
+/** GET /api/v1/referrals/tree — the ladder itself. */
+export function useReferralTree(): UseQueryResult<ReferralTree, Error> {
+  return useQuery<ReferralTree, Error>({
+    queryKey: queryKeys.referralTree,
+    queryFn: async () => {
+      const res = await referralApi.getTree();
+      return res.data.data;
+    },
+  });
+}
+
+/**
+ * GET /api/v1/referrals/tree/:treeLevel — the people at one level.
+ *
+ * `enabled: level >= 1` guards against a level of 0 or NaN reaching the URL,
+ * which would hit `/referrals/tree/0` and 404.
+ */
+export function useReferralsAtLevel(
+  level: number,
+  filters?: ReferralFilters
+): UseQueryResult<ReferralTreeLevelData, Error> {
+  return useQuery<ReferralTreeLevelData, Error>({
+    queryKey: queryKeys.referralTreeLevel(level, filters),
+    queryFn: async () => {
+      const res = await referralApi.getTreeLevel(level, filters);
+      return res.data.data;
+    },
+    enabled: Number.isFinite(level) && level >= 1,
     placeholderData: (previous) => previous,
   });
 }

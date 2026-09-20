@@ -19,6 +19,8 @@ import {
   ArrowLeft,
   ExternalLink,
   FolderTree,
+  CreditCard,
+  History,
 } from 'lucide-react';
 import { adminLogout } from '../../app/lib/adminAuth';
 // Same asset the public site uses (see components/ui/Logo.tsx).
@@ -57,12 +59,16 @@ const mainLinks: DrawerLink[] = [
   { label: 'Food Packs', to: '/admin/food-packs', icon: ShoppingBasket },
   // Catalogue structure — product + food pack categories.
   { label: 'Categories', to: '/admin/categories', icon: FolderTree },
-    { label: 'Orders', to: '/admin/orders', icon: ShoppingCart },
+  { label: 'Orders', to: '/admin/orders', icon: ShoppingCart },
   // Admin User Management — new blank tab.
   { label: 'Users', to: '/admin/users', icon: Users, newTab: true },
 ];
 
 const opsLinks: DrawerLink[] = [
+  // Payment methods an admin switches on and off at checkout.
+  { label: 'Payments', to: '/admin/payments', icon: CreditCard },
+  // The stock ledger — every change to product stock.
+  { label: 'Stock History', to: '/admin/stocks', icon: History },
   // Referral Dashboard — new blank tab.
   { label: 'Referrals', to: '/admin/referrals', icon: Share2, newTab: true },
   // FIX: this pointed at '/admin/delivery', which has NO route defined in

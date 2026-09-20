@@ -54,6 +54,15 @@ export const queryKeys = {
   referralHistory: (filters?: { page?: number; limit?: number }) =>
     ['referral', 'history', filters ?? {}] as const,
   referralDownline: (id: string) => ['referral', 'downline', id] as const,
+  /**
+   * The ladder itself — how many levels, the rate at each, head-counts.
+   * Separate from `referralTreeLevel` so tapping between levels doesn't
+   * refetch the ladder.
+   */
+  referralTree: ['referral', 'tree'] as const,
+  /** The people at one level. Keyed by level so each rung caches separately. */
+  referralTreeLevel: (level: number, filters?: { page?: number; limit?: number }) =>
+    ['referral', 'tree', level, filters ?? {}] as const,
   /** Customer's own payout requests — folder "Referrals > Withdrawal Request". */
   withdrawalRequests: ['referral', 'withdrawal-requests'] as const,
 
@@ -84,20 +93,63 @@ export const queryKeys = {
     ['admin', 'referrals', 'payouts', filters ?? {}] as const,
   adminPayoutRequest: (id: string) => ['admin', 'referrals', 'payouts', id] as const,
 
-   adminCommissionConfig: ['admin', 'config', 'commission'] as const,
+  // ── Admin config ───────────────────────────────────────────────────
+  adminCommissionConfig: ['admin', 'config', 'commission'] as const,
   adminReferralConfig: ['admin', 'config', 'referral'] as const,
   adminWithdrawalConfig: ['admin', 'config', 'withdrawal'] as const,
 
   // ── Admin categories ───────────────────────────────────────────────
   // The whole ['admin','categories'] prefix is invalidated after a create so
   // both tabs refresh together.
+  /** GET /api/v1/admin/dashboard/overview — the admin home screen. */
+  adminDashboardOverview: ['admin', 'dashboard', 'overview'] as const,
+
+  // ── Admin payments ─────────────────────────────────────────────────
+  /** The payment methods admins can switch on and off. */
+  adminPaymentMethods: ['admin', 'payments', 'payment-methods'] as const,
+
+  // ── Admin stock history ────────────────────────────────────────────
+  /** Every stock change, paginated. */
+  adminStockHistory: (filters?: { page?: number; limit?: number }) =>
+    ['admin', 'stocks', 'history', filters ?? {}] as const,
+  /** One stock change record. */
+  adminStockHistoryRecord: (recordId: string) =>
+    ['admin', 'stocks', 'history', 'record', recordId] as const,
+  /** Stock changes for one product, keyed by product so each caches apart. */
+  adminStockProductHistory: (
+    productId: string,
+    filters?: { page?: number; limit?: number }
+  ) => ['admin', 'stocks', 'product', productId, filters ?? {}] as const,
+
+  /**
+   * Admin order insights, keyed by period. Three separate cache entries so
+   * flipping between Today / This week / This month is instant on revisit.
+   */
+  adminOrderMetrics: (period?: string) =>
+    ['admin', 'orders', 'metrics', period ?? 'week'] as const,
+
   productCategories: ['admin', 'categories', 'products'] as const,
   foodPackCategories: ['admin', 'categories', 'food-packs'] as const,
-  /**
-   * Full product / foodpack lists, fetched only to count how many catalogue
-   * items sit in each category. Separate keys from the paginated list screens
-   * so a filter change over there doesn't churn this.
-   */
-  categoryProductIndex: ['admin', 'categories', 'product-index'] as const,
-  categoryFoodPackIndex: ['admin', 'categories', 'food-pack-index'] as const,
+
+  /*
+    The rich admin category lists, from the dedicated endpoints. Separate from
+    the two keys above, which are the plain { id, name } lists that feed the
+    product/foodpack form dropdowns — different endpoints, different payloads,
+    so they must not share a cache entry.
+  */
+  productCategoryOverview: ['admin', 'categories', 'products', 'overview'] as const,
+  foodPackCategoryOverview: ['admin', 'categories', 'food-packs', 'overview'] as const,
+  productCategoryMetrics: ['admin', 'categories', 'products', 'metrics'] as const,
+  foodPackCategoryMetrics: ['admin', 'categories', 'food-packs', 'metrics'] as const,
+
+  /*
+    REMOVED: categoryProductIndex / categoryFoodPackIndex.
+
+    Those two keys backed a workaround — fetching every product and every
+    foodpack purely to count how many sat in each category, because the
+    category payloads had no count field. The dedicated admin category
+    endpoints now return `productCount` / `foodpackCount` directly, so the
+    workaround, its keys, and the 1000-item truncation warning it needed are
+    all gone. Nothing fetches a whole catalogue to produce a count any more.
+  */
 };

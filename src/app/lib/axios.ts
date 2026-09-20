@@ -43,8 +43,88 @@ type AuthScope = 'rider' | 'admin' | 'customer';
  * URL prefix is the source of truth — the three apps share one backend.
  */
 function resolveAuth(url: string): { token: string | null; scope: AuthScope } {
+  /*
+  |--------------------------------------------------------------------------
+  | FIX: "Authorization header missing" on the whole rider app
+  |--------------------------------------------------------------------------
+  | The rider endpoints live at BOTH of these paths:
+  |
+  |   /api/v1/delivery-riders/...   ← the "r" is not a typo; riderApi.ts
+  |   /api/v1/delivery-rider/...      riderDeliveryApi.ts uses the singular
+  |
+  | `startsWith('/api/v1/delivery-rider')` happens to cover both, because the
+  | plural one also starts with the singular string. That part worked. It was
+  | kept as-is but written down here, because it looks like a bug and someone
+  | will "fix" it into one.
+  |
+  | The actual cause of the error was the OTHER half of this line:
+  |
+  |   RiderLogin.tsx wrote  localStorage.setItem('token', …)
+  |   this line read        localStorage.getItem('riderToken')
+  |
+  | Different keys, so `token` was always null, so no Authorization header was
+  | ever attached — and the backend answered "Authorization header missing"
+  | for every rider request.
+  |
+  | Order doesn't matter between the two prefix checks below:
+  | /api/v1/admin/delivery-riders starts with "/api/v1/admin", and
+  | /api/v1/delivery-riders/... starts with "/api/v1/delivery-rider". Neither
+  | can be mistaken for the other.
+  */
   if (url.startsWith('/api/v1/delivery-rider')) {
-    return { token: localStorage.getItem('riderToken'), scope: 'rider' };
+    let riderToken = localStorage.getItem('riderToken');
+
+    /*
+      Back-compat: anyone already signed in before this fix has the token under
+      the bare `token` key. Pick it up and promote it, so nobody gets logged out
+      by the deploy.
+    */
+    if (!riderToken && localStorage.getItem('role') === 'rider') {
+      const legacy = localStorage.getItem('token');
+
+      if (legacy) {
+        riderToken = legacy;
+        localStorage.setItem('riderToken', legacy);
+        localStorage.removeItem('token');
+      }
+    }
+
+    return { token: riderToken, scope: 'rider' };
+  }
+
+  /*
+  |--------------------------------------------------------------------------
+  | FIX: uploads sent the wrong token
+  |--------------------------------------------------------------------------
+  | POST /api/v1/files is the one generic upload endpoint in this API — no
+  | admin prefix, no rider prefix. The profile picture on the customer's
+  | profile screen goes through it, and so does every product / foodpack image
+  | in the admin app (AdminImageUpload.tsx → uploadApi.uploadFile).
+  |
+  | Because the path has no `admin` or `delivery-rider` prefix it fell through
+  | to the customer branch below, which reads `customerToken` and the
+  | `auth-storage` fallback. For a customer that happens to be correct. For a
+  | signed-in ADMIN there is no customer token, so no Authorization header was
+  | attached at all — and the live endpoint answers 401, so every admin image
+  | upload failed.
+  |
+  | The fix is to pick the token that matches whoever is actually signed in,
+  | rather than guessing from a path that carries no scope. This only changes
+  | behaviour for this one URL: when a customer token exists, it is still the
+  | one used.
+  */
+  if (url.startsWith('/api/v1/files')) {
+    const role = localStorage.getItem('role');
+
+    if (role === 'admin') {
+      return { token: localStorage.getItem('adminToken'), scope: 'admin' };
+    }
+
+    if (role === 'rider') {
+      return { token: localStorage.getItem('riderToken'), scope: 'rider' };
+    }
+
+    return { token: localStorage.getItem('customerToken'), scope: 'customer' };
   }
 
   if (url.startsWith('/api/v1/admin')) {
@@ -90,8 +170,18 @@ api.interceptors.response.use(
       const url: string = error.config?.url ?? '';
       const { scope } = resolveAuth(url);
 
-      // Don't fight the login screens — never bounce away from a sign-in call.
-      const isAuthCall = url.includes('/auth/') || url.includes('/login');
+      /*
+        Don't fight the login screens — never bounce away from a sign-in call.
+        `/change-password` is included for the same reason: the forced
+        first-login password change is a gate, and bouncing the rider back to
+        the login screen on a 401 meant they could never get past it — they
+        were pushed into a login → change-password → login loop with no way to
+        read what actually went wrong. Now the screen shows the error instead.
+      */
+      const isAuthCall =
+        url.includes('/auth/') ||
+        url.includes('/login') ||
+        url.includes('/change-password');
 
       if (!isAuthCall) {
         if (scope === 'admin') {
@@ -99,7 +189,10 @@ api.interceptors.response.use(
           localStorage.removeItem('role');
           window.location.href = '/admin/login';
         } else if (scope === 'rider') {
+          // Clear the legacy key too, so no half-expired session is left behind.
           localStorage.removeItem('riderToken');
+          localStorage.removeItem('token');
+          localStorage.removeItem('role');
           window.location.href = '/rider/login';
         } else {
           localStorage.removeItem('customerToken');
