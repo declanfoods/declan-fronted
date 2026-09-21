@@ -17,6 +17,8 @@ import {
   extractRidersList,
   type DeliveryRider,
 } from '../../../../app/lib/adminRiderApi';
+import { useToast } from '../../../ui/Toast';
+import AssignRiderModal from '../../../ui/AssignRiderModal';
 
 function formatAmount(amount: unknown) {
   const num = Number(amount);
@@ -61,6 +63,8 @@ export default function AssignRider() {
   const [search, setSearch] = useState('');
   const [assigningId, setAssigningId] =
     useState<string | null>(null);
+  const [pendingRider, setPendingRider] = useState<DeliveryRider | null>(null);
+  const { showToast }= useToast();
 
   useEffect(() => {
     if (!id) return;
@@ -115,23 +119,29 @@ export default function AssignRider() {
       });
   }, [id]);
 
-  const handleAssign = async (riderId: string) => {
+  const handleAssign = async (
+    riderId: string, 
+    note: string | null, 
+    estimatedDeliveryTime: string
+  ) => {
     if (!id) return;
 
     setAssigningId(riderId);
     setError('');
 
     try {
-      await adminOrderApi.assignRider(id, {
+      const response = await adminOrderApi.assignRider(id, {
         riderId,
+        note,
+        estimatedDeliveryTime
       });
-
+      showToast(response.data.message)
       navigate(`/admin/orders/${id}`);
     } catch (err: any) {
-      console.error(
-        'ASSIGN RIDER ERROR:',
-        err
-      );
+      showToast(
+        err.response?.data?.message ?? "Failed to assign rider.",
+        "error"
+      )
 
       setError(
         err.response?.data?.message ??
@@ -139,6 +149,7 @@ export default function AssignRider() {
       );
     } finally {
       setAssigningId(null);
+      setPendingRider(null)
     }
   };
 
@@ -444,7 +455,7 @@ export default function AssignRider() {
                     assigningId === rider.id
                   }
                   onClick={() =>
-                    handleAssign(rider.id)
+                    setPendingRider(rider)
                   }
                   className="rounded-full bg-primary px-5 py-2 text-xs font-semibold text-white disabled:cursor-not-allowed disabled:bg-gray-200 disabled:text-gray-400"
                 >
@@ -456,6 +467,16 @@ export default function AssignRider() {
             ))}
           </div>
         </div>
+      )}
+      {pendingRider && (
+        <AssignRiderModal
+          rider={pendingRider}
+          loading={assigningId === pendingRider.id}
+          onClose={() => setPendingRider(null)}
+          onConfirm={(note, estimatedDeliveryTime) =>
+            handleAssign(pendingRider.id, note, estimatedDeliveryTime)
+          }
+        />
       )}
     </div>
   );

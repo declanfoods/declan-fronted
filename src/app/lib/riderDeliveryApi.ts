@@ -25,6 +25,7 @@ export interface RiderOrder {
 export interface RiderDelivery {
   id: string;
   assignedAt?: string;
+  targetDeliveryTime: Date;
   order: RiderOrder;
 }
 

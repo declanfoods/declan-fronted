@@ -62,6 +62,8 @@ export interface AdminOrderFilters {
 
 export interface AssignRiderPayload {
   riderId: string;
+  note?: string | null;
+  estimatedDeliveryTime: string
 }
 
 /*

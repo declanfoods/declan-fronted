@@ -18,6 +18,7 @@ import {
   riderDeliveryApi,
   type RiderDelivery,
 } from '../../../app/lib/riderDeliveryApi';
+import { formatDate } from '../../utils/util';
 
 const stages = [
   { key: 'ASSIGNED', label: 'Assigned' },
@@ -267,6 +268,12 @@ export default function DeliveryDetails() {
                 </div>
               );
             })}
+          </div>
+          <div>
+            <i className="text-gray-500">
+                Target delivery time: {formatDate(delivery.targetDeliveryTime.toString())}
+            </i>
+            
           </div>
         </div>
 
