@@ -7,14 +7,14 @@ import { formatNaira } from '../data/products';
 import { orderApi, type Order, type OrderTimelineEvent } from '../../app/lib/orderApi';
 
 
-const formatDate = (iso: string) =>
+const formatDate = (iso: string | null) => iso ?
   new Date(iso).toLocaleDateString('en-NG', {
     month: 'short',
     day: 'numeric',
     year: 'numeric',
     hour: '2-digit',
     minute: '2-digit',
-  });
+  }) : "N/A";
 
 export default function OrderTracking() {
   const { orderId } = useParams<{ orderId: string }>();
@@ -30,6 +30,7 @@ export default function OrderTracking() {
     try {
       const res = await orderApi.getOrderById(orderId);
       setOrder(res.data.data.order);
+      
       setTimeline(
         res.data.data.orderTimeline ?? res.data.data.order.orderTimeline ?? []
       );
@@ -113,7 +114,7 @@ export default function OrderTracking() {
               </p>
             </section>
           )}
-
+          
           {/* Status banner */}
           <section className="rounded-3xl border-2 border-accent bg-accent/10 p-4 sm:p-5">
             <div className="flex items-center justify-between text-sm font-semibold text-ink">
@@ -192,6 +193,11 @@ export default function OrderTracking() {
                     </div>
                   </div>
                 ))}
+              </div>
+              <div>
+                <i className="text-gray-500">
+                  Estimated Delivery time: {formatDate(order.estimatedDeliveryTime?.toString() ?? "")}
+                </i>
               </div>
             </section>
           )}
