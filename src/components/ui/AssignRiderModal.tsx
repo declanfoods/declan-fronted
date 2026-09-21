@@ -15,12 +15,6 @@ export default function AssignRiderModal({ rider, loading, onConfirm, onClose }:
   const [estimatedDeliveryTime, setEstimatedDeliveryTime] = useState('');
   const [errors, setErrors] = useState<{ time?: string }>({});
 
-  const initials = rider.fullname
-    ?.split(' ')
-    .map((p) => p[0])
-    .join('')
-    .slice(0, 2)
-    .toUpperCase() ?? '?';
 
   function handleConfirm() {
     if (!estimatedDeliveryTime) {
