@@ -180,12 +180,12 @@ export const adminOrderApi = {
   |--------------------------------------------------------------------------
   */
 
-  markAsProcessing: (id: string) =>
+  markAsProcessing: (id: string, requestBody: {note: string, estimatedDeliveryTime: string}) =>
     api.patch<
       ApiResponse<{
         order?: AdminOrderDetails;
       }>
-    >(`/api/v1/admin/orders/${id}/processing`),
+    >(`/api/v1/admin/orders/${id}/processing`, {...requestBody}),
 
   /*
   |--------------------------------------------------------------------------

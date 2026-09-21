@@ -15,6 +15,8 @@ import {
 } from '../../../../app/lib/adminOrderApi';
 
 import StatusPill from '../../../admin/StatusPill';
+import MarkOrderProcessingModal from '../../../ui/MarkOrderProcessingModal';
+import { useToast } from '../../../ui/Toast';
 
 function formatAmount(amount: unknown) {
   const num = Number(amount);
@@ -35,6 +37,8 @@ export default function OrderDetails() {
   const [error, setError] = useState('');
   const [actionLoading, setActionLoading] =
     useState(false);
+  const [showProcessingModal, setShowProcessingModal] = useState(false);
+  const { showToast } = useToast();
 
   const fetchOrder = async () => {
     if (!id) return;
@@ -48,10 +52,14 @@ export default function OrderDetails() {
 
       setOrder(res.data.data.order);
     } catch (err: any) {
-      setError(
-        err.response?.data?.message ??
-          'Failed to load order.'
-      );
+      // setError(
+      //   err.response?.data?.message ??
+      //     'Failed to load order.'
+      // );
+      showToast(
+        err.response?.data?.message ?? 'Failed to load order',
+        'error'
+      )
     } finally {
       setLoading(false);
     }
@@ -63,20 +71,27 @@ export default function OrderDetails() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
-  const handleMarkProcessing = async () => {
+  const handleMarkProcessing = async (note: string, estimatedDeliveryTime: string) => {
     if (!id) return;
 
     setActionLoading(true);
     setError('');
 
     try {
-      await adminOrderApi.markAsProcessing(id);
 
+      await adminOrderApi.markAsProcessing(id, {
+        note,
+        estimatedDeliveryTime: new Date(estimatedDeliveryTime).toISOString()
+      });
+
+      setShowProcessingModal(false)
+      showToast("Order marked processing", "success")
       await fetchOrder();
     } catch (err: any) {
-      setError(
-        err.response?.data?.message ??
-          'Failed to update order.'
+      console.log("In here")
+      showToast(
+        err.response?.data?.message ?? 'Failed to mark order as processing',
+        'error'
       );
     } finally {
       setActionLoading(false);
@@ -431,15 +446,19 @@ export default function OrderDetails() {
             actionLoading ||
             order.orderStatus !== 'PENDING'
           }
-          onClick={handleMarkProcessing}
+          onClick={() => setShowProcessingModal(true)}
           className="flex-1 rounded-full bg-primary py-3 text-sm font-semibold text-white disabled:opacity-60"
         >
-          {actionLoading
-            ? 'Updating...'
-            : 'Mark as Processing'}
+          Mark as Processing
         </button>
-
       </div>
+        {showProcessingModal && (
+          <MarkOrderProcessingModal
+            loading={actionLoading}
+            onClose={() => setShowProcessingModal(false)}
+            onConfirm={handleMarkProcessing}
+          />
+        )}
     </div>
   );
 }
