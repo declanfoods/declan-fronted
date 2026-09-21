@@ -56,7 +56,7 @@ export default function ReferralLayout({
             {showWelcomeBanner && (
               <div>
                 <p className="text-sm font-bold text-primary">Welcome Back,</p>
-                <p className="text-xs text-primary">{firstName} Doe</p>
+                <p className="text-xs text-primary">{firstName}</p>
               </div>
             )}
           </div>
