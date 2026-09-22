@@ -171,12 +171,7 @@ export default function UserFinancials() {
             </button>
           </div>
 
-          {/* ⚠️ These three have no backend endpoint yet — see the report.
-              POST /admin/users/:id/wallet/credit | debit | refund */}
-          <p className="mt-2 text-[11px] text-gray-400">
-            Manual credit / debit / refund are not connected yet — awaiting backend
-            endpoints.
-          </p>
+        
         </section>
 
         <section>

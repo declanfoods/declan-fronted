@@ -93,7 +93,7 @@ export default function ReferralAnalytics() {
         </button>
       </header>
 
-      <main className="flex-1 space-y-4 px-5 pt-5">
+      <main className="flex-1 space-y-4 px-5 pb-28 pt-5">
         {referralsQuery.isError && (
           <div className="rounded-2xl bg-white p-4 text-center shadow-sm">
             <p className="text-sm text-gray-500">Could not load insight data.</p>

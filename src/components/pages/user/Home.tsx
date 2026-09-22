@@ -11,6 +11,7 @@ import RewardsSection from '../../landing/RewardsSection';
 import HowItWorks from '../../landing/HowItWorks';
 import CTABanner from '../../landing/CTABanner';
 import { productApi, type ApiProduct } from '../../../app/lib/productApi';
+import { isAuthenticated } from '../../../app/lib/auth';
 
 export default function Home() {
   const [essentials, setEssentials] = useState<ApiProduct[]>([]);
@@ -19,9 +20,28 @@ export default function Home() {
 
   useEffect(() => {
     const fetchProducts = async () => {
+      /*
+        ⚠️ `/products/essentials` REQUIRES A TOKEN. This landing page does not.
+
+        Calling it for a signed-out visitor only ever produced a 401 — and the
+        axios interceptor used to respond to that by redirecting to /login, so
+        opening `/` as a guest bounced you off the page. The interceptor is
+        fixed, but the honest fix is not to make an authenticated call with no
+        credentials in the first place.
+
+        Signed in  → essentials, as before.
+        Guest      → the public catalogue, which is what "Deals of the Day"
+                   can actually show. Prices and discounts come through the
+                   same way; the only difference is the ordering the backend
+                   applies.
+      */
+      const signedIn = isAuthenticated();
+
       try {
         const [essRes, hotRes] = await Promise.allSettled([
-          productApi.getEssentials(),
+          signedIn
+            ? productApi.getEssentials()
+            : productApi.getProducts({ limit: 8 }),
           productApi.getProducts({ sortBy: 'rating', sortOrder: 'desc', limit: 8 }),
         ]);
         if (essRes.status === 'fulfilled')

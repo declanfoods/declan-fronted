@@ -27,7 +27,13 @@ interface DesktopShellProps {
 }
 
 export default function DesktopShell({
-  firstName = 'John',
+  /*
+    No default. This used to be `firstName = 'John'`, which meant any caller
+    that forgot the prop greeted the user as John. Every current caller passes
+    a real first name, so nothing changes today — but a greeting with no name
+    is honest, and a greeting with a stranger's name is not.
+  */
+  firstName,
   totalReferrals,
   activeReferrals,
   totalEarnings,
@@ -42,7 +48,7 @@ export default function DesktopShell({
       <div className="mb-6 flex items-start justify-between">
         <div>
           <h2 className="text-3xl font-bold text-primary">
-            Welcome Back, {firstName}!
+            Welcome Back{firstName ? `, ${firstName}` : ''}!
           </h2>
           <p className="mt-1 text-sm text-ink-soft">
             Here's your account overview and recent activity

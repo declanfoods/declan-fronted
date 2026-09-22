@@ -2,6 +2,11 @@ import { type ReactNode } from 'react';
 import { NavLink, useNavigate, useLocation } from 'react-router-dom';
 import { LayoutGrid, Users, Share2, Wallet, User, Bell } from 'lucide-react';
 import logo from '../../../../assets/brandlogo.png';
+import {
+  deriveDisplayName,
+  useCustomerProfile,
+  useReferralCode,
+} from '../../../../app/hooks/useReferrals';
 
 const TABS = [
   { to: '/app/referrals', label: 'Overview', icon: LayoutGrid, end: true },
@@ -12,17 +17,74 @@ const TABS = [
 
 interface ReferralLayoutProps {
   children: ReactNode;
-  firstName?: string;
   showWelcomeBanner?: boolean;
 }
 
+/*
+|--------------------------------------------------------------------------
+| FIX: "why does everybody's name end in Doe?"
+|--------------------------------------------------------------------------
+| The mobile header below used to read `{firstName} Doe`, where:
+|
+|   • " Doe" was a hardcoded string literal in the JSX, and
+|   • `firstName` defaulted to the literal 'John'.
+|
+| Two visible consequences:
+|
+|   Withdraw and Rewards Guide rendered <ReferralLayout> with no props, so
+|   they fell through to the default and printed "John Doe" for EVERY user,
+|   whoever was signed in.
+|
+|   The other four referral screens (Overview, Network, Referral, Earnings)
+|   passed a first name, so they printed "Amadi Doe", "Lilian Doe" — a real
+|   first name with an invented surname glued on.
+|
+| ⚠️ WHERE THE NAME COMES FROM NOW
+|
+| Removing the placeholder was only half the fix. The header was reading
+| `GET /api/v1/referrals/code`, and that endpoint returns "profile": null for
+| real accounts — so even with "Doe" gone there was no name to show and it
+| fell through to the email prefix.
+|
+| The name is now read from `GET /api/v1/users/profile-overview`, which is
+| what the Profile screen and the dashboard already use to display the
+| customer's name. The referral payload stays as a fallback for the case
+| where that call fails. See `deriveDisplayName` in useReferrals.ts for the
+| full fallback order.
+|
+| Deriving it here rather than taking it as a prop is deliberate: the prop was
+| optional, and the two screens that omitted it — Withdraw and Rewards Guide,
+| the two this bug was reported against — were exactly the two showing
+| "John Doe". A layout that supplies its own name cannot be starved of one.
+*/
+
 export default function ReferralLayout({
   children,
-  firstName = 'John',
   showWelcomeBanner = true,
 }: ReferralLayoutProps) {
   const navigate = useNavigate();
   const location = useLocation();
+
+  /*
+    profile-overview is the source that actually carries a name; the referral
+    payload is kept as a fallback. Both are cached under their own keys, so
+    revisiting a referral screen costs nothing.
+  */
+  const profileQuery = useCustomerProfile();
+  const codeQuery = useReferralCode();
+
+  const displayName = deriveDisplayName({
+    profileOverview: profileQuery.data,
+    referralCode: codeQuery.data,
+  });
+
+  /*
+    Only worth a skeleton while something is genuinely still in flight. If a
+    name arrived from whichever source answered first, show it immediately
+    rather than holding it back for the slower of the two.
+  */
+  const waitingForName =
+    !displayName && (profileQuery.isLoading || codeQuery.isLoading);
 
   const isSubPage =
     location.pathname.includes('/withdraw') ||
@@ -56,7 +118,26 @@ export default function ReferralLayout({
             {showWelcomeBanner && (
               <div>
                 <p className="text-sm font-bold text-primary">Welcome Back,</p>
-                <p className="text-xs text-primary">{firstName} Doe</p>
+
+                {/*
+                  Three states, and none of them invent a name:
+
+                    loading  → a placeholder bar, so the header does not
+                               visibly shift when the name arrives
+                    known    → the user's real name
+                    unknown  → nothing. The greeting still reads "Welcome
+                               Back," and the line simply collapses.
+
+                  Previously all three cases printed "John Doe".
+                */}
+                {waitingForName ? (
+                  <span
+                    aria-hidden
+                    className="mt-1 block h-3 w-24 animate-pulse rounded-full bg-primary/15"
+                  />
+                ) : displayName ? (
+                  <p className="text-xs text-primary">{displayName}</p>
+                ) : null}
               </div>
             )}
           </div>

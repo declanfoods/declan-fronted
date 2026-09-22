@@ -4,27 +4,13 @@ import { CheckCircle2, ArrowRight } from 'lucide-react';
 import {
   riderDeliveryApi,
   type RiderDelivery,
-  type RiderDeliveryMetrics,
 } from '../../../app/lib/riderDeliveryApi';
-
-function num(metrics: RiderDeliveryMetrics, ...keys: string[]) {
-  for (const key of keys) {
-    const val = (metrics as Record<string, unknown>)[key];
-
-    if (typeof val === 'number') {
-      return val;
-    }
-  }
-
-  return 0;
-}
 
 export default function DeliverySuccess() {
   const navigate = useNavigate();
   const { id } = useParams();
 
   const [delivery, setDelivery] = useState<RiderDelivery | null>(null);
-  const [metrics, setMetrics] = useState<RiderDeliveryMetrics>({});
   const [nextDeliveryId, setNextDeliveryId] = useState<string | null>(null);
 
   const [completedAt] = useState(() =>
@@ -37,22 +23,18 @@ export default function DeliverySuccess() {
   useEffect(() => {
     if (!id) return;
 
+    /*
+      The overview call was only ever used for the earnings figures, which are
+      gone — so it is not requested at all now. Two calls instead of three.
+    */
     Promise.allSettled([
       riderDeliveryApi.getAssignedDelivery(id),
-      riderDeliveryApi.getDeliveryOverview(),
       riderDeliveryApi.getAssignedDeliveries(),
-    ]).then(([deliveryRes, metricsRes, deliveriesRes]) => {
+    ]).then(([deliveryRes, deliveriesRes]) => {
       // Current delivery
       if (deliveryRes.status === 'fulfilled') {
         setDelivery(
           deliveryRes.value.data.data.delivery
-        );
-      }
-
-      // Metrics
-      if (metricsRes.status === 'fulfilled') {
-        setMetrics(
-          metricsRes.value.data.data
         );
       }
 
@@ -72,12 +54,6 @@ export default function DeliverySuccess() {
     });
   }, [id]);
 
-  const todaysTotal = num(
-    metrics,
-    'todaysEarnings',
-    'todayEarnings'
-  );
-
   const orderId = delivery?.id ?? id ?? '';
 
   const customerName =
@@ -85,9 +61,6 @@ export default function DeliverySuccess() {
 
   const deliveryAddress =
     delivery?.order?.deliveryAddress;
-
-  const deliveryAmount =
-    delivery?.order?.totalAmount ?? 0;
 
   return (
     <div className="flex min-h-screen flex-col items-center bg-[#F3F7EE] px-6 pt-16">
@@ -150,33 +123,6 @@ export default function DeliverySuccess() {
               ✓ Verified
             </span>
           </div>
-        </div>
-      </div>
-
-      {/* Earnings */}
-      <div className="mt-4 w-full max-w-sm rounded-2xl border border-primary/10 bg-[#F3F7EE] p-4">
-        <h3 className="text-sm font-bold text-gray-900">
-          Earnings Update
-        </h3>
-
-        <div className="mt-2 flex justify-between text-sm">
-          <span className="text-gray-500">
-            Delivery Fee Earned
-          </span>
-
-          <span className="font-semibold text-primary">
-            ₦{Number(deliveryAmount).toLocaleString()}
-          </span>
-        </div>
-
-        <div className="mt-1 flex justify-between text-base font-bold">
-          <span className="text-gray-900">
-            Today&apos;s Total
-          </span>
-
-          <span className="text-gray-900">
-            ₦{todaysTotal.toLocaleString()}
-          </span>
         </div>
       </div>
 

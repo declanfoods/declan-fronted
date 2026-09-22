@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { ArrowLeft, ShoppingCart, Pencil, EyeOff, Eye } from 'lucide-react';
 import { adminProductApi, type AdminProduct } from '../../../../app/lib/adminProductApi';
+import { getEffectivePrice } from '../../../../app/lib/productPricing';
+import ProductDiscountCard from './ProductDiscountCard';
 
 function formatPrice(price: string) {
   const num = Number(price);
@@ -34,6 +36,28 @@ export default function ProductDetails() {
     fetchProduct();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
+
+  /*
+    Refresh without the loading spinner: after a discount change the page is
+    already on screen, and flashing "Loading" over it would be worse than the
+    brief stale price.
+  */
+  const refreshSilently = async () => {
+    if (!id) return;
+    try {
+      const res = await adminProductApi.getProductById(id);
+      setProduct(res.data.data.product);
+    } catch {
+      // Leave the existing figures on screen; the card reports its own errors.
+    }
+  };
+
+  /*
+    Resolved once rather than per-render-call: product.price is the price BEFORE
+    any discount, so every figure on this page used to quote the pre-discount
+    amount.
+  */
+  const pricing = getEffectivePrice(product);
 
   const handleToggleHide = async () => {
     if (!id || !product) return;
@@ -115,7 +139,23 @@ export default function ProductDetails() {
         <div className="grid grid-cols-2 gap-3">
           <div className="rounded-2xl bg-[#F3F7EE] p-4">
             <p className="text-xs text-gray-400">Price</p>
-            <p className="mt-1 text-lg font-extrabold text-primary">{formatPrice(product.price)}</p>
+            {/* Shows the live selling price, with the pre-discount price struck
+                through when a discount is active. */}
+            <div className="mt-1 flex flex-wrap items-baseline gap-x-2">
+              <p className="text-lg font-extrabold text-primary">
+                {formatPrice(String(pricing.price))}
+              </p>
+              {pricing.isDiscounted && (
+                <>
+                  <p className="text-sm font-medium text-gray-400 line-through">
+                    {formatPrice(product.price)}
+                  </p>
+                  <span className="rounded-full bg-accent/10 px-2 py-0.5 text-xs font-bold text-accent">
+                    {pricing.percentOff}% OFF
+                  </span>
+                </>
+              )}
+            </div>
           </div>
           <div className="rounded-2xl bg-[#F3F7EE] p-4">
             <p className="text-xs text-gray-400">SKU</p>
@@ -162,6 +202,17 @@ export default function ProductDetails() {
               </p>
             </div>
           </div>
+        </section>
+
+        {/*
+          Discount lives here as well as on the Edit screen, because this is the
+          page an admin lands on when they tap a product — having to go into
+          Edit and find it there was the reason it looked like discounts could
+          not be changed at all.
+        */}
+        <section>
+          <h3 className="mb-3 text-base font-bold text-gray-900">Discount</h3>
+          <ProductDiscountCard product={product} onChanged={refreshSilently} />
         </section>
 
         <section>

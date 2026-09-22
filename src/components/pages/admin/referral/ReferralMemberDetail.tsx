@@ -213,7 +213,7 @@ export default function ReferralMemberDetail() {
         <h1 className="text-lg font-bold text-primary-dark">Referral Network</h1>
       </header>
 
-      <main className="flex-1 space-y-4 px-5 pt-5">
+      <main className="flex-1 space-y-4 px-5 pb-28 pt-5">
         <p className="text-sm text-gray-400">
           Referral Members <ChevronRight size={12} className="mx-1 inline" />
           <span className="font-semibold text-primary">{first}</span>

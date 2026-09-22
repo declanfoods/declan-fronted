@@ -61,7 +61,6 @@ import GuestOrderTracking from './components/pages/app/GuestOrderTracking';
 import DeliveryDetails from './components/pages/rider/DeliveryDetails';
 import DeliveryVerification from './components/pages/rider/DeliveryVerification';
 import DeliverySuccess from './components/pages/rider/DeliverySuccess';
-import Earnings from './components/pages/rider/Earnings';
 
 // admin users
 import UsersOverview from './components/pages/admin/users/UsersOverview';
@@ -353,7 +352,6 @@ export default function App() {
           <Route path="/rider/deliveries/:id" element={<DeliveryDetails />} />
           <Route path="/rider/deliveries/:id/verify" element={<DeliveryVerification />} />
           <Route path="/rider/deliveries/:id/success" element={<DeliverySuccess />} />
-          <Route path="/rider/earnings" element={<Earnings />} />
           {/* Marketing pages — shared Navbar + Footer */}
           <Route
             path="*"

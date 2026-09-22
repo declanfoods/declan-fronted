@@ -1,9 +1,5 @@
 import { useEffect, useState } from 'react';
 
-/**
- * Debounces a rapidly-changing value (search boxes, filters).
- * Used so typing in the admin/search inputs doesn't fire a request per keystroke.
- */
 export function useDebounce<T>(value: T, delay = 400): T {
   const [debounced, setDebounced] = useState(value);
 

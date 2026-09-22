@@ -12,7 +12,7 @@ import {
   Loader2,
   Package,
   ShoppingBasket,
-  AlertTriangle,
+  
 } from 'lucide-react';
 import AdminBottomNav from '../../admin/AdminBottomNav';
 import AdminDrawer from '../../admin/AdminDrawer';
@@ -344,13 +344,7 @@ export default function AdminDashboard() {
               delivered, 1hr ago" — and there is no endpoint behind any of
               them. DELETE this comment when an activity feed ships.
             */}
-            <div className="flex gap-2 rounded-2xl bg-white/60 p-3">
-              <AlertTriangle size={14} className="mt-0.5 shrink-0 text-gray-400" />
-              <p className="text-[11px] text-gray-500">
-                Everything on this page comes from the dashboard overview
-                endpoint and the stock it reports.
-              </p>
-            </div>
+          
           </>
         )}
       </main>

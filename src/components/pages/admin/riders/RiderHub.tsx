@@ -213,9 +213,7 @@ const handleSuspendToggle = async () => {
             <span className="flex-1 text-sm font-medium text-gray-800">Payment History</span>
             <ChevronRight size={16} className="text-gray-300" />
           </div>
-          <p className="mt-2 text-xs text-gray-400">
-            Financials aren&apos;t wired yet — no rider-earnings endpoint has been shared.
-          </p>
+        
         </section>
 
         <section>

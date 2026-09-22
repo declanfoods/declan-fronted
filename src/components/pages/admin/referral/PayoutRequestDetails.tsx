@@ -286,7 +286,7 @@ export default function PayoutRequestDetails() {
         <h1 className="text-lg font-bold text-primary-dark">Payout Details</h1>
       </header>
 
-      <main className="flex-1 space-y-4 px-5 pt-5">
+      <main className="flex-1 space-y-4 px-5 pb-28 pt-5">
         {/* Hero */}
         <div className="rounded-2xl bg-white p-4 shadow-sm">
           <div className="flex items-center gap-3">

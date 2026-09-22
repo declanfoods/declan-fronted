@@ -53,7 +53,33 @@ export default function RowActionsMenu({
   align = 'right',
 }: Props) {
   const [open, setOpen] = useState(false);
+  /*
+    ⚠️ The menu used to always open DOWNWARD, which broke on the last rows of a
+    list: there was nothing below the button but the bottom nav and the edge of
+    the screen, so the menu was cut off. It now measures the room first and
+    flips up when it would not fit below.
+  */
+  const [dropUp, setDropUp] = useState(false);
   const wrapRef = useRef<HTMLDivElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  /*
+    Roughly how tall the menu will be. Four rows of ~44px plus padding, capped
+    so a long action list still gets a sensible answer. Used only to decide the
+    direction, so an estimate is fine — being a few pixels out just changes
+    which side it opens on, never whether it is reachable.
+  */
+  const ESTIMATED_MENU_HEIGHT = Math.min(actions.length * 44 + 12, 320);
+  const MENU_GAP = 8;
+
+  const openMenu = () => {
+    const rect = wrapRef.current?.getBoundingClientRect();
+    if (rect) {
+      const roomBelow = window.innerHeight - rect.bottom;
+      setDropUp(roomBelow < ESTIMATED_MENU_HEIGHT + MENU_GAP);
+    }
+    setOpen(true);
+  };
 
   // Close on outside click / Escape. Without this the menu stays open forever
   // and stacks on top of every other row's menu.
@@ -74,10 +100,21 @@ export default function RowActionsMenu({
     document.addEventListener('touchstart', handlePointer);
     document.addEventListener('keydown', handleKey);
 
+    /*
+      Scrolling or resizing can move the row out from under the menu. Rather
+      than leave it floating in the wrong place, close it — the same thing a
+      native select does.
+    */
+    const handleDismiss = () => setOpen(false);
+    window.addEventListener('resize', handleDismiss);
+    window.addEventListener('scroll', handleDismiss, true);
+
     return () => {
       document.removeEventListener('mousedown', handlePointer);
       document.removeEventListener('touchstart', handlePointer);
       document.removeEventListener('keydown', handleKey);
+      window.removeEventListener('resize', handleDismiss);
+      window.removeEventListener('scroll', handleDismiss, true);
     };
   }, [open]);
 
@@ -110,7 +147,7 @@ export default function RowActionsMenu({
         aria-label={label}
         aria-haspopup="menu"
         aria-expanded={open}
-        onClick={() => setOpen((v) => !v)}
+        onClick={() => (open ? setOpen(false) : openMenu())}
         className={`flex h-9 w-9 items-center justify-center rounded-full transition-colors ${
           open ? 'bg-primary/10 text-primary' : 'text-gray-400 hover:bg-gray-100 hover:text-gray-600'
         }`}
@@ -120,8 +157,11 @@ export default function RowActionsMenu({
 
       {open && (
         <div
+          ref={menuRef}
           role="menu"
-          className={`absolute top-10 z-30 w-56 rounded-2xl border border-gray-100 bg-white p-1.5 shadow-xl ${
+          className={`absolute ${
+            dropUp ? 'bottom-10' : 'top-10'
+          } z-40 w-56 rounded-2xl border border-gray-100 bg-white p-1.5 shadow-xl ${
             align === 'right' ? 'right-0' : 'left-0'
           }`}
         >

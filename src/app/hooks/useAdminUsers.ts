@@ -20,31 +20,7 @@ import type {
 import type { ApiPagination } from '../lib/api-types';
 import { queryKeys } from '../lib/query-client';
 
-/*
-|--------------------------------------------------------------------------
-| Admin user-management hooks
-|--------------------------------------------------------------------------
-| Replaces the mockUsers.ts module. Every screen under
-| /components/pages/admin/users/* now reads from here.
-*/
 
-/*
-|--------------------------------------------------------------------------
-| RETRY WITHOUT QUERY PARAMS ON REJECTION
-|--------------------------------------------------------------------------
-| The Postman collection documents ZERO query parameters on ANY of its 140
-| endpoints. We still send `page`/`limit`/`search`/`status` because the
-| responses clearly carry a pagination block — but if the backend validates
-| strictly (NestJS rejects unknown query params with 400 by default under
-| `forbidNonWhitelisted`), every single list request would fail.
-|
-| That failure looks exactly like "Couldn't load users" — which blames the
-| admin's session for something the session had nothing to do with.
-|
-| So: if the server rejects the params, retry ONCE without them. The list
-| still renders; search and status filtering fall back to the client-side
-| filter that UsersOverview already applies.
-*/
 function wasParamRejection(error: unknown): boolean {
   const status = (error as { response?: { status?: number } })?.response?.status;
   return status === 400 || status === 422;
@@ -58,14 +34,12 @@ export function useAdminUsers(filters?: AdminUserFilters) {
         const res = await adminUserApi.getUsers(filters);
         return res.data.data;
       } catch (error) {
-        // Only worth retrying if we actually sent params. A params-free
-        // failure is a real failure.
+        
         const sentParams = Boolean(
           filters && (filters.page || filters.limit || filters.search || filters.status)
         );
 
         if (sentParams && wasParamRejection(error)) {
-          // eslint-disable-next-line no-console
           console.warn(
             '[admin] GET /admin/users rejected our query params (HTTP ' +
               (error as { response?: { status?: number } })?.response?.status +
@@ -80,8 +54,7 @@ export function useAdminUsers(filters?: AdminUserFilters) {
         throw error;
       }
     },
-    // Keeps the previous page on screen while the next one loads, so the
-    // list doesn't flash empty when paginating or typing a search.
+   
     placeholderData: (previous) => previous,
   });
 }
@@ -159,16 +132,12 @@ export function useAdminUserWallet(id?: string): UseQueryResult<AdminUserWallet,
   });
 }
 
-/**
- * A user's OWN downline, admin view.
- * NOTE: the backend key is singular — `data.referral`, not `data.referrals`.
- */
+
 export function useAdminUserReferrals(id?: string) {
   return useQuery<AdminUserReferral[], Error>({
     queryKey: queryKeys.adminUserReferrals(id ?? ''),
     queryFn: async () => {
       const res = await adminUserApi.getUserReferrals(id as string);
-      // Guard both singular and plural so a backend rename doesn't blank the UI.
       const payload = res.data.data as {
         referral?: AdminUserReferral[];
         referrals?: AdminUserReferral[];
@@ -208,13 +177,7 @@ export function useAdminUserReferralTransactions(
   });
 }
 
-/*
-|--------------------------------------------------------------------------
-| Mutations — suspend / unsuspend / verify
-|--------------------------------------------------------------------------
-| Each one invalidates the list AND the detail row so the badge updates
-| everywhere without a manual page refresh.
-*/
+
 
 function useInvalidateUser() {
   const queryClient = useQueryClient();

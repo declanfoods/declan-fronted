@@ -9,7 +9,7 @@ import {
   TrendingDown,
   RefreshCw,
   Loader2,
-  Info,
+  
 } from 'lucide-react';
 import AdminBottomNav from '../../../admin/AdminBottomNav';
 import { formatNaira } from '../../../data/products';
@@ -20,50 +20,6 @@ import type {
   OrderMetricsPeriod,
 } from '../../../../app/lib/adminOrderApi';
 import { queryKeys } from '../../../../app/lib/query-client';
-
-/*
-|==========================================================================
-| ADMIN → ORDER INSIGHTS   (analytics/OrderAnalytics.tsx)
-|==========================================================================
-|
-| THIS ENTIRE SCREEN USED TO BE FAKE.
-|
-| Every number below was a literal in this file: the daily-volume bar chart
-| was seven invented days, the status donut was a hardcoded conic-gradient
-| with 87/8/5 split, "Avg. Order Value ₦8,400" and "Delivery Success 98%"
-| were strings, peak hours was a hand-drawn SVG path, and the product and
-| bundle leaderboards were three made-up rows each. It presented as a working
-| analytics screen while showing nothing at all.
-|
-| It now runs on GET /api/v1/admin/orders/metrics, which returns:
-|
-|   period, avgOrderValue, deliverySuccessRate
-|   counts { total, delivered, pending, cancelled }
-|   statusDistribution[] { status, count, percentage }
-|   dailyVolume[]        { day, count }
-|   peakHours[]          { hour, label, count }        (always 24 entries)
-|   topProducts[]        { itemId, name, totalSold, totalRevenue, weeklyGrowthPct }
-|   topFoodPacks[]       { same shape as topProducts }
-|
-| ── THE PERIOD SELECTOR IS REAL ──────────────────────────────────────────
-| ?period= accepts today | week | month. The old "Today" chip was decoration;
-| it is now a working three-way switch, and each period is cached separately
-| so flipping back is instant.
-|
-| ── TWO PAYLOAD QUIRKS HANDLED HERE ──────────────────────────────────────
-| 1. `dailyVolume` REPEATS DAYS. The month response contains "Mon" twice
-|    (3 and 1) and the week response is just Mon, Tue — it is not a padded
-|    seven-slot week. Drawn raw that gives duplicate React keys and two bars
-|    both labelled Mon, so `volumeByDay` sums by day name first and orders by
-|    weekday.
-|
-| 2. `weeklyGrowthPct` IS NULL WHEN UNKNOWN. Not zero growth — no prior week
-|    to compare. So the trend chip is omitted rather than printing "null%".
-|
-| Also: `deliverySuccessRate` and the status percentages are 0-100 numbers,
-| not 0-1 fractions, and `avgOrderValue` / `totalRevenue` are plain numbers
-| rather than the money strings used elsewhere in this API.
-*/
 
 const PERIODS: { key: OrderMetricsPeriod; label: string }[] = [
   { key: 'today', label: 'Today' },
@@ -630,16 +586,7 @@ export default function OrderAnalytics() {
               )}
             </section>
 
-            {/* ─── Period caveat ─── */}
-            <div className="flex gap-2 rounded-2xl bg-white/60 p-3">
-              <Info size={14} className="mt-0.5 shrink-0 text-gray-400" />
-              <p className="text-[11px] text-gray-500">
-                Showing {PERIODS.find((p) => p.key === metrics.period)?.label ??
-                  metrics.period}
-                . Every figure on this page comes from the order metrics
-                endpoint — nothing here is estimated.
-              </p>
-            </div>
+          
           </>
         )}
       </main>

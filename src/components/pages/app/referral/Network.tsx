@@ -5,6 +5,7 @@ import DesktopShell from './DesktopShell';
 import SplashLoader from '../../../ui/SplashLoader';
 import {
   deriveFirstName,
+  useCustomerProfile,
   useReferralCode,
   useReferralMetrics,
   useReferralWallet,
@@ -61,6 +62,7 @@ function formatCommissionRate(rate: number | null | undefined): string {
 
 export default function ReferralNetwork() {
   const codeQuery = useReferralCode();
+  const profileQuery = useCustomerProfile();
   const walletQuery = useReferralWallet();
   const metricsQuery = useReferralMetrics();
   const treeQuery = useReferralTree();
@@ -89,7 +91,7 @@ export default function ReferralNetwork() {
 
   const levelQuery = useReferralsAtLevel(selectedLevel, { page: 1, limit: 50 });
 
-  const firstName = deriveFirstName(codeQuery.data);
+  const firstName = deriveFirstName({ profileOverview: profileQuery.data, referralCode: codeQuery.data });
   const metrics = metricsQuery.data;
   const wallet = walletQuery.data;
 
@@ -115,7 +117,7 @@ export default function ReferralNetwork() {
 
   if (codeQuery.isLoading || treeQuery.isLoading) {
     return (
-      <ReferralLayout firstName={firstName}>
+      <ReferralLayout>
         <SplashLoader />
       </ReferralLayout>
     );
@@ -125,7 +127,7 @@ export default function ReferralNetwork() {
   const maxLevelEarning = Math.max(1, ...levels.map((l) => Number(l.amountEarned ?? 0)));
 
   return (
-    <ReferralLayout firstName={firstName}>
+    <ReferralLayout>
       {/* ═══ DESKTOP VIEW ═══ */}
       <DesktopShell
         firstName={firstName}

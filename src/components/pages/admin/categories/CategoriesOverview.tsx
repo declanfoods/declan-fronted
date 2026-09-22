@@ -34,57 +34,7 @@ import {
   type CategoryRow,
 } from '../../../../app/hooks/useAdminCategories';
 
-/*
-|==========================================================================
-| ADMIN → CATEGORIES   /admin/categories
-|==========================================================================
-|
-| Two catalogues, one screen. Both now have full CRUD:
-|   • Products    — create / rename / delete
-|   • Food Packs  — create / rename / delete
-|
-| EVERYTHING ON THIS PAGE IS SERVER-COMPUTED
-|
-|   GET /api/v1/admin/product-categories           → categories[] with
-|                                                     productCount,
-|                                                     catalogValue,
-|                                                     revenueGenerated,
-|                                                     isActive, products[]
-|   GET /api/v1/admin/foodpack-categories          → foodpackCategories[] with
-|                                                     foodpackCount, catalogValue,
-|                                                     revenueGenerated,
-|                                                     isActive, foodpacks[]
-|   GET /api/v1/admin/product-categories/metrics   → numberOfCategories,
-|                                                     numberOfProducts,
-|                                                     totalRevenue, catalogValue
-|   GET /api/v1/admin/foodpack-categories/metrics  → the same four fields
-|
-| WHAT THIS SCREEN USED TO DO, AND NO LONGER DOES
-|
-| It used to fetch every product and every foodpack in the catalogue purely to
-| count how many were in each category, because the category payloads carried
-| nothing but { id, name }. It also printed "AWAITING BACKEND" where the
-| revenue figure belonged, because revenue needs orders joined to categories
-| and the client could not compute it.
-|
-| Both are gone. `productCount` / `foodpackCount` / `catalogValue` /
-| `revenueGenerated` are fields now, the header cards read the /metrics
-| endpoints, and the per-row and expanded notes about a missing metric have
-| been deleted. The paging dance and its "more than 1000 items" warning went
-| with them — nothing is counted client-side any more.
-|
-| CATALOGUE VALUE ≠ REVENUE
-| Two different numbers, both real, both shown:
-|   Catalog value      — what the stock is worth at list price.
-|   Revenue generated  — money actually taken from orders in that category.
-| They are labelled separately everywhere so one is never read as the other.
-|
-| DELETING MOVES THE ITEMS
-| DELETE takes { fallbackCategoryId }: the items inside a deleted category
-| have to land somewhere. The confirm dialog now collects that destination
-| instead of the old text that told the admin to go and move things first
-| and then come back.
-*/
+
 
 type Tab = 'products' | 'food-packs';
 
@@ -494,11 +444,7 @@ export default function CategoriesOverview() {
                         </div>
                       )}
 
-                      <p className="mt-3 text-[10px] text-gray-400">
-                        Revenue generated: {formatNaira(row.revenueGenerated)}.
-                        Item prices are not part of this payload — open the
-                        product to see its price.
-                      </p>
+                     
                     </div>
                   )}
                 </div>

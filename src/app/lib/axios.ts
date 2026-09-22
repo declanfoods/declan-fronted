@@ -183,7 +183,39 @@ api.interceptors.response.use(
         url.includes('/login') ||
         url.includes('/change-password');
 
+      /*
+        ⚠️ ONLY BOUNCE A REAL SESSION.
+
+        A 401 means one of two completely different things, and treating them
+        the same was bouncing GUESTS off public pages:
+
+          • "your token expired" — the customer was signed in and needs to sign
+            in again. Bounce them.
+          • "you sent no token, and this endpoint needs one" — the customer was
+            never signed in. A guest browsing the landing page. There is no
+            session to expire and nothing to re-authenticate against.
+
+        In the second case the redirect was the bug, not the 401. It fired on
+        `GET /api/v1/products/essentials`, which the public landing page calls
+        on load — so opening `/` as a guest ejected you to `/login` before the
+        page finished drawing. The screen looked broken rather than public.
+
+        Now the redirect only happens when a token was actually present and the
+        server rejected it. Guests get the rejection handed back to the caller,
+        which is doing its own error handling anyway.
+      */
       if (!isAuthCall) {
+        const { token: sentToken } = resolveAuth(url);
+
+        if (!sentToken) {
+          /*
+            No token was attached, so there is no session to clear. Hand the
+            error straight back — callers that fire optional requests (the
+            landing page's product carousels) already tolerate failure.
+          */
+          return Promise.reject(error);
+        }
+
         if (scope === 'admin') {
           localStorage.removeItem('adminToken');
           localStorage.removeItem('role');

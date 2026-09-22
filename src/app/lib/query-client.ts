@@ -45,6 +45,15 @@ export const queryClient = new QueryClient({
 */
 
 export const queryKeys = {
+  /*
+    The customer's own name/avatar/addresses.
+
+    ⚠️ This is the ONLY customer-facing endpoint that returns the user's real
+    name. `referralCode` below returns "profile": null, so anything that needs
+    to greet the signed-in user has to come here.
+  */
+  customerProfile: ['user', 'profile-overview'] as const,
+
   // ── Customer referral ──────────────────────────────────────────────
   referralCode: ['referral', 'code'] as const,
   referralWallet: ['referral', 'wallet'] as const,

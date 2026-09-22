@@ -1,12 +1,15 @@
 import { NavLink } from 'react-router-dom';
-import { Home, Truck, Wallet, User } from 'lucide-react';
+import { Home, Truck, User } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import type { ReactNode } from 'react';
 
+/*
+  Riders do not see earnings. The Earnings tab and screen were removed —
+  a rider's pay is handled outside the app.
+*/
 const NAV: { to: string; label: string; icon: LucideIcon; end?: boolean }[] = [
   { to: '/rider/home', label: 'Home', icon: Home },
   { to: '/rider/deliveries', label: 'Deliveries', icon: Truck },
-  { to: '/rider/earnings', label: 'Earnings', icon: Wallet },
   { to: '/rider/profile', label: 'Profile', icon: User },
 ];
 
@@ -26,7 +29,7 @@ export default function RiderLayout({ children, title = 'Declan Rider' }: RiderL
       <main className="mx-auto w-full max-w-lg flex-1 px-4 pb-24 pt-4 sm:px-6">{children}</main>
 
       <nav className="sticky bottom-0 z-30 border-t border-primary/10 bg-white">
-        <ul className="mx-auto grid max-w-lg grid-cols-4">
+        <ul className="mx-auto grid max-w-lg grid-cols-3">
           {NAV.map(({ to, label, icon: Icon, end }) => (
             <li key={to}>
               <NavLink

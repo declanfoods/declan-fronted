@@ -49,15 +49,36 @@ const fetchNotifications = async () => {
     return () => clearInterval(interval);
   }, []);
 
-  // Close on outside click
+  /*
+    ⚠️ Dismissal. The panel is anchored to the VIEWPORT (see the markup below),
+    not to the bell, so it cannot be clipped by the edge of the screen. The
+    trade-off is that it does not travel with the page when you scroll — so
+    scrolling or resizing closes it, the same way a native dropdown behaves.
+  */
   useEffect(() => {
-    const handler = (e: MouseEvent) => {
+    if (!open) return;
+
+    const onPointer = (e: MouseEvent) => {
       if (panelRef.current && !panelRef.current.contains(e.target as Node)) {
         setOpen(false);
       }
     };
-    if (open) document.addEventListener('mousedown', handler);
-    return () => document.removeEventListener('mousedown', handler);
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setOpen(false);
+    };
+    const onDismiss = () => setOpen(false);
+
+    document.addEventListener('mousedown', onPointer);
+    document.addEventListener('keydown', onKey);
+    window.addEventListener('resize', onDismiss);
+    window.addEventListener('scroll', onDismiss, true);
+
+    return () => {
+      document.removeEventListener('mousedown', onPointer);
+      document.removeEventListener('keydown', onKey);
+      window.removeEventListener('resize', onDismiss);
+      window.removeEventListener('scroll', onDismiss, true);
+    };
   }, [open]);
 
   const unreadCount = notifications.filter((n) => !n.read).length;
@@ -102,11 +123,35 @@ const fetchNotifications = async () => {
         )}
       </button>
 
-      {/* Dropdown panel */}
+      {/*
+        ⚠️ WHY THIS IS `fixed` AND NOT `absolute`
+
+        It used to be `absolute right-0 top-12 w-[calc(100vw-2rem)]` — anchored
+        to the BELL, but sized against the VIEWPORT. Those two things disagree:
+
+          • the bell sits ~44px in from the right edge (the menu button is to
+            its right, plus the pill's own padding), but
+          • the panel claimed the full viewport width.
+
+        So its left edge landed about 44px off the left of the screen and the
+        panel was visibly cut. Vertically it was worse on shorter phones: the
+        list capped at 70vh, which added to the header and the offset above it
+        regularly exceeded the screen, so the bottom half was unreachable.
+
+        Now it is positioned against the viewport on both axes, so it cannot
+        fall off either edge on any screen size. `dvh` (not `vh`) is used for
+        the height cap because on mobile browsers `vh` measures the viewport
+        with the address bar hidden — which is exactly how a panel ends up
+        taller than the screen it is on.
+
+        The flex column matters too: the header is `shrink-0`, so it is never
+        squeezed out, and the list gets `flex-1 min-h-0` so it scrolls instead
+        of pushing the panel past the bottom.
+      */}
       {open && (
-        <div className="absolute right-0 top-12 z-50 w-[calc(100vw-2rem)] max-w-sm rounded-2xl border border-gray-100 bg-white shadow-2xl sm:w-96">
+        <div className="fixed inset-x-3 top-[6.5rem] z-50 flex max-h-[calc(100dvh-8rem)] flex-col rounded-2xl border border-gray-100 bg-white shadow-2xl sm:inset-x-auto sm:right-4 sm:w-96">
           {/* Header */}
-          <div className="flex items-center justify-between border-b border-gray-100 px-5 py-4">
+          <div className="flex shrink-0 items-center justify-between border-b border-gray-100 px-5 py-4">
             <div>
               <h3 className="text-base font-bold text-ink">Notifications</h3>
               <p className="text-xs text-ink-soft">
@@ -136,8 +181,8 @@ const fetchNotifications = async () => {
             </div>
           </div>
 
-          {/* List */}
-          <div className="max-h-[70vh] overflow-y-auto">
+          {/* List — takes whatever height is left after the header. */}
+          <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
             {loading ? (
               <p className="py-10 text-center text-sm text-ink-soft">
                 Loading...

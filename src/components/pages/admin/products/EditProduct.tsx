@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, MoreVertical, Check, EyeOff, Clock, ChevronDown, Tag, X } from 'lucide-react';
+import { ArrowLeft, MoreVertical, Check, EyeOff, Clock, ChevronDown } from 'lucide-react';
 import { adminProductApi, type AdminProduct, type AdminProductCategory } from '../../../../app/lib/adminProductApi';
-import { adminDiscountApi } from '../../../../app/lib/adminDiscountApi';
+import ProductDiscountCard from './ProductDiscountCard';
 import AdminImageUpload from '../../../admin/AdminImageUpload';
 
 type Visibility = 'Published' | 'Hidden' | 'Scheduled';
@@ -15,8 +15,6 @@ export default function EditProduct() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
-  const [discountValue, setDiscountValue] = useState('');
-  const [discountBusy, setDiscountBusy] = useState(false);
 
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
@@ -28,13 +26,22 @@ export default function EditProduct() {
   const [categories, setCategories] = useState<AdminProductCategory[]>([]);
   const [categoryId, setCategoryId] = useState('');
 
-  useEffect(() => {
+  /*
+    Pulls the product and, on first load, seeds the form from it.
+
+    `fillForm` is false when this is a refresh after a discount change: the
+    discount card edits `original.discount`, and re-seeding the form would throw
+    away anything the admin had already typed into name/price/description but
+    not yet saved.
+  */
+  const loadProduct = async ({ fillForm }: { fillForm: boolean }) => {
     if (!id) return;
-    adminProductApi
-      .getProductById(id)
-      .then((res) => {
-        const p = res.data.data.product;
-        setOriginal(p);
+    try {
+      const res = await adminProductApi.getProductById(id);
+      const p = res.data.data.product;
+      setOriginal(p);
+
+      if (fillForm) {
         setName(p.name);
         setDescription(p.description);
         setPrice(String(p.price));
@@ -43,9 +50,17 @@ export default function EditProduct() {
         setVisibility(p.isHidden ? 'Hidden' : 'Published');
         setImageUrl(p.imageUrls?.[0] ?? '');
         setCategoryId(p.category?.id ?? '');
-      })
-      .catch((err) => setError(err.response?.data?.message ?? 'Failed to load product.'))
-      .finally(() => setLoading(false));
+      }
+    } catch (err: any) {
+      setError(err.response?.data?.message ?? 'Failed to load product.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadProduct({ fillForm: true });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
   useEffect(() => {
@@ -103,42 +118,6 @@ export default function EditProduct() {
       setError(err.response?.data?.message ?? 'Failed to save changes.');
     } finally {
       setSaving(false);
-    }
-  };
-
-  const handleAddDiscount = async () => {
-    if (!id || !discountValue) return;
-    setDiscountBusy(true);
-    setError('');
-    try {
-      await adminDiscountApi.createDiscount(id, {
-        discountValue: Number(discountValue),
-        discountType: 'fixed_discount',
-        isPermanent: true,
-        expiryDateInMilliseconds: 0,
-      });
-      setDiscountValue('');
-      const res = await adminProductApi.getProductById(id);
-      setOriginal(res.data.data.product);
-    } catch (err: any) {
-      setError(err.response?.data?.message ?? 'Failed to add discount.');
-    } finally {
-      setDiscountBusy(false);
-    }
-  };
-
-  const handleRemoveDiscount = async () => {
-    if (!id) return;
-    setDiscountBusy(true);
-    setError('');
-    try {
-      await adminDiscountApi.deleteDiscount(id);
-      const res = await adminProductApi.getProductById(id);
-      setOriginal(res.data.data.product);
-    } catch (err: any) {
-      setError(err.response?.data?.message ?? 'Failed to remove discount.');
-    } finally {
-      setDiscountBusy(false);
     }
   };
 
@@ -297,53 +276,11 @@ export default function EditProduct() {
           </p>
         </div>
 
-        <div className="rounded-2xl border border-gray-100 p-4">
-          <div className="mb-3 flex items-center gap-2">
-            <Tag size={16} className="text-primary" />
-            <p className="text-sm font-semibold text-gray-700">Discount</p>
-          </div>
-          {original.discount ? (
-            <div className="flex items-center justify-between rounded-xl bg-[#F3F7EE] px-4 py-3">
-              <div>
-                <p className="text-sm font-bold text-primary">
-                  {original.discount.discountType === 'fixed_discount' ? '₦' : ''}
-                  {original.discount.discountValue}
-                  {original.discount.discountType === 'percentage_discount' ? '%' : ''} off
-                </p>
-                <p className="text-xs text-gray-400">
-                  New price: ₦{original.discount.discountPrice.toLocaleString()}
-                </p>
-              </div>
-              <button
-                type="button"
-                disabled={discountBusy}
-                onClick={handleRemoveDiscount}
-                aria-label="Remove discount"
-                className="flex h-8 w-8 items-center justify-center rounded-full bg-red-50 text-red-500 disabled:opacity-50"
-              >
-                <X size={14} />
-              </button>
-            </div>
-          ) : (
-            <div className="flex gap-2">
-              <input
-                value={discountValue}
-                onChange={(e) => setDiscountValue(e.target.value)}
-                placeholder="Discount amount (₦)"
-                inputMode="decimal"
-                className="flex-1 rounded-xl border border-gray-200 px-4 py-2.5 text-sm text-gray-800 outline-none placeholder:text-gray-400 focus:border-primary"
-              />
-              <button
-                type="button"
-                disabled={discountBusy || !discountValue}
-                onClick={handleAddDiscount}
-                className="rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-60"
-              >
-                Apply
-              </button>
-            </div>
-          )}
-        </div>
+        {/* Discount — add, edit and remove. See ProductDiscountCard.tsx. */}
+        <ProductDiscountCard
+          product={original}
+          onChanged={() => loadProduct({ fillForm: false })}
+        />
       </main>
 
       <div className="fixed bottom-0 left-0 right-0 z-20 flex gap-3 border-t border-gray-100 bg-white p-4">

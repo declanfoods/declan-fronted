@@ -103,7 +103,7 @@ export default function ReferralDashboard() {
         </button>
       </header>
 
-      <main className="flex-1 space-y-4 px-5 pt-5">
+      <main className="flex-1 space-y-4 px-5 pb-28 pt-5">
         <div>
           <div className="flex items-center justify-between">
             <p className="text-sm text-gray-500">Total Referral Network</p>

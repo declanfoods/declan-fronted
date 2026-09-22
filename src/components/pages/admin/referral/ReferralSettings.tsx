@@ -140,7 +140,7 @@ export default function ReferralSettings() {
         <h1 className="text-lg font-bold text-primary-dark">Referral &amp; Rewards</h1>
       </header>
 
-      <main className="flex-1 space-y-5 px-5 pt-5">
+      <main className="flex-1 space-y-5 px-5 pb-28 pt-5">
         <div>
           <h2 className="text-2xl font-extrabold text-gray-900">Program Configuration</h2>
           <p className="mt-1 text-sm text-gray-500">

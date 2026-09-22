@@ -5,6 +5,7 @@ import ReferralLayout from './ReferralLayout';
 import DesktopShell from './DesktopShell';
 import {
   deriveFirstName,
+  useCustomerProfile,
   useReferralCode,
   useReferralHistory,
   useReferralMetrics,
@@ -39,11 +40,12 @@ export default function ReferralEarnings() {
   const [page] = useState(1);
 
   const codeQuery = useReferralCode();
+  const profileQuery = useCustomerProfile();
   const walletQuery = useReferralWallet();
   const metricsQuery = useReferralMetrics();
   const historyQuery = useReferralHistory({ page, limit: 50 });
 
-  const firstName = deriveFirstName(codeQuery.data);
+  const firstName = deriveFirstName({ profileOverview: profileQuery.data, referralCode: codeQuery.data });
   const wallet = walletQuery.data;
   const metrics = metricsQuery.data;
   const history = historyQuery.data?.history ?? [];
@@ -70,14 +72,14 @@ export default function ReferralEarnings() {
 
   if (codeQuery.isLoading || walletQuery.isLoading) {
     return (
-      <ReferralLayout firstName={firstName}>
+      <ReferralLayout>
         <div className="py-16 text-center text-sm text-ink-soft">Loading…</div>
       </ReferralLayout>
     );
   }
 
   return (
-    <ReferralLayout firstName={firstName}>
+    <ReferralLayout>
       {/* ═══ DESKTOP VIEW ═══ */}
       <DesktopShell
         firstName={firstName}

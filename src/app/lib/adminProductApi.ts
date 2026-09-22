@@ -42,30 +42,7 @@ export interface AdminPagination {
   hasPreviousPage: boolean;
 }
 
-/*
-|--------------------------------------------------------------------------
-| Category overview  (NEW dedicated endpoints)
-|--------------------------------------------------------------------------
-| The backend shipped a purpose-built category surface so the admin
-| Categories screen no longer has to fetch every product to count them:
-|
-|   GET    /api/v1/admin/product-categories                 → data.categories[]
-|   GET    /api/v1/admin/product-categories/metrics         → data{…}
-|   POST   /api/v1/admin/product-categories                 { name } → 201
-|   PATCH  /api/v1/admin/product-categories/:id             { name } → 200
-|   DELETE /api/v1/admin/product-categories/:id             { fallbackCategoryId } → 200
-|
-| Per the backend dev: "You don't have to manually fetch products to get the
-| fields you need again." He is right — `productCount`, `catalogValue` and
-| `revenueGenerated` all come down with the category now, plus the product
-| list itself, so nothing on this screen is computed client-side any more.
-|
-| ⚠️ MONEY IS A NUMBER HERE, NOT A STRING. Everywhere else in this API money
-|    arrives as a string ("5155.00"). On these category payloads the samples
-|    show bare numbers: "catalogValue": 5155, "revenueGenerated": 23655,
-|    "totalRevenue": 137755. Both are coerced through Number() before display,
-|    which is safe either way — but do not type these as string.
-*/
+
 
 /** A product as embedded in a category payload (trimmed — id/name/image only). */
 export interface AdminCategoryProductRef {
@@ -186,27 +163,7 @@ export const adminProductApi = {
   updateProductPrice: (id: string, data: UpdateProductPricePayload) =>
     api.patch<ApiResponse<unknown>>(`/api/v1/admin/products/${id}/price/update`, data),
 
-  /*
-    categories
-
-    TWO families live here on purpose:
-
-      getCategories()      → GET /api/v1/products/categories
-                             the plain { id, name } list. Used by the product
-                             forms to populate their dropdowns, where nothing
-                             but id/name is needed. Left exactly as it was.
-
-      getCategoryOverview()→ GET /api/v1/admin/product-categories
-                             the rich admin list. Used by the admin Categories
-                             screen.
-
-    They are separate calls because they serve separate needs, and because the
-    five form screens (AddProduct, EditProduct, ProductList, CreateFoodPack,
-    FoodPacksList) are working — repointing them at a richer payload would be
-    churn for no gain.
-  */
-
-  /** Plain { id, name } list — dropdowns in the product forms. */
+ 
   getCategories: () =>
     api.get<ApiResponse<{ productCategories: AdminProductCategory[] }>>(
       '/api/v1/products/categories'
@@ -224,12 +181,7 @@ export const adminProductApi = {
       '/api/v1/admin/product-categories/metrics'
     ),
 
-  /*
-    NOTE: the create/update/delete calls below now point at the NEW dedicated
-    admin routes. The old `/admin/products/categories` family still answers on
-    the live server, but the new ones are the documented surface and the ones
-    the backend dev is maintaining, so this is where new work should go.
-  */
+ 
 
   createCategory: (name: string) =>
     api.post<ApiResponse<{ categoryId: string; categoryName: string }>>(
@@ -243,14 +195,7 @@ export const adminProductApi = {
       { name }
     ),
 
-  /*
-    DELETE needs a landing spot for the products that were in the category.
-
-    The body is `{ fallbackCategoryId }` and it is NOT optional in practice:
-    deleting a category that still holds products would otherwise orphan them,
-    so the screen asks the admin to pick the category to move them into. Pass
-    the id of the category that inherits the products.
-  */
+ 
   deleteCategory: (id: string, fallbackCategoryId: string) =>
     api.delete<ApiResponse<unknown>>(`/api/v1/admin/product-categories/${id}`, {
       data: { fallbackCategoryId },

@@ -5,6 +5,7 @@ import {
   type UseQueryResult,
 } from '@tanstack/react-query';
 import { referralApi } from '../lib/referralApi';
+import { userApi } from '../lib/userApi';
 import type {
   DirectReferral,
   ReferralTree,
@@ -29,23 +30,148 @@ import { queryKeys } from '../lib/query-client';
 | Screens stay presentational; they read `data` / `isLoading` / `error`.
 */
 
-/**
- * A safe first name for the greeting.
- *
- * ⚠️ Confirmed against the Postman docs: `GET /referrals/code` returns
- * `"profile": null` for most accounts (profile is optional in this backend).
- * Falling straight through to a hardcoded 'there' makes every user look
- * anonymous, so we degrade gracefully:
- *
- *   profile.firstName  →  email local-part, title-cased  →  'there'
- *
- * e.g. "amadijustice1@yopmail.com" becomes "Amadijustice1".
- */
-export function deriveFirstName(code?: ReferralCodeData): string {
-  const first = code?.user?.profile?.firstName?.trim();
-  if (first) return first;
+/*
+|--------------------------------------------------------------------------
+| deriveDisplayName — the user's own name, for the referral header
+|--------------------------------------------------------------------------
+| ⚠️ WHY THIS EXISTS, AND WHAT IT FIXES
+|
+| The referral shell's mobile header used to render:
+|
+|     <p>{firstName} Doe</p>
+|
+| " Doe" was a STRING LITERAL in the JSX, and `firstName` defaulted to the
+| literal 'John'. So Withdraw and Rewards Guide — which render the layout with
+| no props at all — greeted EVERY user as "John Doe", whoever was signed in.
+| The other four referral screens passed a first name and so read "Justice
+| Doe", "Lilian Doe": a real first name with an invented surname glued on.
+|
+| Nobody is called Doe. It was placeholder text that never got removed.
+|
+| ⚠️ WHY IT NOW TAKES TWO SOURCES
+|
+| Removing the placeholder was only half of it. The remaining problem is that
+| the endpoint this header naturally reaches for does not carry a name:
+|
+|   GET /api/v1/referrals/code
+|     → "profile": null            ← no name, for real accounts
+|
+|   GET /api/v1/users/profile-overview
+|     → { "fullname": "...", "profile": { "firstName", "lastName" } }
+|
+| The referral payload's `profile` is null in the collection's own saved
+| sample, so the header had nothing to show and fell through to the email
+| prefix — which is why it read "Amadijustice1" rather than a person's name.
+|
+| `profile-overview` is the endpoint the Profile screen and the dashboard
+| already use to display the customer's name, so it is the authoritative
+| source. It is checked FIRST; the referral payload is only a fallback for
+| the case where it fails.
+|
+| Fallback order, best first:
+|
+|   1. profile.firstName + profile.lastName   → "Justice Amadi"   (best)
+|   2. profile.firstName                     → "Justice"
+|   3. profile.lastName only                 → "Amadi"
+|   4. fullname, as the API sends it          → "Justice Amadi"
+|   5. the same three fields off /referrals/code
+|   6. the email local part, capitalised      → "Amadijustice1"
+|   7. ''  — nothing known, so the caller renders a placeholder rather than
+|      inventing a name
+|
+| ⚠️ Returns '' rather than a word like 'there' when nothing is known, so the
+|    caller can tell "no name yet" apart from "name is literally 'there'" and
+|    show a loading placeholder instead of a fake name.
+*/
 
-  const local = code?.user?.email?.split('@')[0]?.trim();
+/** The name-bearing part of GET /api/v1/users/profile-overview. */
+export interface ProfileNameSource {
+  fullname?: string | null;
+  email?: string | null;
+  profile?: { firstName?: string | null; lastName?: string | null } | null;
+}
+
+export interface DisplayNameSources {
+  /** GET /api/v1/users/profile-overview — the one that has a real name. */
+  profileOverview?: ProfileNameSource | null;
+  /** GET /api/v1/referrals/code — fallback; `profile` is usually null here. */
+  referralCode?: ReferralCodeData | null;
+}
+
+function nameFromProfile(profile?: ProfileNameSource | null): string {
+  const first = profile?.profile?.firstName?.trim();
+  const last = profile?.profile?.lastName?.trim();
+
+  if (first && last) return `${first} ${last}`;
+  if (first) return first;
+  if (last) return last;
+  if (profile?.fullname?.trim()) return profile.fullname.trim();
+
+  return '';
+}
+
+function nameFromReferralCode(code?: ReferralCodeData | null): string {
+  const first = code?.user?.profile?.firstName?.trim();
+  const last = code?.user?.profile?.lastName?.trim();
+
+  if (first && last) return `${first} ${last}`;
+  if (first) return first;
+  if (last) return last;
+
+  return '';
+}
+
+export function deriveDisplayName(sources?: DisplayNameSources | null): string {
+  const fromProfile = nameFromProfile(sources?.profileOverview);
+  if (fromProfile) return fromProfile;
+
+  const fromCode = nameFromReferralCode(sources?.referralCode);
+  if (fromCode) return fromCode;
+
+  const local = (
+    sources?.profileOverview?.email ?? sources?.referralCode?.user?.email
+  )
+    ?.split('@')[0]
+    ?.trim();
+  if (local) return local.charAt(0).toUpperCase() + local.slice(1);
+
+  return '';
+}
+
+/*
+  The signed-in customer's name source, cached under its own key so the
+  Profile screen and the dashboard can share it.
+*/
+export function useCustomerProfile(): UseQueryResult<ProfileNameSource, Error> {
+  return useQuery({
+    queryKey: queryKeys.customerProfile,
+    queryFn: async () => {
+      const res = await userApi.getProfileOverview();
+      return res.data.data.user;
+    },
+    // A name does not change mid-session.
+    staleTime: 30 * 60_000,
+  });
+}
+
+/*
+  The first name alone, for the desktop greeting and the avatar initial.
+
+  Same two sources and the same order as `deriveDisplayName` — see the note
+  above. Kept separate because callers want a single word here, and because
+  this one returns 'there' rather than '' when nothing is known: the avatar
+  needs an initial, and a bare "Welcome Back!" reads worse than "Welcome
+  Back, there!".
+*/
+export function deriveFirstName(sources?: DisplayNameSources | null): string {
+  const full = nameFromProfile(sources?.profileOverview) || nameFromReferralCode(sources?.referralCode);
+  if (full) return full.split(' ')[0];
+
+  const local = (
+    sources?.profileOverview?.email ?? sources?.referralCode?.user?.email
+  )
+    ?.split('@')[0]
+    ?.trim();
   if (local) return local.charAt(0).toUpperCase() + local.slice(1);
 
   return 'there';

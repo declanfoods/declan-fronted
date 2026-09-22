@@ -1,5 +1,5 @@
 import { NavLink } from 'react-router-dom';
-import { Home, Package, Users, BarChart3, MoreHorizontal } from 'lucide-react';
+import { Home, Package, Users, ClipboardList, MoreHorizontal } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 
 type Tab = {
@@ -9,11 +9,15 @@ type Tab = {
   end?: boolean;
 };
 
+/*
+  Analytics was swapped out for Orders — Orders is where an admin actually
+  spends the day, and Analytics is still reachable from the drawer.
+*/
 const tabs: Tab[] = [
   { to: '/admin', label: 'Home', icon: Home, end: true },
   { to: '/admin/products', label: 'Inventory', icon: Package },
   { to: '/admin/users', label: 'Users', icon: Users },
-  { to: '/admin/analytics', label: 'Analytics', icon: BarChart3 },
+  { to: '/admin/orders', label: 'Orders', icon: ClipboardList },
   { to: '/admin/more', label: 'More', icon: MoreHorizontal },
 ];
 

@@ -148,13 +148,6 @@ export default function RiderHome() {
       getStatus(delivery) === 'ASSIGNED'
   );
 
-  const todaysEarnings = num(
-    metrics,
-    'todaysEarnings',
-    'todayEarnings',
-    'earningsToday'
-  );
-
   const totalDeliveries = num(
     metrics,
     'totalDeliveries',
@@ -293,27 +286,19 @@ export default function RiderHome() {
         </button>
       </div>
 
-      {/* Earnings / Deliveries */}
+      {/*
+        Deliveries only. This card used to have "TODAY'S EARNINGS" on the left
+        and "TOTAL DELIVERIES" on the right — the earnings half is gone, and the
+        remaining figure is centred so it does not read as a missing column.
+      */}
       <div className="mt-4 rounded-2xl bg-white p-4 shadow-sm">
-        <div className="flex items-center justify-between">
-          <p className="text-xs text-gray-400">
-            TODAY'S EARNINGS
-          </p>
+        <p className="text-center text-xs text-gray-400">
+          TOTAL DELIVERIES
+        </p>
 
-          <p className="text-xs text-gray-400">
-            TOTAL DELIVERIES
-          </p>
-        </div>
-
-        <div className="mt-1 flex items-center justify-between">
-          <p className="text-2xl font-extrabold text-primary">
-            ₦{todaysEarnings.toLocaleString()}
-          </p>
-
-          <p className="text-2xl font-extrabold text-gray-900">
-            {totalDeliveries}
-          </p>
-        </div>
+        <p className="mt-1 text-center text-2xl font-extrabold text-gray-900">
+          {totalDeliveries}
+        </p>
 
         <div className="mt-3 grid grid-cols-3 gap-2 border-t border-gray-100 pt-3 text-center">
           <div className="rounded-xl bg-primary/10 py-2">

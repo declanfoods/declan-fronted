@@ -71,7 +71,6 @@ export interface LowStockAlert {
   quantityLeft: number;
 }
 
-/** One entry in either dashboard leaderboard. */
 export interface DashboardTopItem {
   itemId: string;
   name: string;
@@ -89,7 +88,6 @@ export interface AdminDashboardOverview {
 }
 
 export const adminDashboardApi = {
-  /** GET /api/v1/admin/dashboard/overview */
   getOverview: () =>
     api.get<ApiResponse<AdminDashboardOverview>>(
       '/api/v1/admin/dashboard/overview'

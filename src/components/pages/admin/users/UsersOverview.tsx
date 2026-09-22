@@ -3,7 +3,6 @@ import { useNavigate } from 'react-router-dom';
 import {
   ArrowLeft,
   Search,
-  UserPlus,
   BarChart3,
   RefreshCw,
   Eye,
@@ -574,13 +573,7 @@ export default function UsersOverview() {
         )}
       </main>
 
-      <button
-        type="button"
-        aria-label="Add user"
-        className="fixed bottom-24 right-5 z-20 flex h-14 w-14 items-center justify-center rounded-full bg-primary text-white shadow-lg"
-      >
-        <UserPlus size={22} strokeWidth={2.5} />
-      </button>
+ 
 
       <AdminBottomNav />
     </div>

@@ -14,6 +14,7 @@ import DesktopShell from './DesktopShell';
 import SplashLoader from '../../../ui/SplashLoader';
 import {
   deriveFirstName,
+  useCustomerProfile,
   useReferralCode,
   useReferralMetrics,
   useReferralNetworks,
@@ -35,7 +36,8 @@ import {
 |
 | Field mapping used:
 |   referralCode         ← referralApi.getCode()      → data.code
-|   firstName            ← referralApi.getCode()      → data.user.profile.firstName
+|   firstName            ← userApi.getProfileOverview() → data.user.profile.firstName
+|                          (referralApi.getCode() returns profile:null, so it is only the fallback)
 |   totalNetwork         ← referralApi.getMetrics()   → metrics.totalNetwork
 |   qualifiedCount       ← referralApi.getMetrics()   → metrics.qualifiedCount
 |   level earnings       ← referralApi.getMetrics()   → networkPerformance.amountEarnedPerlevel[]
@@ -48,6 +50,7 @@ export default function ReferralOverview() {
   const [copied, setCopied] = useState(false);
 
   const codeQuery = useReferralCode();
+  const profileQuery = useCustomerProfile();
   const walletQuery = useReferralWallet();
   const metricsQuery = useReferralMetrics();
   const networksQuery = useReferralNetworks({ page: 1, limit: 5 });
@@ -55,7 +58,7 @@ export default function ReferralOverview() {
   const isLoading =
     codeQuery.isLoading || walletQuery.isLoading || metricsQuery.isLoading;
 
-  const firstName = deriveFirstName(codeQuery.data);
+  const firstName = deriveFirstName({ profileOverview: profileQuery.data, referralCode: codeQuery.data });
   const referralCode = codeQuery.data?.code ?? '';
   const shareLink = `${window.location.origin}/signup?ref=${referralCode}`;
 
@@ -95,14 +98,14 @@ export default function ReferralOverview() {
 
   if (isLoading) {
     return (
-      <ReferralLayout firstName={firstName}>
+      <ReferralLayout>
         <SplashLoader />
       </ReferralLayout>
     );
   }
 
   return (
-    <ReferralLayout firstName={firstName}>
+    <ReferralLayout>
       {/* ═══ DESKTOP VIEW ═══ */}
       <DesktopShell
         firstName={firstName}

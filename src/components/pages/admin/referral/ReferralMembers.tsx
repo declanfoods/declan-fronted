@@ -85,7 +85,7 @@ export default function ReferralMembers() {
         <h1 className="text-lg font-bold text-primary-dark">Referral &amp; Rewards</h1>
       </header>
 
-      <main className="flex-1 space-y-4 px-5 pt-5">
+      <main className="flex-1 space-y-4 px-5 pb-28 pt-5">
         <div className="flex items-center gap-2 rounded-full border border-gray-200 bg-white px-4 py-3">
           <Search size={18} className="text-gray-400" />
           <input

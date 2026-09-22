@@ -29,6 +29,11 @@ export interface RiderDelivery {
 }
 
 export interface RiderDeliveryMetrics {
+  /*
+    ⚠️ Deliberately NOT displayed anywhere. Riders do not see earnings in this
+    app — the field is kept on the type only because the endpoint really does
+    return it, so the type matches the payload. Do not wire it into a screen.
+  */
   todaysEarnings?: number;
   todayEarnings?: number;
   totalDeliveries?: number;

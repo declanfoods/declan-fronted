@@ -6,6 +6,7 @@ import DesktopShell from './DesktopShell';
 import SplashLoader from '../../../ui/SplashLoader';
 import {
   deriveFirstName,
+  useCustomerProfile,
   useReferralCode,
   useReferralMetrics,
   useReferralNetworks,
@@ -62,18 +63,19 @@ export default function ReferralList() {
   const [page, setPage] = useState(1);
 
   const codeQuery = useReferralCode();
+  const profileQuery = useCustomerProfile();
   const walletQuery = useReferralWallet();
   const metricsQuery = useReferralMetrics();
   const [messageTarget, setMessageTarget] = useState<DirectReferral | null>(null);
   const networksQuery = useReferralNetworks({ page, limit: PAGE_SIZE });
   
-  const firstName = deriveFirstName(codeQuery.data);
+  const firstName = deriveFirstName({ profileOverview: profileQuery.data, referralCode: codeQuery.data });
   const metrics = metricsQuery.data;
   const wallet = walletQuery.data;
 
   if (codeQuery.isLoading || networksQuery.isLoading) {
     return (
-      <ReferralLayout firstName={firstName}>
+      <ReferralLayout>
         <SplashLoader />
       </ReferralLayout>
     );
@@ -81,7 +83,7 @@ export default function ReferralList() {
 
   if (networksQuery.isError) {
     return (
-      <ReferralLayout firstName={firstName}>
+      <ReferralLayout>
         <div className="py-16 text-center">
           <p className="text-sm text-ink-soft">
             We couldn't load your referrals. Please try again.
@@ -123,7 +125,7 @@ export default function ReferralList() {
   });
 
   return (
-    <ReferralLayout firstName={firstName}>
+    <ReferralLayout>
       {/* ═══ DESKTOP VIEW ═══ */}
       <DesktopShell
         firstName={firstName}

@@ -121,7 +121,7 @@ export default function PayoutQueue() {
         </button>
       </header>
 
-      <main className="flex-1 space-y-4 px-5 pt-5">
+      <main className="flex-1 space-y-4 px-5 pb-28 pt-5">
         <div>
           <h2 className="text-2xl font-extrabold text-gray-900">Payout Requests</h2>
           <p className="mt-1 text-sm text-gray-500">
