@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, Search, SlidersHorizontal, Menu, Pencil, Plus, MoreVertical, AlertTriangle } from 'lucide-react';
 import AdminBottomNav from '../../../admin/AdminBottomNav';
+import { getEffectivePrice } from '../../../../app/lib/productPricing';
 import ProductActionsMenu from './ProductActionsMenu';
 import AdminFilterSheet, {
   emptyFilterState,
@@ -241,10 +242,33 @@ export default function ProductList() {
                       {product.category?.name?.toUpperCase()}
                     </p>
                     <h3 className="mt-0.5 font-bold text-gray-900">{product.name}</h3>
-                    <p className="mt-1 text-lg font-extrabold text-primary">
-                      {formatPrice(product.price)}
-                      <span className="text-xs font-medium text-gray-400"> / {product.scale}</span>
-                    </p>
+                    {/*
+                      Admin needs to see at a glance which products are on
+                      discount — the API has always sent the discount object,
+                      but this list never showed it, so a discounted product
+                      looked identical to a full-price one here.
+                    */}
+                    {(() => {
+                      const rowPricing = getEffectivePrice(product);
+                      return (
+                        <div className="mt-1 flex flex-wrap items-baseline gap-x-2">
+                          <p className="text-lg font-extrabold text-primary">
+                            {formatPrice(String(rowPricing.price))}
+                            <span className="text-xs font-medium text-gray-400"> / {product.scale}</span>
+                          </p>
+                          {rowPricing.isDiscounted && (
+                            <>
+                              <span className="text-sm font-medium text-gray-400 line-through">
+                                {formatPrice(product.price)}
+                              </span>
+                              <span className="rounded-full bg-accent/10 px-2 py-0.5 text-xs font-bold text-accent">
+                                {rowPricing.percentOff}% OFF
+                              </span>
+                            </>
+                          )}
+                        </div>
+                      );
+                    })()}
                     <p
                       className={`mt-1 flex items-center gap-1 text-xs ${
                         status === 'OUT OF STOCK' ? 'text-red-500' : 'text-gray-400'
@@ -286,7 +310,8 @@ export default function ProductList() {
           product={{
             name: actionsProduct.name,
             sku: actionsProduct.sku,
-            price: formatPrice(actionsProduct.price),
+            // Selling price, so this menu cannot contradict the row it opened from.
+            price: formatPrice(String(getEffectivePrice(actionsProduct).price)),
             img: actionsProduct.imageUrls?.[0] ?? '',
           }}
           isHidden={actionsProduct.isHidden}

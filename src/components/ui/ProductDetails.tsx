@@ -5,6 +5,7 @@ import SplashLoader from '../ui/SplashLoader';
 import ProductCard from '../ui/ProductCard';
 import { formatNaira } from '../data/products';
 import { productApi, type ApiProduct } from '../../app/lib/productApi';
+import { getEffectivePrice } from '../../app/lib/productPricing';
 import { cartApi } from '../../app/lib/cartApi';
 import { guestCart } from '../../app/lib/guestCart';
 import { savedApi } from '../../app/lib/savedApi';
@@ -83,7 +84,8 @@ export default function ProductDetails() {
             itemId: product.id,
             itemType: 'PRODUCT',
             itemUrls: product.imageUrls ?? [],
-            itemPrice: String(product.price),
+            // Discounted price — see productPricing.ts. Checkout prices off this.
+            itemPrice: String(getEffectivePrice(product).price),
           },
           qty
         );
@@ -210,7 +212,37 @@ const image = product.imageUrls?.[0] ?? '';
           <span className="text-gray-400">({product.reviewCount ?? 0} reviews)</span>
         </div>
 
-<p className="mt-3 text-2xl font-bold text-primary">{formatNaira(Number(product.price))}</p>
+        {/*
+          product.price is the PRE-discount price. This page quoted 70 for an
+          item the customer pays 50, and the discount the API sends was never
+          drawn.
+        */}
+{(() => {
+  const pricing = getEffectivePrice(product);
+  return (
+    <div className="mt-3 flex flex-wrap items-baseline gap-x-3 gap-y-1">
+      <p className="text-2xl font-bold text-primary">
+        {formatNaira(pricing.price)}
+      </p>
+
+      {pricing.isDiscounted && (
+        <>
+          <p className="text-base font-medium text-gray-400 line-through">
+            {formatNaira(pricing.originalPrice)}
+          </p>
+          {pricing.percentOff > 0 && (
+            <span className="rounded-full bg-accent/10 px-2.5 py-0.5 text-xs font-bold text-accent">
+              {pricing.percentOff}% OFF
+            </span>
+          )}
+          <p className="w-full text-xs font-semibold text-accent">
+            You save {formatNaira(pricing.discountAmount)}
+          </p>
+        </>
+      )}
+    </div>
+  );
+})()}
         {/* Description */}
         {product.description && (
           <>

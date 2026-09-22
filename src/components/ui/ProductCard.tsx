@@ -6,6 +6,7 @@ import { cartApi } from '../../app/lib/cartApi';
 import { guestCart } from '../../app/lib/guestCart';
 import { isAuthenticated } from '../../app/lib/auth';
 import { formatNaira } from '../data/products';
+import { getEffectivePrice } from '../../app/lib/productPricing';
 
 interface ProductCardProps {
   product: ApiProduct;
@@ -18,7 +19,13 @@ export default function ProductCard({ product, onCartUpdate }: ProductCardProps)
 
   const imageUrl = product.imageUrls?.[0] ?? '';
   const categoryName = product.category?.name ?? 'Product';
-  const price = Number(product.price);
+
+  /*
+    `product.price` is the price BEFORE any discount, so this card used to show
+    70 naira for an item the customer pays 50 for. getEffectivePrice() resolves
+    the discount object the API has always sent. See productPricing.ts.
+  */
+  const pricing = getEffectivePrice(product);
 
   const handleAddToCart = async (e: React.MouseEvent) => {
     e.preventDefault();
@@ -35,7 +42,13 @@ export default function ProductCard({ product, onCartUpdate }: ProductCardProps)
           itemId: product.id,
           itemType: 'PRODUCT',
           itemUrls: product.imageUrls ?? [],
-          itemPrice: String(product.price),
+          /*
+            The DISCOUNTED price. The guest cart is the source of truth for what
+            this line costs, and Checkout prices straight off itemPrice — so
+            storing product.price here would show 50 on the card and charge 70
+            at checkout.
+          */
+          itemPrice: String(pricing.price),
         });
       }
       setAdded(true);
@@ -80,9 +93,27 @@ export default function ProductCard({ product, onCartUpdate }: ProductCardProps)
           </p>
         )}
 
-        <p className="mt-2 text-lg font-bold text-ink">
-          {formatNaira(price)}
-        </p>
+        {/*
+          Discounted price leads, original is struck through beside it. Same
+          treatment FoodPackCard already uses for its discounts, so products
+          and food packs finally read the same way on the shop grid.
+        */}
+        <div className="mt-2 flex flex-wrap items-center gap-2">
+          <p className="text-lg font-bold text-ink">{formatNaira(pricing.price)}</p>
+
+          {pricing.isDiscounted && (
+            <>
+              <p className="text-sm font-medium text-ink-soft line-through">
+                {formatNaira(pricing.originalPrice)}
+              </p>
+              {pricing.percentOff > 0 && (
+                <span className="rounded-full bg-accent/10 px-2 py-0.5 text-xs font-bold text-accent">
+                  {pricing.percentOff}% OFF
+                </span>
+              )}
+            </>
+          )}
+        </div>
 
         <button
           type="button"

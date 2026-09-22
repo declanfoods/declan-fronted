@@ -5,6 +5,7 @@ import AppLayout from '../../app/AppLayout';
 import ProductCard from '../../ui/ProductCard';
 import SplashLoader from '../../ui/SplashLoader';
 import { formatNaira } from '../../data/products';
+import { getEffectivePrice } from '../../../app/lib/productPricing';
 import { userApi, type UserProfile, type OrderOverview } from '../../../app/lib/userApi';
 import { productApi, type ApiProduct } from '../../../app/lib/productApi';
 import { cartApi } from '../../../app/lib/cartApi';
@@ -229,9 +230,23 @@ const addressLabel = address
   <p className="mt-1 text-sm font-semibold text-primary">
     {product.name}
   </p>
-  <p className="text-sm font-bold text-ink">
-    {formatNaira(Number(product.price))}
-  </p>
+  {/*
+    Discounted price. product.price is the PRE-discount figure — this row was
+    quoting the full price on items the customer pays less for.
+  */}
+  {(() => {
+    const pricing = getEffectivePrice(product);
+    return (
+      <div className="flex flex-wrap items-baseline gap-x-2">
+        <p className="text-sm font-bold text-ink">{formatNaira(pricing.price)}</p>
+        {pricing.isDiscounted && (
+          <p className="text-xs font-medium text-ink-soft line-through">
+            {formatNaira(pricing.originalPrice)}
+          </p>
+        )}
+      </div>
+    );
+  })()}
 </div>
                 </div>
                 <button
