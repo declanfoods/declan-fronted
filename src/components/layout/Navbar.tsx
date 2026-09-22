@@ -4,6 +4,7 @@ import { Link } from 'react-router';
 import { Menu, X } from 'lucide-react';
 import Logo from '../ui/Logo';
 import Button from '../ui/Button';
+import { useNavigate } from 'react-router-dom';
 
 interface NavbarProps {
   navItems?: string[];
@@ -13,6 +14,8 @@ const DEFAULT_ITEMS = ['Contact', 'About', 'Home', 'Login'];
 
 export default function Navbar({ navItems = DEFAULT_ITEMS }: NavbarProps) {
   const [mobileOpen, setMobileOpen] = useState(false);
+    const navigate = useNavigate();
+
 
   return (
     <header className="px-4 pt-4 sm:px-6">
@@ -37,7 +40,7 @@ export default function Navbar({ navItems = DEFAULT_ITEMS }: NavbarProps) {
 
         {/* Shop Now button */}
         <div className="hidden md:flex">
-          <Button variant="primary" className="rounded-full px-8 py-3 text-base">
+          <Button variant="primary" className="rounded-full px-8 py-3 text-base" onClick={() => navigate('/app/shop')}>
             Shop Now
           </Button>
         </div>
@@ -66,7 +69,7 @@ export default function Navbar({ navItems = DEFAULT_ITEMS }: NavbarProps) {
               {item}
             </Link>
           ))}
-          <Button variant="primary" className="mt-2 w-full rounded-full py-3 text-base">
+          <Button variant="primary" className="mt-2 w-full rounded-full py-3 text-base" onClick={() => navigate('/app/shop')}>
             Shop Now
           </Button>
         </div>
