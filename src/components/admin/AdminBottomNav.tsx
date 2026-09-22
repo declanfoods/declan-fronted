@@ -2,7 +2,7 @@ import { NavLink } from 'react-router-dom';
 import { Home, Package, Users, ClipboardList, MoreHorizontal } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { usePendingOrdersCount } from '../../app/hooks/usePendingOrdersCount';
-import { Tabs } from 'radix-ui/tabs';
+
 
 type Tab = {
   to: string;
