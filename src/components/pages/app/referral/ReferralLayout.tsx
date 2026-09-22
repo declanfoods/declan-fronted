@@ -115,31 +115,29 @@ export default function ReferralLayout({
             <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gray-200">
               <User size={20} className="text-gray-600" />
             </div>
-            {showWelcomeBanner && (
-              <div>
-                <p className="text-sm font-bold text-primary">Welcome Back,</p>
+           {showWelcomeBanner && (
+  <div>
+    <p className="text-sm font-bold text-primary">Welcome Back,</p>
 
-                {/*
-                  Three states, and none of them invent a name:
-
-                    loading  → a placeholder bar, so the header does not
-                               visibly shift when the name arrives
-                    known    → the user's real name
-                    unknown  → nothing. The greeting still reads "Welcome
-                               Back," and the line simply collapses.
-
-                  Previously all three cases printed "John Doe".
-                */}
-                {waitingForName ? (
-                  <span
-                    aria-hidden
-                    className="mt-1 block h-3 w-24 animate-pulse rounded-full bg-primary/15"
-                  />
-                ) : displayName ? (
-                  <p className="text-xs text-primary">{displayName}</p>
-                ) : null}
-              </div>
-            )}
+    {/*
+      Three states, and none of them invent a name:
+        loading → a placeholder bar, so the header does not
+                  visibly shift when the name arrives
+        known   → the user's real name
+        unknown → nothing. The greeting still reads "Welcome
+                  Back," and the line simply collapses.
+      Previously all three cases printed "John Doe".
+    */}
+    {waitingForName ? (
+      <span
+        aria-hidden
+        className="mt-1 block h-3 w-24 animate-pulse rounded-full bg-primary/15"
+      />
+    ) : displayName ? (
+      <p className="text-xs text-primary">{displayName}</p>
+    ) : null}
+  </div>
+)}
           </div>
           <button aria-label="Notifications" className="text-primary">
             <Bell size={22} />

@@ -40,6 +40,7 @@ export interface Order {
   priceOfItems: number;
   numberOfItems: number;
   totalQuantityOfItems: number;
+  estimatedDeliveryTime: Date | null;
   orderStatus: string;
   /*
   |--------------------------------------------------------------------------

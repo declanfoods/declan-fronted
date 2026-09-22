@@ -3,14 +3,17 @@ import Container from '../layout/Container';
 import { formatNaira } from '../data/products';
 import type { Order, OrderTimelineEvent } from '../../app/lib/orderApi';
 
-const formatDate = (iso: string) =>
+const formatDate = (iso: string | null) =>
+  iso ?
   new Date(iso).toLocaleDateString('en-NG', {
     month: 'short',
     day: 'numeric',
     year: 'numeric',
     hour: '2-digit',
     minute: '2-digit',
-  });
+  })
+  : "N/A"
+  ;
 
 type OrderTrackingViewProps = {
   order: Order;
@@ -146,6 +149,11 @@ export default function OrderTrackingView({
                     </div>
                   </div>
                 ))}
+              </div>
+              <div>
+                <i className="text-gray-500">
+                  Estimated Delivery time: {formatDate(order.estimatedDeliveryTime?.toString() ?? "")}
+                </i>
               </div>
             </section>
           )}
