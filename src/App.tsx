@@ -80,6 +80,12 @@ import ReferralAnalytics from './components/pages/admin/referral/ReferralAnalyti
 import ReferralSettings from './components/pages/admin/referral/ReferralSettings';
 import CommissionCashbackSettings from './components/pages/admin/referral/CommissionCashbackSettings';
 import WithdrawalSettings from './components/pages/admin/referral/WithdrawalSettings';
+import HomeReferralOverview from './components/pages/app/referral/HomeReferralOverview';
+
+
+
+
+
 export default function App() {
   return (
     <BrowserRouter>
@@ -98,6 +104,7 @@ export default function App() {
           {/* Logged-in app — shared top bar + bottom nav */}
           <Route path="/app" element={<DashboardHome />} />
           <Route path="/app/orders" element={<Orders />} />
+          <Route path="/app/referrals/overview" element={<HomeReferralOverview />}/>
           <Route path="/app/shop" element={<Shop />} />
           <Route path="/app/shop/:id" element={<ProductDetails />} />
           <Route path="/app/cart" element={<AppCart />} />
