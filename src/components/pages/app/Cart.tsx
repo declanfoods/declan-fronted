@@ -8,10 +8,19 @@ import { formatNaira } from '../../data/products';
 import { cartApi, type Cart as CartType, type CartItem } from '../../../app/lib/cartApi';
 import { guestCart } from '../../../app/lib/guestCart';
 import { isAuthenticated } from '../../../app/lib/auth';
+import { useCartCatalogue } from '../../../app/hooks/useCartCatalogue';
+import { getCataloguePrice } from '../../../app/lib/productPricing';
 
 export default function Cart() {
   const navigate = useNavigate();
   const [cart, setCart] = useState<CartType | null>(null);
+
+  /*
+    The cart line itself carries no discount — only `itemPrice`. This pulls the
+    public product and food pack lists so the cart can show the struck-through
+    original and a "% OFF" badge. See useCartCatalogue.ts.
+  */
+  const { resolveLine, catalogueEntryFor } = useCartCatalogue();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [updatingItems, setUpdatingItems] = useState<Set<string>>(new Set());
@@ -39,6 +48,28 @@ export default function Cart() {
       return guestCart.onChange(fetchCart);
     }
   }, []);
+
+  /*
+    ⚠️ Guests only. A guest's cart is this browser's localStorage — there is no
+    server copy — so a line saved before a price or discount changed would be
+    charged at the old figure. Rewrite any line that disagrees with the live
+    catalogue, then re-read.
+
+    Signed-in carts are left alone: the server owns those prices and its
+    subtotal, and quietly rewriting them here would desync the two.
+  */
+  useEffect(() => {
+    if (isAuthenticated() || !cart) return;
+
+    const prices = new Map<string, number>();
+    for (const item of cart.cartItems) {
+      const entry = catalogueEntryFor(item.itemId);
+      if (entry) prices.set(item.itemId, getCataloguePrice(entry, item.itemType).price);
+    }
+    if (prices.size === 0) return;
+
+    if (guestCart.syncPrices(prices)) fetchCart();
+  }, [cart]);
 
   const markUpdating = (id: string, active: boolean) => {
     setUpdatingItems((prev) => {
@@ -182,6 +213,14 @@ export default function Cart() {
                 const itemTotal = Number(item.itemPrice) * item.quantity;
                 const isUpdating = updatingItems.has(item.id);
 
+                /*
+                  The unit price is the cart's own figure — that is what gets
+                  charged. The catalogue only supplies the pre-discount price to
+                  strike through, so a discount the server is not actually
+                  applying is never drawn as if it were.
+                */
+                const pricing = resolveLine(item);
+
                 return (
                   <div
                     key={item.id}
@@ -209,9 +248,26 @@ export default function Cart() {
                       <p className="mt-1 text-lg font-bold text-ink">
                         {formatNaira(itemTotal)}
                       </p>
-                      <p className="text-xs text-ink-soft">
-                        {formatNaira(Number(item.itemPrice))} each
-                      </p>
+
+                      {pricing.isDiscounted ? (
+                        <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5">
+                          <span className="text-xs text-ink-soft">
+                            {formatNaira(pricing.price)} each
+                          </span>
+                          <span className="text-xs text-ink-soft line-through">
+                            {formatNaira(pricing.originalPrice)}
+                          </span>
+                          {pricing.percentOff > 0 && (
+                            <span className="rounded-full bg-accent/10 px-2 py-0.5 text-[10px] font-bold text-accent">
+                              {pricing.percentOff}% OFF
+                            </span>
+                          )}
+                        </div>
+                      ) : (
+                        <p className="text-xs text-ink-soft">
+                          {formatNaira(pricing.price)} each
+                        </p>
+                      )}
                     </div>
 
                     <div className="flex flex-col items-center gap-2">
@@ -260,7 +316,35 @@ export default function Cart() {
               })}
             </div>
 
-            <div className="my-8 border-t border-muted" />
+            {/*
+              What the discounts on these lines add up to. Derived from the same
+              per-line pricing, so it can never disagree with the prices shown
+              above it.
+            */}
+            {(() => {
+              const savings = items.reduce(
+                (sum, item) =>
+                  sum + resolveLine(item).discountAmount * item.quantity,
+                0
+              );
+              if (savings <= 0) return null;
+
+              return (
+                <>
+                  <div className="mt-4 flex items-center justify-between rounded-2xl bg-accent/10 px-4 py-3">
+                    <span className="text-sm font-semibold text-accent">
+                      Discount savings
+                    </span>
+                    <span className="text-base font-extrabold text-accent">
+                      −{formatNaira(savings)}
+                    </span>
+                  </div>
+                  <div className="my-8 border-t border-muted" />
+                </>
+              );
+            })()}
+
+            {items.length === 0 && <div className="my-8 border-t border-muted" />}
 
             <div className="flex flex-col gap-3">
               <div className="flex items-center justify-between">

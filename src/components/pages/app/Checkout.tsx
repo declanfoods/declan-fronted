@@ -5,6 +5,7 @@ import Container from '../../layout/Container';
 import SplashLoader from '../../ui/SplashLoader';
 import { formatNaira } from '../../data/products';
 import { cartApi, type Cart } from '../../../app/lib/cartApi';
+import { useCartCatalogue } from '../../../app/hooks/useCartCatalogue';
 import { paymentApi, type PaymentMethod } from '../../../app/lib/paymentApi';
 import { orderApi } from '../../../app/lib/orderApi';
 import { addressApi, type DeliveryAddress } from '../../../app/lib/addressApi';
@@ -14,6 +15,12 @@ import { isAuthenticated } from '../../../app/lib/auth';
 import { useToast } from '../../ui/Toast';
 
 export default function Checkout() {
+  /*
+    The cart line carries no discount data — only `itemPrice` — so the
+    pre-discount price comes from the public catalogue. Same hook the cart uses,
+    and the same cache, so opening checkout costs no extra requests.
+  */
+  const { resolveLine } = useCartCatalogue();
   const navigate = useNavigate();
   const guest = !isAuthenticated();
   const { showToast } = useToast();
@@ -656,6 +663,14 @@ export default function Checkout() {
                 const itemTotal =
                   Number(item.itemPrice) * item.quantity;
 
+                /*
+                  Same strike-through treatment as the cart, so a discount does
+                  not disappear at the last screen before paying. The unit price
+                  is still the cart's own figure — the catalogue only supplies
+                  the pre-discount price to compare against.
+                */
+                const pricing = resolveLine(item);
+
                 return (
                   <li
                     key={item.id}
@@ -680,10 +695,24 @@ export default function Checkout() {
                         {item.itemName}
                       </p>
 
-                      <p className="text-xs text-ink-soft">
-                        Qty: {item.quantity} ×{' '}
-                        {formatNaira(Number(item.itemPrice))}
-                      </p>
+                      <div className="flex flex-wrap items-center gap-x-2">
+                        <span className="text-xs text-ink-soft">
+                          Qty: {item.quantity} ×{' '}
+                          {formatNaira(pricing.price)}
+                        </span>
+                        {pricing.isDiscounted && (
+                          <>
+                            <span className="text-xs text-ink-soft line-through">
+                              {formatNaira(pricing.originalPrice)}
+                            </span>
+                            {pricing.percentOff > 0 && (
+                              <span className="rounded-full bg-accent/10 px-2 py-0.5 text-[10px] font-bold text-accent">
+                                {pricing.percentOff}% OFF
+                              </span>
+                            )}
+                          </>
+                        )}
+                      </div>
                     </div>
 
                     <p className="text-lg font-bold text-ink">

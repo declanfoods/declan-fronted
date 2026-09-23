@@ -159,3 +159,80 @@ export function getEffectivePrice(product?: PriceShape | null): EffectivePrice {
 export function discountedUnitPrice(product?: PriceShape | null): number {
   return getEffectivePrice(product).price;
 }
+
+
+/*
+|--------------------------------------------------------------------------
+| FOOD PACKS USE A COMPLETELY DIFFERENT SHAPE
+|--------------------------------------------------------------------------
+| Products carry a nested `discount` object (handled by getEffectivePrice
+| above). Food packs do not have that field at all — they send three flat
+| numbers instead:
+|
+|   { "price": "14500",            <- ALREADY the discounted price
+|     "originalPrice": 115000,     <- before
+|     "amountOff": 100500,
+|     "amounOffInPercent": 87 }    <- sic, three d's are not in this one
+|
+| Note the difference that catches people out: on a PRODUCT, `price` is the
+| price BEFORE the discount. On a FOOD PACK, `price` is the price AFTER it.
+| Reading them the same way gets one of the two wrong every time.
+|
+| The fields are `number` here and `string` there, so both go through
+| toNumberOrNull rather than arithmetic directly.
+*/
+
+/** The flat price fields a food pack sends. */
+export interface FoodpackPriceShape {
+  price: string | number;
+  originalPrice?: number | string | null;
+  amountOff?: number | string | null;
+  amounOffInPercent?: number | string | null;
+}
+
+export function getEffectiveFoodpackPrice(
+  pack?: FoodpackPriceShape | null
+): EffectivePrice {
+  const price = toNumberOrNull(pack?.price) ?? 0;
+  const originalPrice = toNumberOrNull(pack?.originalPrice) ?? price;
+
+  // A "discount" that does not lower the price is not one worth showing.
+  if (originalPrice <= price) {
+    return {
+      price,
+      originalPrice: price,
+      discountAmount: 0,
+      percentOff: 0,
+      isDiscounted: false,
+      label: '',
+    };
+  }
+
+  const discountAmount = originalPrice - price;
+  const percentOff =
+    toNumberOrNull(pack?.amounOffInPercent) ??
+    (originalPrice > 0 ? Math.round((discountAmount / originalPrice) * 100) : 0);
+
+  return {
+    price,
+    originalPrice,
+    discountAmount,
+    percentOff,
+    isDiscounted: true,
+    label: `${percentOff}% off`,
+  };
+}
+
+/*
+  Resolve either item type from one call. Cart lines know their `itemType`
+  ('PRODUCT' | 'FOODPACK') but nothing else about what they are, so this picks
+  the right resolver and lets the cart stay ignorant of the two shapes.
+*/
+export function getCataloguePrice(
+  entry: (PriceShape | FoodpackPriceShape) | null | undefined,
+  itemType: 'PRODUCT' | 'FOODPACK'
+): EffectivePrice {
+  return itemType === 'FOODPACK'
+    ? getEffectiveFoodpackPrice(entry as FoodpackPriceShape)
+    : getEffectivePrice(entry as PriceShape);
+}

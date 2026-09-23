@@ -53,6 +53,47 @@ export const guestCart = {
 
   clear: () => write([]),
 
+  /**
+   * Reconcile stored unit prices against the live catalogue.
+   *
+   * ⚠️ WHY THIS IS NECESSARY FOR A GUEST
+   *
+   * There is no server cart for a signed-out visitor — this localStorage list
+   * IS the cart, and checkout totals straight off `itemPrice`. So a price
+   * saved at the time an item was added is the price the guest is asked to
+   * pay, however long ago that was.
+   *
+   * That makes guest carts go stale in two ways:
+   *
+   *   1. An item added before the discount fix still holds the PRE-discount
+   *      price, so the guest would be charged 70 for something selling at 50.
+   *   2. An admin changing a price or a discount never reaches a guest's
+   *      stored list at all.
+   *
+   * The catalogue is the authority for guests, so this rewrites any line whose
+   * stored price disagrees with it. Only the price is touched — quantities,
+   * order and ids are left exactly as they are.
+   *
+   * @param prices itemId -> the price a customer pays today
+   * @returns true if anything changed, so the caller can re-read the cart
+   */
+  syncPrices: (prices: Map<string, number>): boolean => {
+    const items = read();
+    let changed = false;
+
+    const next = items.map((item) => {
+      const current = prices.get(item.itemId);
+      if (current === undefined) return item;                 // unknown item — leave alone
+      if (Number(item.itemPrice) === current) return item;    // already right
+
+      changed = true;
+      return { ...item, itemPrice: String(current) };
+    });
+
+    if (changed) write(next);
+    return changed;
+  },
+
   toCart: (): Cart => {
     const items = read();
     const subTotal = items.reduce((sum, i) => sum + Number(i.itemPrice) * i.quantity, 0);
