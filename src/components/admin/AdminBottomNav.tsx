@@ -2,6 +2,7 @@ import { NavLink } from 'react-router-dom';
 import { Home, Package, Users, ClipboardList, MoreHorizontal } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { usePendingOrdersCount } from '../../app/hooks/usePendingOrdersCount';
+import { Badge } from '../ui/Badge';
 
 
 type Tab = {
@@ -23,24 +24,6 @@ const BASE_TABS: Omit<Tab, 'badge'>[] = [
   { to: '/admin/orders', label: 'Orders', icon: ClipboardList },
   { to: '/admin/more', label: 'More', icon: MoreHorizontal },
 ];
-
-
-function Badge({ count }: { count: number }) {
-  if (count < 1) return null;
-
-  return (
-    <span
-      className="
-        absolute -top-1 -right-1
-        flex h-4 min-w-[16px] items-center justify-center
-        rounded-full bg-red-500 px-[3px]
-        text-[9px] font-bold leading-none text-white
-      "
-    >
-      {count > 99 ? '99+' : count}
-    </span>
-  );
-}
 
 
 

@@ -7,6 +7,7 @@ import { guestCart } from '../../app/lib/guestCart';
 import { isAuthenticated } from '../../app/lib/auth';
 import { formatNaira } from '../data/products';
 import { getEffectivePrice } from '../../app/lib/productPricing';
+import { useCart } from '../../app/lib/CartContext';
 
 interface ProductCardProps {
   product: ApiProduct;
@@ -16,6 +17,7 @@ interface ProductCardProps {
 export default function ProductCard({ product, onCartUpdate }: ProductCardProps) {
   const [adding, setAdding] = useState(false);
   const [added, setAdded] = useState(false);
+  const { refreshCartCount } = useCart();
 
   const imageUrl = product.imageUrls?.[0] ?? '';
   const categoryName = product.category?.name ?? 'Product';
@@ -30,6 +32,7 @@ export default function ProductCard({ product, onCartUpdate }: ProductCardProps)
   const handleAddToCart = async (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
+    
     setAdding(true);
     try {
       if (isAuthenticated()) {
@@ -53,6 +56,7 @@ export default function ProductCard({ product, onCartUpdate }: ProductCardProps)
       }
       setAdded(true);
       setTimeout(() => setAdded(false), 2000);
+      await refreshCartCount();
       onCartUpdate?.();
     } catch (err) {
       console.error('Failed to add to cart', err);

@@ -2,23 +2,27 @@ import { NavLink, useLocation } from 'react-router-dom';
 import { Home, Store, ShoppingCart, Users, MoreHorizontal, ClipboardList, User, X } from 'lucide-react';
 import { useState } from 'react';
 import type { LucideIcon } from 'lucide-react';
+import { useCart } from '../../app/lib/CartContext';
+import { Badge } from '../ui/Badge';
 
 type Tab = {
   to: string;
   label: string;
   icon: LucideIcon;
+  badge?: number;
 };
 
-const tabs: Tab[] = [
-  { to: '/app',                label: 'Home',     icon: Home },
+
+const BASE_TABS: Omit<Tab, 'badge'>[] = [
+  { to: '/app',                    label: 'Home',     icon: Home },
   { to: '/app/referrals/overview', label: 'Referral', icon: Users },
-  { to: '/app/shop',           label: 'Shop',     icon: Store },
-  { to: '/app/cart',           label: 'Cart',     icon: ShoppingCart },  
+  { to: '/app/shop',               label: 'Shop',     icon: Store },
+  { to: '/app/cart',               label: 'Cart',     icon: ShoppingCart },
 ];
 
 const moreItems = [
-  { to: '/app/orders',   label: 'Orders',  icon: ClipboardList },
-  { to: '/app/profile',  label: 'Profile', icon: User },
+  { to: '/app/orders',  label: 'Orders',  icon: ClipboardList },
+  { to: '/app/profile', label: 'Profile', icon: User },
 ];
 
 const MORE_ROUTES = ['/app/orders', '/app/profile'];
@@ -27,6 +31,11 @@ export default function BottomNav() {
   const [moreOpen, setMoreOpen] = useState(false);
   const location = useLocation();
   const moreIsActive = MORE_ROUTES.some((r) => location.pathname.startsWith(r));
+  const {cartCount} = useCart();
+
+  const tabs: Tab[] = BASE_TABS.map((tab) =>
+    tab.to === '/app/cart' ? { ...tab, badge: cartCount } : tab,
+  );
 
   return (
     <>
@@ -55,9 +64,7 @@ export default function BottomNav() {
                   onClick={() => setMoreOpen(false)}
                   className={({ isActive }) =>
                     `flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-semibold transition-colors ${
-                      isActive
-                        ? 'bg-primary/10 text-primary'
-                        : 'text-gray-600 hover:bg-gray-100'
+                      isActive ? 'bg-primary/10 text-primary' : 'text-gray-600 hover:bg-gray-100'
                     }`
                   }
                 >
@@ -90,11 +97,12 @@ export default function BottomNav() {
                     <>
                       <span
                         className={
-                          'flex h-12 w-12 items-center justify-center rounded-2xl transition-colors ' +
+                          'relative flex h-12 w-12 items-center justify-center rounded-2xl transition-colors ' +
                           (isActive ? 'bg-primary text-white' : 'text-ink-soft')
                         }
                       >
                         <Icon size={22} strokeWidth={2} />
+                        <Badge count={tab.badge ?? 0} />
                       </span>
                       <span>{tab.label}</span>
                     </>
