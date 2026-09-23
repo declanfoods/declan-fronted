@@ -7,15 +7,17 @@ import {
   Bell,
   ArrowUpRight,
   Users,
+  LogIn,
 } from 'lucide-react';
-import SplashLoader from '../../../ui/SplashLoader';
+import SplashLoader from '../../ui/SplashLoader';
 import {
   useReferralCode,
   useReferralMetrics,
   useReferralNetworks,
   useReferralWallet,
-} from '../../../../app/hooks/useReferrals';
-import AppLayout from '../../../app/AppLayout';
+} from '../../../app/hooks/useReferrals';
+import AppLayout from '../../app/AppLayout';
+import { isAuthenticated } from '../../../app/lib/auth';
 
 
 
@@ -58,6 +60,27 @@ export default function HomeReferralOverview() {
       </AppLayout>
     );
   }
+
+  if (!isAuthenticated()) {
+  return (
+    <AppLayout title="My Orders">
+      <div className="flex min-h-[60vh] flex-col items-center justify-center gap-4 px-8 text-center">
+        <LogIn size={40} className="text-primary" />
+        <p className="text-lg font-semibold text-ink">Login to view your referrals</p>
+        <p className="text-sm text-ink-soft">
+          Track and manage your referral downlines, claim your rewards
+        </p>
+        <button
+          onClick={() => navigate('/login')}
+          className="rounded-full bg-primary px-8 py-3 text-sm font-semibold text-white hover:bg-primary-dark"
+        >
+          Login
+        </button>
+      </div>
+    </AppLayout>
+  );
+}
+
 
   return (
     <AppLayout title="My Referrals">

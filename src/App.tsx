@@ -80,7 +80,7 @@ import ReferralAnalytics from './components/pages/admin/referral/ReferralAnalyti
 import ReferralSettings from './components/pages/admin/referral/ReferralSettings';
 import CommissionCashbackSettings from './components/pages/admin/referral/CommissionCashbackSettings';
 import WithdrawalSettings from './components/pages/admin/referral/WithdrawalSettings';
-import HomeReferralOverview from './components/pages/app/referral/HomeReferralOverview';
+import HomeReferralOverview from './components/pages/app/HomeReferralOverview';
 
 
 
