@@ -1,19 +1,22 @@
 import { NavLink } from 'react-router-dom';
 import { Home, Package, Users, ClipboardList, MoreHorizontal } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
+import { usePendingOrdersCount } from '../../app/hooks/usePendingOrdersCount';
+
 
 type Tab = {
   to: string;
   label: string;
   icon: LucideIcon;
   end?: boolean;
+  badge?: number;
 };
 
 /*
   Analytics was swapped out for Orders — Orders is where an admin actually
   spends the day, and Analytics is still reachable from the drawer.
 */
-const tabs: Tab[] = [
+const BASE_TABS: Omit<Tab, 'badge'>[] = [
   { to: '/admin', label: 'Home', icon: Home, end: true },
   { to: '/admin/products', label: 'Inventory', icon: Package },
   { to: '/admin/users', label: 'Users', icon: Users },
@@ -21,7 +24,31 @@ const tabs: Tab[] = [
   { to: '/admin/more', label: 'More', icon: MoreHorizontal },
 ];
 
+
+function Badge({ count }: { count: number }) {
+  if (count < 1) return null;
+
+  return (
+    <span
+      className="
+        absolute -top-1 -right-1
+        flex h-4 min-w-[16px] items-center justify-center
+        rounded-full bg-red-500 px-[3px]
+        text-[9px] font-bold leading-none text-white
+      "
+    >
+      {count > 99 ? '99+' : count}
+    </span>
+  );
+}
+
+
+
 export default function AdminBottomNav() {
+  const pendingCount = usePendingOrdersCount();
+
+  const tabs: Tab[] = BASE_TABS.map((tab) => 
+    tab.to === "/admin/orders" ? { ...tab, badge: pendingCount, } : tab)
   return (
     <nav className="sticky bottom-0 z-30 border-t border-primary/10 bg-white">
       <ul className="mx-auto grid max-w-2xl grid-cols-5">
@@ -40,13 +67,17 @@ export default function AdminBottomNav() {
               >
                 {({ isActive }) =>
                   isActive ? (
-                    <span className="flex flex-col items-center gap-1 rounded-2xl bg-primary px-4 py-1.5 text-white">
+                    <span className="relative flex flex-col items-center gap-1 rounded-2xl bg-primary px-4 py-1.5 text-white">
                       <Icon size={18} strokeWidth={2.2} />
+                      <Badge count={tab.badge ?? 0} />
                       <span>{tab.label}</span>
                     </span>
                   ) : (
                     <>
-                      <Icon size={20} strokeWidth={2} />
+                      <span className="relative inline-flex items-center justify-center">
+                        <Icon size={20} strokeWidth={2} />
+                        <Badge count={tab.badge ?? 0} />
+                      </span>
                       <span>{tab.label}</span>
                     </>
                   )

@@ -131,6 +131,10 @@ export interface AdminOrderDetails {
   [key: string]: unknown;
 }
 
+export interface AdminPendingOrdersCount {
+  pendingOrders: number
+}
+
 interface ApiResponse<T> {
   success: boolean;
   message: string;
@@ -140,7 +144,10 @@ interface ApiResponse<T> {
 }
 
 export const adminOrderApi = {
-  
+  getPendingOrders: () => api.get<
+    ApiResponse<AdminPendingOrdersCount>
+    >('/api/v1/admin/orders/pending'),
+
   getOrders: (filters?: AdminOrderFilters) =>
     api.get<
       ApiResponse<{

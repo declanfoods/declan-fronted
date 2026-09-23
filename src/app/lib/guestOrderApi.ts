@@ -5,6 +5,8 @@ export interface GuestDeliveryAddress {
   city?: string;
   state?: string;
   landmark?: string;
+  nameOfCustomer:string;
+  phoneNumber:string;
   [key: string]: unknown;
 }
 
@@ -21,8 +23,7 @@ export interface CreateGuestOrderPayload {
   items: GuestOrderItem[];
   deliveryAddress: GuestDeliveryAddress;
   emailAddress: string;
-  nameOfCustomer:string;
-  phoneNumber:string;
+
 }
 
 export interface VerifyGuestOrderPayload {
@@ -46,7 +47,7 @@ interface ApiResponse<T> {
 
 export const guestOrderApi = {
   createGuestOrder: (data: CreateGuestOrderPayload) =>
-    api.post<ApiResponse<{ orderNumber: string; [key: string]: unknown }>>(
+    api.post<ApiResponse<{ order : {orderNumber: string; [key: string]: unknown} }>>(
       '/api/v1/orders/guest',
       data
     ),

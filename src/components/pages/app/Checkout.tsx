@@ -49,7 +49,7 @@ export default function Checkout() {
   const [guestLandmark, setGuestLandmark] = useState('');
 
   // Guest verification step
-  const [placedOrderNumber, setPlacedOrderNumber] = useState('');
+  const [placedOrderNumber, setPlacedOrderNumber] = useState<string>('');
   const [verifyCode, setVerifyCode] = useState('');
   const [verifying, setVerifying] = useState(false);
   const [verifyError, setVerifyError] = useState('');
@@ -140,13 +140,16 @@ export default function Checkout() {
             addressLine: guestAddressLine,
             state: guestState || undefined,
             landmark: guestLandmark || undefined,
+            nameOfCustomer: guestName,
+          phoneNumber: guestPhone,
           },
           emailAddress: guestEmail,
-          nameOfCustomer: guestName,
-          phoneNumber: guestPhone,
+
         });
 
-        setPlacedOrderNumber(res.data.data.orderNumber);
+        setPlacedOrderNumber(res.data.data.order.orderNumber);
+        console.log(res.data.data)
+        console.log(placedOrderNumber)
         guestCart.clear();
       } catch (err: any) {
         showToast(
