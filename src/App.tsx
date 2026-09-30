@@ -81,6 +81,7 @@ import ReferralSettings from './components/pages/admin/referral/ReferralSettings
 import CommissionCashbackSettings from './components/pages/admin/referral/CommissionCashbackSettings';
 import WithdrawalSettings from './components/pages/admin/referral/WithdrawalSettings';
 import HomeReferralOverview from './components/pages/app/HomeReferralOverview';
+import CreateManualOrder from './components/pages/admin/orders/CreateManualOrder';
 
 
 
@@ -154,6 +155,7 @@ export default function App() {
               </AdminProtectedRoute>
             }
           />
+          <Route path="/admin/orders/manual" element={<CreateManualOrder/>}/>
           <Route
             path="/admin/orders/:id"
             element={
