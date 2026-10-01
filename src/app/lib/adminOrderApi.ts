@@ -175,6 +175,8 @@ export const adminOrderApi = {
       }>
     >(`/api/v1/admin/orders/${id}/processing`, {...requestBody}),
 
+  cancelOrder: (id: string, requestBody: {note?: string | undefined}) => 
+    api.patch<ApiResponse<{}>>(`/api/v1/admin/orders/${id}/cancel`, {...requestBody}),
 
   assignRider: (id: string, data: AssignRiderPayload) =>
     api.patch<
