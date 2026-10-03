@@ -1,6 +1,15 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Search, SlidersHorizontal, Menu, Pencil, Plus, MoreVertical, AlertTriangle } from 'lucide-react';
+import {
+  ArrowLeft,
+  Search,
+  SlidersHorizontal,
+  Menu,
+  Pencil,
+  Plus,
+  MoreVertical,
+  AlertTriangle,
+} from 'lucide-react';
 import AdminBottomNav from '../../../admin/AdminBottomNav';
 import { getEffectivePrice } from '../../../../app/lib/productPricing';
 import ProductActionsMenu from './ProductActionsMenu';
@@ -8,16 +17,25 @@ import AdminFilterSheet, {
   emptyFilterState,
   type ProductFilterState,
 } from '../../../admin/AdminFilterSheet';
-import { adminProductApi, type AdminProduct, type AdminProductCategory } from '../../../../app/lib/adminProductApi';
+import {
+  adminProductApi,
+  type AdminProduct,
+  type AdminProductCategory,
+  type AdminPagination,
+} from '../../../../app/lib/adminProductApi';
+import { AdminProductSortDropdown } from '../../../admin/AdminProductSortDropDown';
 
-const filters = ['All', 'Available', 'Out of Stock', 'Hidden'];
+// ─── Constants ───────────────────────────────────────────────────────────────
+
+const STATUS_FILTERS = ['All', 'Available', 'Out of Stock', 'Hidden'];
 
 const filterToStatus: Record<string, string | undefined> = {
   All: undefined,
   Available: 'active',
   'Out of Stock': 'inactive',
-
 };
+
+// ─── Helpers ─────────────────────────────────────────────────────────────────
 
 function formatPrice(price: string) {
   const num = Number(price);
@@ -36,17 +54,30 @@ const statusStyles: Record<string, string> = {
   HIDDEN: 'bg-gray-500 text-white',
 };
 
+
+// ─── ProductList ──────────────────────────────────────────────────────────────
+
 export default function ProductList() {
   const navigate = useNavigate();
-  const [activeFilter, setActiveFilter] = useState('All');
-  const [search, setSearch] = useState('');
-  const [products, setProducts] = useState<AdminProduct[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
+
+  const [activeFilter, setActiveFilter]   = useState('All');
+  const [search, setSearch]               = useState('');
+  const [products, setProducts]           = useState<AdminProduct[]>([]);
+  const [loading, setLoading]             = useState(true);
+  const [error, setError]                 = useState('');
   const [actionsProduct, setActionsProduct] = useState<AdminProduct | null>(null);
-  const [categories, setCategories] = useState<AdminProductCategory[]>([]);
-  const [filterOpen, setFilterOpen] = useState(false);
-  const [filterState, setFilterState] = useState<ProductFilterState>(emptyFilterState);
+  const [categories, setCategories]       = useState<AdminProductCategory[]>([]);
+  const [filterOpen, setFilterOpen]       = useState(false);
+  const [filterState, setFilterState]     = useState<ProductFilterState>(emptyFilterState);
+
+  // Sort state
+  const [sortBy, setSortBy]           = useState<string | undefined>(undefined);
+  const [sortOrder, setSortOrder]     = useState<'ASC' | 'DESC'>('DESC');
+
+  // Pagination state
+  const PAGE_SIZE = 20;
+  const [page, setPage]               = useState(1);
+  const [pagination, setPagination]   = useState<AdminPagination | null>(null);
 
   useEffect(() => {
     adminProductApi
@@ -55,33 +86,49 @@ export default function ProductList() {
       .catch(() => {});
   }, []);
 
-  const fetchProducts = async () => {
-  setLoading(true);
-  setError('');
-  try {
-    if (activeFilter === 'Hidden') {
-      const res = await adminProductApi.getHiddenProducts();
-      setProducts(res.data.data.products);
-    } else {
-      const res = await adminProductApi.getProducts({
-        search: search || undefined,
-        status: filterToStatus[activeFilter],
-      });
-      setProducts(res.data.data.products);
+  const fetchProducts = async (targetPage = page) => {
+    setLoading(true);
+    setError('');
+    try {
+      if (activeFilter === 'Hidden') {
+        // Hidden endpoint has no pagination support
+        const res = await adminProductApi.getHiddenProducts();
+        setProducts(res.data.data.products);
+        setPagination(null);
+      } else {
+        const res = await adminProductApi.getProducts({
+          search:    search || undefined,
+          status:    filterToStatus[activeFilter],
+          sortBy:    sortBy,
+          sortOrder: sortBy ? sortOrder : undefined,
+          page:      targetPage,
+          limit:     PAGE_SIZE,
+          category:  filterState.categoryIds.length > 0 ? filterState.categoryIds : undefined,
+        });
+        setProducts(res.data.data.products);
+        setPagination(res.data.data.pagination);
+      }
+    } catch (err: any) {
+      setError(err.response?.data?.message ?? 'Failed to load products.');
+    } finally {
+      setLoading(false);
     }
-  } catch (err: any) {
-    setError(err.response?.data?.message ?? 'Failed to load products.');
-  } finally {
-    setLoading(false);
-  }
-};
+  };
 
-
+  // Reset to page 1 and re-fetch when search / filter / sort / category changes
   useEffect(() => {
-    const timeout = setTimeout(fetchProducts, 350);
+    setPage(1);
+    const timeout = setTimeout(() => fetchProducts(1), 350);
     return () => clearTimeout(timeout);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [search, activeFilter]);
+  }, [search, activeFilter, sortBy, sortOrder, filterState]);
+
+  // Re-fetch when the user explicitly changes page (skip on mount — above effect handles it)
+  useEffect(() => {
+    // if (page === 1) return;
+    fetchProducts(page);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [page]);
 
   const handleHideToggle = async (product: AdminProduct) => {
     try {
@@ -100,7 +147,7 @@ export default function ProductList() {
   const handleMarkOutOfStock = async (product: AdminProduct) => {
     try {
       await adminProductApi.updateStock(product.id, {
-        quantity: product.quantity,
+        quantity:  product.quantity,
         operation: 'decrement',
       });
       setActionsProduct(null);
@@ -117,14 +164,12 @@ export default function ProductList() {
     filterState.ratings.length;
 
   const visibleProducts = products.filter((product) => {
-    if (filterState.categoryIds.length > 0 && !filterState.categoryIds.includes(product.category?.id ?? '')) {
-      return false;
-    }
+    // Category filtering is handled server-side via the category[] query params.
 
     if (filterState.priceRanges.length > 0) {
       const price = Number(product.price);
       const matchesRange = filterState.priceRanges.some((range) => {
-        if (range === '0-5000') return price <= 5000;
+        if (range === '0-5000')     return price <= 5000;
         if (range === '5000-10000') return price > 5000 && price <= 10000;
         return price > 10000;
       });
@@ -168,7 +213,9 @@ export default function ProductList() {
         </div>
       </div>
 
+      {/* Filter + Sort row */}
       <div className="mt-4 flex items-center gap-2 overflow-x-auto px-5 pb-1 scrollbar-hide">
+        {/* Filter pill */}
         <button
           type="button"
           onClick={() => setFilterOpen(true)}
@@ -181,7 +228,17 @@ export default function ProductList() {
           <SlidersHorizontal size={14} />
           Filter{filterActiveCount > 0 ? ` (${filterActiveCount})` : ''}
         </button>
-        {filters.map((f) => (
+
+        {/* Sort dropdown */}
+        <AdminProductSortDropdown
+          sortBy={sortBy}
+          sortOrder={sortOrder}
+          onChangeSortBy={setSortBy}
+          onChangeSortOrder={setSortOrder}
+        />
+
+        {/* Status filter pills */}
+        {STATUS_FILTERS.map((f) => (
           <button
             key={f}
             type="button"
@@ -214,10 +271,17 @@ export default function ProductList() {
           visibleProducts.map((product) => {
             const status = getStatus(product);
             return (
-              <div key={product.id} className="overflow-hidden rounded-2xl border border-gray-100 shadow-sm">
+              <div
+                key={product.id}
+                className="overflow-hidden rounded-2xl border border-gray-100 shadow-sm"
+              >
                 <div className="relative h-40 w-full bg-gray-100">
                   {product.imageUrls?.[0] && (
-                    <img src={product.imageUrls[0]} alt={product.name} className="h-full w-full object-cover" />
+                    <img
+                      src={product.imageUrls[0]}
+                      alt={product.name}
+                      className="h-full w-full object-cover"
+                    />
                   )}
                   <span
                     className={`absolute left-3 top-3 rounded-full px-2.5 py-1 text-[10px] font-bold uppercase ${statusStyles[status]}`}
@@ -242,19 +306,15 @@ export default function ProductList() {
                       {product.category?.name?.toUpperCase()}
                     </p>
                     <h3 className="mt-0.5 font-bold text-gray-900">{product.name}</h3>
-                    {/*
-                      Admin needs to see at a glance which products are on
-                      discount — the API has always sent the discount object,
-                      but this list never showed it, so a discounted product
-                      looked identical to a full-price one here.
-                    */}
                     {(() => {
                       const rowPricing = getEffectivePrice(product);
                       return (
                         <div className="mt-1 flex flex-wrap items-baseline gap-x-2">
                           <p className="text-lg font-extrabold text-primary">
                             {formatPrice(String(rowPricing.price))}
-                            <span className="text-xs font-medium text-gray-400"> / {product.scale}</span>
+                            <span className="text-xs font-medium text-gray-400">
+                              {' '}/ {product.scale}
+                            </span>
                           </p>
                           {rowPricing.isDiscounted && (
                             <>
@@ -292,6 +352,38 @@ export default function ProductList() {
               </div>
             );
           })}
+
+        {!loading && pagination && pagination.totalPages > 1 && (
+          <div className="flex items-center justify-between py-2">
+            <button
+              type="button"
+              disabled={!pagination.hasPreviousPage}
+              onClick={() => {
+                if (pagination.hasPreviousPage) {
+                  setPage((p) => {return p - 1 < 1 ? 1 : p- 1})}
+              } }
+              className="flex h-9 items-center gap-1.5 rounded-xl border border-gray-200 px-4 text-sm font-semibold text-gray-600 disabled:opacity-30"
+            >
+              ← Prev
+            </button>
+
+            <span className="text-sm text-gray-400">
+              Page{' '}
+              <span className="font-semibold text-gray-700">{pagination.currentPage}</span>
+              {' '}of{' '}
+              <span className="font-semibold text-gray-700">{pagination.totalPages}</span>
+            </span>
+
+            <button
+              type="button"
+              disabled={!pagination.hasNextPage}
+              onClick={() => setPage((p) => p + 1)}
+              className="flex h-9 items-center gap-1.5 rounded-xl border border-gray-200 px-4 text-sm font-semibold text-gray-600 disabled:opacity-30"
+            >
+              Next →
+            </button>
+          </div>
+        )}
       </main>
 
       <button
@@ -308,11 +400,10 @@ export default function ProductList() {
       {actionsProduct && (
         <ProductActionsMenu
           product={{
-            name: actionsProduct.name,
-            sku: actionsProduct.sku,
-            // Selling price, so this menu cannot contradict the row it opened from.
+            name:  actionsProduct.name,
+            sku:   actionsProduct.sku,
             price: formatPrice(String(getEffectivePrice(actionsProduct).price)),
-            img: actionsProduct.imageUrls?.[0] ?? '',
+            img:   actionsProduct.imageUrls?.[0] ?? '',
           }}
           isHidden={actionsProduct.isHidden}
           onClose={() => setActionsProduct(null)}

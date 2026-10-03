@@ -3,6 +3,7 @@ import api from './axios';
 export interface AdminProductCategory {
   id: string;
   name: string;
+  productsCount?: number | undefined;
 }
 
 export interface AdminProductDiscount {
@@ -42,8 +43,6 @@ export interface AdminPagination {
   hasPreviousPage: boolean;
 }
 
-
-
 /** A product as embedded in a category payload (trimmed — id/name/image only). */
 export interface AdminCategoryProductRef {
   id: string;
@@ -55,14 +54,10 @@ export interface AdminCategoryProductRef {
 export interface AdminCategoryOverview {
   id: string;
   name: string;
-  /** Products filed under this category. Server-computed. */
   productCount: number;
-  /** Value of the stock at list price. Server-computed. */
   catalogValue: number;
   isActive: boolean;
-  /** Money actually taken from orders in this category. Server-computed. */
   revenueGenerated: number;
-  /** The products themselves, so the row can expand without another call. */
   products: AdminCategoryProductRef[];
 }
 
@@ -75,12 +70,17 @@ export interface AdminCategoryMetrics {
 }
 
 export interface AdminProductFilters {
-  sortOrder?: 'asc' | 'desc';
+  sortOrder?: 'asc' | 'desc' | 'ASC' | 'DESC';
   sortBy?: string;
   limit?: number;
   page?: number;
   status?: string;
-  category?: string;
+  /**
+   * One or more category IDs.
+   * Serialized as repeated params: category=id1&category=id2
+   * to match the backend's expectation.
+   */
+  category?: string[];
   search?: string;
 }
 
@@ -125,6 +125,28 @@ interface ApiResponse<T> {
   data: T;
 }
 
+/**
+ * Serializes params so that array values are repeated:
+ *   { category: ['a', 'b'] } → "category=a&category=b"
+ *
+ * Axios's default serializer produces "category[]=a&category[]=b" which
+ * NestJS's @Query() decorator does not parse as an array.
+ */
+function serializeParams(params: Record<string, unknown>): string {
+  const parts: string[] = [];
+  for (const [key, value] of Object.entries(params)) {
+    if (value === undefined || value === null) continue;
+    if (Array.isArray(value)) {
+      for (const item of value) {
+        parts.push(`${encodeURIComponent(key)}=${encodeURIComponent(item)}`);
+      }
+    } else {
+      parts.push(`${encodeURIComponent(key)}=${encodeURIComponent(String(value))}`);
+    }
+  }
+  return parts.join('&');
+}
+
 export const adminProductApi = {
   createProduct: (data: CreateProductPayload) =>
     api.post<ApiResponse<{ product?: AdminProduct }>>('/api/v1/admin/products', data),
@@ -132,7 +154,10 @@ export const adminProductApi = {
   getProducts: (filters?: AdminProductFilters) =>
     api.get<ApiResponse<{ products: AdminProduct[]; pagination: AdminPagination }>>(
       '/api/v1/admin/products',
-      { params: filters }
+      {
+        params: filters,
+        paramsSerializer: { serialize: serializeParams },
+      }
     ),
 
   getProductById: (id: string) =>
@@ -163,25 +188,20 @@ export const adminProductApi = {
   updateProductPrice: (id: string, data: UpdateProductPricePayload) =>
     api.patch<ApiResponse<unknown>>(`/api/v1/admin/products/${id}/price/update`, data),
 
- 
   getCategories: () =>
     api.get<ApiResponse<{ productCategories: AdminProductCategory[] }>>(
       '/api/v1/products/categories'
     ),
 
-  /** Rich admin list: counts, values, revenue and the products themselves. */
   getCategoryOverview: () =>
     api.get<ApiResponse<{ categories: AdminCategoryOverview[] }>>(
       '/api/v1/admin/product-categories'
     ),
 
-  /** Screen-level totals for the admin Categories header cards. */
   getCategoryMetrics: () =>
     api.get<ApiResponse<AdminCategoryMetrics>>(
       '/api/v1/admin/product-categories/metrics'
     ),
-
- 
 
   createCategory: (name: string) =>
     api.post<ApiResponse<{ categoryId: string; categoryName: string }>>(
@@ -195,7 +215,6 @@ export const adminProductApi = {
       { name }
     ),
 
- 
   deleteCategory: (id: string, fallbackCategoryId: string) =>
     api.delete<ApiResponse<unknown>>(`/api/v1/admin/product-categories/${id}`, {
       data: { fallbackCategoryId },

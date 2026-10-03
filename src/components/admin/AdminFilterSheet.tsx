@@ -17,7 +17,7 @@ export const emptyFilterState: ProductFilterState = {
   ratings: [],
 };
 
-type CategoryOption = { id: string; name: string };
+type CategoryOption = { id: string; name: string; productsCount?: number | undefined };
 
 type AdminFilterSheetProps = {
   categories: CategoryOption[];
@@ -95,25 +95,22 @@ export default function AdminFilterSheet({
                 <p className="text-sm text-gray-400">No categories yet.</p>
               )}
               {categories.map((c) => (
-                <label key={c.id} className="flex items-center gap-3 text-sm text-gray-700">
-                  <input
-                    type="checkbox"
-                    className="hidden"
-                    checked={draft.categoryIds.includes(c.id)}
-                    onChange={() =>
-                      setDraft((d) => ({ ...d, categoryIds: toggle(d.categoryIds, c.id) }))
-                    }
-                  />
-                  <button
-                    type="button"
-                    onClick={() =>
-                      setDraft((d) => ({ ...d, categoryIds: toggle(d.categoryIds, c.id) }))
-                    }
-                  >
-                    <Checkbox checked={draft.categoryIds.includes(c.id)} />
-                  </button>
-                  {c.name}
-                </label>
+                <button
+                  key={c.id}
+                  type="button"
+                  onClick={() =>
+                    setDraft((d) => ({ ...d, categoryIds: toggle(d.categoryIds, c.id) }))
+                  }
+                  className="flex w-full items-center gap-3 text-sm text-gray-700"
+                >
+                  <Checkbox checked={draft.categoryIds.includes(c.id)} />
+                  <span className="flex-1 text-left">{c.name}</span>
+                  {c.productsCount !== undefined && (
+                    <span className="text-xs font-medium text-gray-400">
+                      ({c.productsCount})
+                    </span>
+                  )}
+                </button>
               ))}
             </div>
           </section>
