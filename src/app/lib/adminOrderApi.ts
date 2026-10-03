@@ -24,21 +24,15 @@ export interface AdminOrder {
   orderStatus: AdminOrderStatus;
   amount?: number | string;
   paid?: boolean;
-
   customer?: AdminOrderCustomer;
-
   deliveryAddress?: string;
-
   numberOfItems?: number;
-
   placedAt?: string;
-
   paymentMethod?: {
     id?: string;
     title?: string;
     description?: string;
   };
-
   rider?: {
     id: string;
     fullname: string;
@@ -63,14 +57,14 @@ export interface AdminOrderFilters {
 export interface AssignRiderPayload {
   riderId: string;
   note?: string | null;
-  estimatedDeliveryTime: string
+  estimatedDeliveryTime: string;
 }
 
-
 export interface AdminOrderDetailsCustomer {
-  id: string;
+  id: string | null;
   fullname: string;
-  phone: string;
+  /** API field name is phoneNumber, not phone */
+  phoneNumber: string;
   addressLine: string;
   customerType: string;
 }
@@ -99,8 +93,12 @@ export interface AdminOrderTimeline {
 export interface AdminOrderDetailsItem {
   id?: string;
   name?: string;
+  /** API field name is itemName */
+  itemName?: string;
   quantity?: number;
   price?: number | string;
+  /** API field name is unitPrice */
+  unitPrice?: number | string;
   imageUrls?: string[];
   [key: string]: unknown;
 }
@@ -111,28 +109,21 @@ export interface AdminOrderDetails {
   orderStatus: AdminOrderStatus;
   estimatedDelivery: string;
   orderTimeline: AdminOrderTimeline[];
-
   customer: AdminOrderDetailsCustomer;
-
   deliveryRider: {
     id: string;
     fullname?: string;
     name?: string;
   } | null;
-
   orderItems: AdminOrderDetailsItem[];
-
   orderSummary: AdminOrderDetailsSummary;
-
   payment: AdminOrderPayment;
-
   createdAt?: string;
-
   [key: string]: unknown;
 }
 
 export interface AdminPendingOrdersCount {
-  pendingOrders: number
+  pendingOrders: number;
 }
 
 interface ApiResponse<T> {
@@ -144,9 +135,8 @@ interface ApiResponse<T> {
 }
 
 export const adminOrderApi = {
-  getPendingOrders: () => api.get<
-    ApiResponse<AdminPendingOrdersCount>
-    >('/api/v1/admin/orders/pending'),
+  getPendingOrders: () =>
+    api.get<ApiResponse<AdminPendingOrdersCount>>('/api/v1/admin/orders/pending'),
 
   getOrders: (filters?: AdminOrderFilters) =>
     api.get<
@@ -154,36 +144,28 @@ export const adminOrderApi = {
         orders: AdminOrder[];
         pagination: AdminOrderPagination;
       }>
-    >('/api/v1/admin/orders', {
-      params: filters,
-    }),
+    >('/api/v1/admin/orders', { params: filters }),
 
-  
   getOrderById: (id: string) =>
-    api.get<
-      ApiResponse<{
-        order: AdminOrderDetails;
-      }>
-    >(`/api/v1/admin/orders/${id}`),
+    api.get<ApiResponse<{ order: AdminOrderDetails }>>(`/api/v1/admin/orders/${id}`),
 
-  
+  markAsProcessing: (
+    id: string,
+    requestBody: { note: string; estimatedDeliveryTime: string }
+  ) =>
+    api.patch<ApiResponse<{ order?: AdminOrderDetails }>>(
+      `/api/v1/admin/orders/${id}/processing`,
+      { ...requestBody }
+    ),
 
-  markAsProcessing: (id: string, requestBody: {note: string, estimatedDeliveryTime: string}) =>
-    api.patch<
-      ApiResponse<{
-        order?: AdminOrderDetails;
-      }>
-    >(`/api/v1/admin/orders/${id}/processing`, {...requestBody}),
-
-  cancelOrder: (id: string, requestBody: {note?: string | undefined}) => 
-    api.patch<ApiResponse<{}>>(`/api/v1/admin/orders/${id}/cancel`, {...requestBody}),
+  cancelOrder: (id: string, requestBody: { note?: string | undefined }) =>
+    api.patch<ApiResponse<{}>>(`/api/v1/admin/orders/${id}/cancel`, { ...requestBody }),
 
   assignRider: (id: string, data: AssignRiderPayload) =>
-    api.patch<
-      ApiResponse<{
-        order?: AdminOrderDetails;
-      }>
-    >(`/api/v1/admin/orders/${id}/assign-rider`, data),
+    api.patch<ApiResponse<{ order?: AdminOrderDetails }>>(
+      `/api/v1/admin/orders/${id}/assign-rider`,
+      data
+    ),
 
   getMetrics: (period?: OrderMetricsPeriod) =>
     api.get<ApiResponse<{ metrics: AdminOrderMetrics }>>(
