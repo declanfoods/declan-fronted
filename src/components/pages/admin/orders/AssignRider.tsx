@@ -262,7 +262,7 @@ export default function AssignRider() {
             </p>
 
             <p className="text-xs text-gray-400">
-              {order.customer.phone}
+              {order.customer.phoneNumber}
             </p>
           </div>
 

@@ -227,7 +227,7 @@ export default function OrderDetails() {
               </p>
 
               <p className="text-sm text-gray-500">
-                {order.customer.phone}
+                {order.customer.phoneNumber}
               </p>
 
             </div>
