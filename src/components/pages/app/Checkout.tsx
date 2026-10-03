@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Loader2, CheckCircle2 } from 'lucide-react';
+import { ArrowLeft, Loader2, CheckCircle2, Truck } from 'lucide-react';
 import Container from '../../layout/Container';
 import SplashLoader from '../../ui/SplashLoader';
 import { formatNaira } from '../../data/products';
@@ -14,12 +14,16 @@ import { guestOrderApi } from '../../../app/lib/guestOrderApi';
 import { isAuthenticated } from '../../../app/lib/auth';
 import { useToast } from '../../ui/Toast';
 
+// ─── Delivery fee logic ───────────────────────────────────────────────────────
+const DELIVERY_FEE        = 400;
+const FREE_DELIVERY_FLOOR = 3000;
+
+function getDeliveryFee(subtotal: number): number {
+  return subtotal >= FREE_DELIVERY_FLOOR ? 0 : DELIVERY_FEE;
+}
+// ─────────────────────────────────────────────────────────────────────────────
+
 export default function Checkout() {
-  /*
-    The cart line carries no discount data — only `itemPrice` — so the
-    pre-discount price comes from the public catalogue. Same hook the cart uses,
-    and the same cache, so opening checkout costs no extra requests.
-  */
   const { resolveLine } = useCartCatalogue();
   const navigate = useNavigate();
   const guest = !isAuthenticated();
@@ -32,10 +36,6 @@ export default function Checkout() {
   const [error, setError] = useState('');
 
   const [selectedPayment, setSelectedPayment] = useState<string>('');
-  /*
-    Which saved address this order goes to. Was hard-wired to `addresses[0]`,
-    which is why customers with more than one address had no way to choose.
-  */
   const [selectedAddressId, setSelectedAddressId] = useState<string>('');
   const [instructions, setInstructions] = useState('');
   const [placing, setPlacing] = useState(false);
@@ -64,32 +64,21 @@ export default function Checkout() {
           guest ? Promise.resolve(null) : addressApi.getAddresses(),
         ]);
 
-        // Cart
         if (guest) {
           setCart(guestCart.toCart());
         } else if (cartRes.status === 'fulfilled' && cartRes.value) {
           setCart(cartRes.value.data.data.cart);
         }
 
-        // Payment methods
         if (payRes.status === 'fulfilled' && payRes.value) {
-          // Note: API typo — "paymentMethodds"
           const methods = payRes.value.data.data.paymentMethodds;
-
           setPaymentMethods(methods);
-
-          if (methods.length > 0) {
-            setSelectedPayment(methods[0].id);
-          }
+          if (methods.length > 0) setSelectedPayment(methods[0].id);
         }
 
-        // Saved delivery addresses
         if (!guest && addressRes.status === 'fulfilled' && addressRes.value) {
           const saved = addressRes.value.data.data.deliveryAddresses ?? [];
           setAddresses(saved);
-
-          // Pre-select the first so the form is valid immediately; the
-          // customer can switch before paying.
           if (saved.length > 0) {
             setSelectedAddressId((current) => current || saved[0].id);
           }
@@ -105,35 +94,23 @@ export default function Checkout() {
   }, [guest]);
 
   const handlePlaceOrder = async () => {
-    // =========================
-    // GUEST CHECKOUT
-    // =========================
     if (guest) {
-      if (
-        !guestEmail ||
-        !guestName ||
-        !guestPhone ||
-        !guestAddressLine
-      ) {
+      if (!guestEmail || !guestName || !guestPhone || !guestAddressLine) {
         showToast(
           'Please fill in your name, email, phone number and delivery address.',
           'error'
         );
         return;
       }
-
       if (!selectedPayment) {
         showToast('Please select a payment method.', 'error');
         return;
       }
 
       setPlacing(true);
-
       try {
         const res = await guestOrderApi.createGuestOrder({
-          payment: {
-            paymentMethodId: selectedPayment,
-          },
+          payment: { paymentMethodId: selectedPayment },
           deliveryInstructions: instructions || undefined,
           items: guestCart.toGuestOrderItems(),
           deliveryAddress: {
@@ -141,68 +118,46 @@ export default function Checkout() {
             state: guestState || undefined,
             landmark: guestLandmark || undefined,
             nameOfCustomer: guestName,
-          phoneNumber: guestPhone,
+            phoneNumber: guestPhone,
           },
           emailAddress: guestEmail,
-
         });
 
         setPlacedOrderNumber(res.data.data.order.orderNumber);
-        console.log(res.data.data)
-        console.log(placedOrderNumber)
         guestCart.clear();
       } catch (err: any) {
         showToast(
-          err.response?.data?.message ??
-            'Failed to place order. Please try again.',
+          err.response?.data?.message ?? 'Failed to place order. Please try again.',
           'error'
         );
       } finally {
         setPlacing(false);
       }
-
       return;
     }
 
-    // =========================
-    // AUTHENTICATED CHECKOUT
-    // =========================
     if (!selectedPayment) {
       showToast('Please select a payment method.', 'error');
       return;
     }
-
     if (!address) {
-      showToast(
-        'Please add a delivery address before placing your order.',
-        'error'
-      );
+      showToast('Please add a delivery address before placing your order.', 'error');
       return;
     }
 
     setPlacing(true);
-
     try {
       const res = await orderApi.createOrder({
-        payment: {
-          paymentMethodId: selectedPayment,
-        },
+        payment: { paymentMethodId: selectedPayment },
         deliveryInstructions: instructions || undefined,
-        /*
-          FIX: this was missing. The API requires deliveryAddressId for a
-          registered-user order (it is in the collection's example body), so
-          orders were being created without a delivery address.
-        */
         deliveryAddressId: address.id,
       });
 
       const order = res.data.data.order;
-
       navigate(`/app/orders/${order.id}/tracking`);
     } catch (err: any) {
       showToast(
-        err.response?.data?.message ??
-          'Failed to place order. Please try again.',
+        err.response?.data?.message ?? 'Failed to place order. Please try again.',
         'error'
       );
     } finally {
@@ -212,41 +167,31 @@ export default function Checkout() {
 
   const handleVerifyOrder = async () => {
     if (!verifyCode) {
-      setVerifyError(
-        'Please enter the verification code sent to your email.'
-      );
+      setVerifyError('Please enter the verification code sent to your email.');
       return;
     }
-
     setVerifying(true);
     setVerifyError('');
-
     try {
       await guestOrderApi.verifyGuestOrder({
         customerEmail: guestEmail,
         verificationCode: verifyCode,
         orderNumber: placedOrderNumber,
       });
-
       setVerified(true);
     } catch (err: any) {
-      setVerifyError(
-        err.response?.data?.message ?? 'Invalid or expired code.'
-      );
+      setVerifyError(err.response?.data?.message ?? 'Invalid or expired code.');
     } finally {
       setVerifying(false);
     }
   };
 
-  if (loading) {
-    return <SplashLoader />;
-  }
+  if (loading) return <SplashLoader />;
 
   if (error) {
     return (
       <div className="flex min-h-screen flex-col items-center justify-center gap-4 px-6 text-center">
         <p className="text-lg font-semibold text-red-600">{error}</p>
-
         <button
           onClick={() => window.location.reload()}
           className="rounded-full bg-primary px-6 py-3 text-sm font-semibold text-white"
@@ -257,32 +202,17 @@ export default function Checkout() {
     );
   }
 
-  // =========================
-  // GUEST ORDER VERIFICATION
-  // =========================
   if (guest && placedOrderNumber) {
     return (
       <div className="flex min-h-screen flex-col items-center justify-center gap-4 px-6 text-center">
         {verified ? (
           <>
-            <CheckCircle2
-              size={56}
-              className="text-primary"
-            />
-
-            <p className="text-xl font-bold text-ink">
-              Order Confirmed!
-            </p>
-
+            <CheckCircle2 size={56} className="text-primary" />
+            <p className="text-xl font-bold text-ink">Order Confirmed!</p>
             <p className="text-sm text-ink-soft">
-              Order{' '}
-              <span className="font-semibold text-ink">
-                {placedOrderNumber}
-              </span>{' '}
-              is being processed. We&apos;ve sent the details to{' '}
-              {guestEmail}.
+              Order <span className="font-semibold text-ink">{placedOrderNumber}</span> is being
+              processed. We&apos;ve sent the details to {guestEmail}.
             </p>
-
             <button
               onClick={() => navigate('/')}
               className="mt-2 rounded-full bg-primary px-6 py-3 text-sm font-semibold text-white"
@@ -292,35 +222,22 @@ export default function Checkout() {
           </>
         ) : (
           <>
-            <p className="text-xl font-bold text-ink">
-              Verify Your Order
-            </p>
-
+            <p className="text-xl font-bold text-ink">Verify Your Order</p>
             <p className="max-w-sm text-sm text-ink-soft">
               We sent a verification code to{' '}
-              <span className="font-semibold">
-                {guestEmail}
-              </span>{' '}
-              for order{' '}
-              <span className="font-semibold text-ink">
-                {placedOrderNumber}
-              </span>
-              . Enter it below to confirm.
+              <span className="font-semibold">{guestEmail}</span> for order{' '}
+              <span className="font-semibold text-ink">{placedOrderNumber}</span>. Enter it below
+              to confirm.
             </p>
-
             <input
               value={verifyCode}
               onChange={(e) => setVerifyCode(e.target.value)}
               placeholder="Verification code"
               className="w-full max-w-xs rounded-full border-2 border-primary px-5 py-3 text-center text-sm outline-none"
             />
-
             {verifyError && (
-              <p className="text-sm font-medium text-red-600">
-                {verifyError}
-              </p>
+              <p className="text-sm font-medium text-red-600">{verifyError}</p>
             )}
-
             <button
               type="button"
               disabled={verifying}
@@ -335,18 +252,11 @@ export default function Checkout() {
     );
   }
 
-  // =========================
-  // EMPTY CART
-  // =========================
   if (!cart || cart.cartItems.length === 0) {
     return (
       <div className="flex min-h-screen flex-col items-center justify-center gap-4 px-6 text-center">
         <p className="text-5xl">🛒</p>
-
-        <p className="text-lg font-semibold text-ink">
-          Your cart is empty
-        </p>
-
+        <p className="text-lg font-semibold text-ink">Your cart is empty</p>
         <button
           onClick={() => navigate('/app/shop')}
           className="rounded-full bg-primary px-6 py-3 text-sm font-semibold text-white"
@@ -357,24 +267,22 @@ export default function Checkout() {
     );
   }
 
-  // Authoritative saved address from /api/v1/delivery-addresses
-  // Resolve the chosen address. Falls back to the first one so the form is
-  // never left with nothing selected, but never silently overrides a real
-  // choice the customer made.
   const address =
     addresses.find((a) => a.id === selectedAddressId) ?? addresses[0];
 
   const canPlaceOrder = guest
-    ? !!guestEmail &&
-      !!guestName &&
-      !!guestPhone &&
-      !!guestAddressLine &&
-      !!selectedPayment
+    ? !!guestEmail && !!guestName && !!guestPhone && !!guestAddressLine && !!selectedPayment
     : !!selectedPayment && !!address;
+
+  // ─── Totals ────────────────────────────────────────────────────────────────
+  const subtotal     = Number(cart.subTotal);
+  const deliveryFee  = getDeliveryFee(subtotal);
+  const orderTotal   = subtotal + deliveryFee;
+  const freeDelivery = deliveryFee === 0;
+  // ──────────────────────────────────────────────────────────────────────────
 
   return (
     <div className="min-h-screen bg-white">
-      {/* Top bar */}
       <div className="bg-primary">
         <Container className="flex items-center justify-between py-5 text-white">
           <button
@@ -385,11 +293,7 @@ export default function Checkout() {
           >
             <ArrowLeft size={24} />
           </button>
-
-          <h1 className="text-xl font-bold sm:text-2xl">
-            Checkout
-          </h1>
-
+          <h1 className="text-xl font-bold sm:text-2xl">Checkout</h1>
           <span className="w-10" aria-hidden />
         </Container>
       </div>
@@ -397,15 +301,10 @@ export default function Checkout() {
       <Container className="py-8">
         <div className="mx-auto max-w-2xl space-y-6">
 
-          {/* =========================
-              GUEST CONTACT DETAILS
-          ========================= */}
+          {/* GUEST CONTACT DETAILS */}
           {guest && (
             <section className="rounded-3xl border-2 border-primary bg-white p-6 shadow-sm">
-              <h3 className="text-lg font-bold text-primary">
-                👤 Contact Details
-              </h3>
-
+              <h3 className="text-lg font-bold text-primary">👤 Contact Details</h3>
               <div className="mt-3 flex flex-col gap-3">
                 <input
                   value={guestName}
@@ -414,7 +313,6 @@ export default function Checkout() {
                   required
                   className="w-full rounded-2xl border border-muted p-4 text-sm text-ink outline-none focus:border-primary"
                 />
-
                 <input
                   type="email"
                   value={guestEmail}
@@ -423,7 +321,6 @@ export default function Checkout() {
                   required
                   className="w-full rounded-2xl border border-muted p-4 text-sm text-ink outline-none focus:border-primary"
                 />
-
                 <input
                   type="tel"
                   value={guestPhone}
@@ -433,23 +330,16 @@ export default function Checkout() {
                   className="w-full rounded-2xl border border-muted p-4 text-sm text-ink outline-none focus:border-primary"
                 />
               </div>
-
               <p className="mt-2 text-xs text-ink-soft">
-                We&apos;ll send your order confirmation and tracking
-                link to this email.
+                We&apos;ll send your order confirmation and tracking link to this email.
               </p>
             </section>
           )}
 
-          {/* =========================
-              DELIVERY ADDRESS
-          ========================= */}
+          {/* DELIVERY ADDRESS */}
           <section className="rounded-3xl border-2 border-primary bg-white p-6 shadow-sm">
             <div className="flex items-start justify-between">
-              <h3 className="text-lg font-bold text-primary">
-                📍 Delivery Address
-              </h3>
-
+              <h3 className="text-lg font-bold text-primary">📍 Delivery Address</h3>
               {!guest && (
                 <button
                   type="button"
@@ -465,52 +355,33 @@ export default function Checkout() {
               <div className="mt-3 flex flex-col gap-3">
                 <input
                   value={guestAddressLine}
-                  onChange={(e) =>
-                    setGuestAddressLine(e.target.value)
-                  }
+                  onChange={(e) => setGuestAddressLine(e.target.value)}
                   placeholder="Street address"
                   required
                   className="w-full rounded-2xl border border-muted p-4 text-sm text-ink outline-none focus:border-primary"
                 />
-
                 <div className="grid grid-cols-2 gap-3">
                   <input
                     value={guestState}
-                    onChange={(e) =>
-                      setGuestState(e.target.value)
-                    }
+                    onChange={(e) => setGuestState(e.target.value)}
                     placeholder="State"
                     className="w-full rounded-2xl border border-muted p-4 text-sm text-ink outline-none focus:border-primary"
                   />
-
                   <input
                     value={guestLandmark}
-                    onChange={(e) =>
-                      setGuestLandmark(e.target.value)
-                    }
+                    onChange={(e) => setGuestLandmark(e.target.value)}
                     placeholder="Nearest landmark"
                     className="w-full rounded-2xl border border-muted p-4 text-sm text-ink outline-none focus:border-primary"
                   />
                 </div>
               </div>
             ) : (
-              /*
-                FIX: this used to render `addresses[0]` and nothing else, so a
-                customer with several saved addresses had no way to pick one —
-                their order silently went to whichever address was first.
-
-                Now every saved address is listed and selectable when there is
-                more than one. With exactly one, it renders as a plain summary
-                as before (a one-option picker is just noise).
-              */
               <div className="mt-3 space-y-2">
                 {addresses.length === 0 && (
                   <div className="rounded-2xl bg-primary/10 p-5">
                     <p className="text-sm text-ink-soft">
-                      No saved address. Please add one in your profile before
-                      ordering.
+                      No saved address. Please add one in your profile before ordering.
                     </p>
-
                     <button
                       type="button"
                       onClick={() => navigate('/app/profile')}
@@ -523,7 +394,6 @@ export default function Checkout() {
 
                 {addresses.map((a) => {
                   const selected = a.id === selectedAddressId;
-
                   return (
                     <button
                       key={a.id}
@@ -535,34 +405,26 @@ export default function Checkout() {
                           : 'border-gray-200 bg-white hover:border-primary/40'
                       }`}
                     >
-                      {/* Radio marker — explicit so it reads as a choice. */}
                       <span
                         className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 ${
                           selected ? 'border-primary bg-primary' : 'border-gray-300'
                         }`}
                       >
-                        {selected && (
-                          <span className="h-2 w-2 rounded-full bg-white" />
-                        )}
+                        {selected && <span className="h-2 w-2 rounded-full bg-white" />}
                       </span>
-
                       <span className="min-w-0 flex-1">
                         <span className="flex items-center gap-2">
-                          <span className="truncate text-base font-bold text-ink">
-                            {a.state}
-                          </span>
+                          <span className="truncate text-base font-bold text-ink">{a.state}</span>
                           {selected && (
                             <span className="shrink-0 rounded-full bg-primary px-2 py-0.5 text-[10px] font-bold text-white">
                               SELECTED
                             </span>
                           )}
                         </span>
-
                         <span className="mt-1 block text-sm leading-relaxed text-ink-soft">
                           {a.addressLine}
                           {a.country ? `, ${a.country}` : ''}
                         </span>
-
                         {a.nameOfCustomer && (
                           <span className="mt-1 block text-xs text-ink-soft">
                             {a.nameOfCustomer}
@@ -576,26 +438,19 @@ export default function Checkout() {
 
                 {addresses.length > 1 && (
                   <p className="pt-1 text-xs text-ink-soft">
-                    You have {addresses.length} saved addresses — pick the one
-                    this order should go to.
+                    You have {addresses.length} saved addresses — pick the one this order should
+                    go to.
                   </p>
                 )}
               </div>
             )}
           </section>
 
-          {/* =========================
-              PAYMENT METHOD
-          ========================= */}
+          {/* PAYMENT METHOD */}
           <section className="rounded-3xl border-2 border-primary bg-white p-6 shadow-sm">
-            <h3 className="text-lg font-bold text-primary">
-              💳 Payment Method
-            </h3>
-
+            <h3 className="text-lg font-bold text-primary">💳 Payment Method</h3>
             {paymentMethods.length === 0 ? (
-              <p className="mt-3 text-sm text-ink-soft">
-                No payment methods available.
-              </p>
+              <p className="mt-3 text-sm text-ink-soft">No payment methods available.</p>
             ) : (
               <div className="mt-4 flex flex-col gap-3">
                 {paymentMethods.map((method) => (
@@ -609,24 +464,16 @@ export default function Checkout() {
                     }
                   >
                     <div>
-                      <p className="text-base font-semibold text-ink">
-                        {method.title}
-                      </p>
-
+                      <p className="text-base font-semibold text-ink">{method.title}</p>
                       {method.description && (
-                        <p className="mt-0.5 text-xs text-ink-soft">
-                          {method.description}
-                        </p>
+                        <p className="mt-0.5 text-xs text-ink-soft">{method.description}</p>
                       )}
                     </div>
-
                     <input
                       type="radio"
                       name="payment"
                       checked={selectedPayment === method.id}
-                      onChange={() =>
-                        setSelectedPayment(method.id)
-                      }
+                      onChange={() => setSelectedPayment(method.id)}
                       className="h-5 w-5 accent-primary"
                     />
                   </label>
@@ -635,14 +482,9 @@ export default function Checkout() {
             )}
           </section>
 
-          {/* =========================
-              DELIVERY INSTRUCTIONS
-          ========================= */}
+          {/* DELIVERY INSTRUCTIONS */}
           <section className="rounded-3xl border-2 border-primary bg-white p-6 shadow-sm">
-            <h3 className="text-lg font-bold text-primary">
-              📝 Delivery Instructions
-            </h3>
-
+            <h3 className="text-lg font-bold text-primary">📝 Delivery Instructions</h3>
             <textarea
               value={instructions}
               onChange={(e) => setInstructions(e.target.value)}
@@ -652,27 +494,15 @@ export default function Checkout() {
             />
           </section>
 
-          {/* =========================
-              ORDER SUMMARY
-          ========================= */}
+          {/* ORDER SUMMARY */}
           <section className="rounded-3xl border-2 border-primary bg-white p-6 shadow-sm">
-            <h3 className="text-xl font-bold text-ink">
-              Order Summary
-            </h3>
+            <h3 className="text-xl font-bold text-ink">Order Summary</h3>
 
             <ul className="mt-5 flex flex-col gap-4">
               {cart.cartItems.map((item) => {
-                const imageUrl = item.itemUrls?.[0] ?? '';
-                const itemTotal =
-                  Number(item.itemPrice) * item.quantity;
-
-                /*
-                  Same strike-through treatment as the cart, so a discount does
-                  not disappear at the last screen before paying. The unit price
-                  is still the cart's own figure — the catalogue only supplies
-                  the pre-discount price to compare against.
-                */
-                const pricing = resolveLine(item);
+                const imageUrl   = item.itemUrls?.[0] ?? '';
+                const itemTotal  = Number(item.itemPrice) * item.quantity;
+                const pricing    = resolveLine(item);
 
                 return (
                   <li
@@ -687,21 +517,16 @@ export default function Checkout() {
                       />
                     ) : (
                       <div className="flex h-16 w-16 items-center justify-center rounded-xl bg-primary/10 text-2xl">
-                        {item.itemType === 'FOODPACK'
-                          ? '🎒'
-                          : '📦'}
+                        {item.itemType === 'FOODPACK' ? '🎒' : '📦'}
                       </div>
                     )}
-
                     <div className="min-w-0 flex-1">
                       <p className="truncate text-base font-semibold capitalize text-ink">
                         {item.itemName}
                       </p>
-
                       <div className="flex flex-wrap items-center gap-x-2">
                         <span className="text-xs text-ink-soft">
-                          Qty: {item.quantity} ×{' '}
-                          {formatNaira(pricing.price)}
+                          Qty: {item.quantity} × {formatNaira(pricing.price)}
                         </span>
                         {pricing.isDiscounted && (
                           <>
@@ -717,29 +542,56 @@ export default function Checkout() {
                         )}
                       </div>
                     </div>
-
-                    <p className="text-lg font-bold text-ink">
-                      {formatNaira(itemTotal)}
-                    </p>
+                    <p className="text-lg font-bold text-ink">{formatNaira(itemTotal)}</p>
                   </li>
                 );
               })}
             </ul>
 
-            <div className="mt-5 flex items-center justify-between border-t border-muted/60 pt-5">
-              <span className="text-lg font-semibold text-ink">
-                Total
-              </span>
+            {/* Subtotal / Delivery / Total breakdown */}
+            <div className="mt-5 space-y-2 border-t border-muted/60 pt-5 text-sm">
+              <div className="flex items-center justify-between">
+                <span className="text-ink-soft">Subtotal</span>
+                <span className="font-medium text-ink">{formatNaira(subtotal)}</span>
+              </div>
 
-              <span className="text-xl font-extrabold text-ink">
-                {formatNaira(cart.subTotal)}
-              </span>
+              <div className="flex items-center justify-between">
+                <span className="flex items-center gap-1.5 text-ink-soft">
+                  <Truck size={14} />
+                  Delivery fee
+                </span>
+                {freeDelivery ? (
+                  <span className="font-semibold text-primary">Free</span>
+                ) : (
+                  <span className="font-medium text-ink">{formatNaira(deliveryFee)}</span>
+                )}
+              </div>
+
+              {/* Nudge banner — only shown when fee applies */}
+              {!freeDelivery && (
+                <div className="rounded-xl bg-amber-50 px-4 py-2.5 text-xs text-amber-700">
+                  Add{' '}
+                  <span className="font-semibold">
+                    {formatNaira(FREE_DELIVERY_FLOOR - subtotal)}
+                  </span>{' '}
+                  more to your order to get free delivery.
+                </div>
+              )}
+
+              {freeDelivery && (
+                <div className="rounded-xl bg-primary/10 px-4 py-2.5 text-xs font-medium text-primary">
+                  🎉 You qualify for free delivery!
+                </div>
+              )}
+
+              <div className="flex items-center justify-between border-t border-muted/60 pt-3 text-base font-bold">
+                <span className="text-ink">Total</span>
+                <span className="text-ink">{formatNaira(orderTotal)}</span>
+              </div>
             </div>
           </section>
 
-          {/* =========================
-              PLACE ORDER
-          ========================= */}
+          {/* PLACE ORDER */}
           <button
             type="button"
             onClick={handlePlaceOrder}
@@ -748,14 +600,11 @@ export default function Checkout() {
           >
             {placing ? (
               <span className="flex items-center justify-center gap-2">
-                <Loader2
-                  size={20}
-                  className="animate-spin"
-                />
+                <Loader2 size={20} className="animate-spin" />
                 Placing Order...
               </span>
             ) : (
-              `Place Order · ${formatNaira(cart.subTotal)}`
+              `Place Order · ${formatNaira(orderTotal)}`
             )}
           </button>
         </div>
