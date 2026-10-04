@@ -37,6 +37,7 @@ export default function ProductCard({ product, onCartUpdate }: ProductCardProps)
           itemName:         product.name,
           itemCategoryName: categoryName,
           itemId:           product.id,
+          acceptPaymentOnDelivery: product.acceptPaymentOnDelivery,
           itemType:         'PRODUCT',
           itemUrls:         product.imageUrls ?? [],
           itemPrice:        String(pricing.price),

@@ -30,6 +30,7 @@ export default function FoodPackCard({ pack, onCartUpdate }: FoodPackCardProps) 
           itemName: pack.name,
           itemCategoryName: 'Food Pack',
           itemId: pack.id,
+          acceptPaymentOnDelivery: pack.acceptPaymentOnDelivery,
           itemType: 'FOODPACK',
           itemUrls: pack.imageUrls ?? [],
           itemPrice: String(price),
