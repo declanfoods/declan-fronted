@@ -2,7 +2,6 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   ArrowLeft,
-  Search,
   Plus,
   Minus,
   Trash2,
@@ -12,36 +11,11 @@ import {
   ClipboardList,
   CreditCard,
   Banknote,
-  X,
   User,
 } from 'lucide-react';
 import { adminOrderApi, type AdminOrderStatus } from '../../../../app/lib/adminOrderApi';
 import { AdminProductPickerSheet, type OrderLine } from '../../../admin/AdminProductPickerSheet';
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Mock data — swap for real API calls when ready
-// ─────────────────────────────────────────────────────────────────────────────
-
-type MockProduct = {
-  id: string;
-  type: 'PRODUCT' | 'FOODPACK';
-  name: string;
-  price: number;
-  category: string;
-  quantity: number;
-};
-
-const MOCK_PRODUCTS: MockProduct[] = [
-  { id: 'p1', type: 'PRODUCT', name: 'Jollof Rice (Large)', price: 4500, category: 'Food', quantity: 20 },
-  { id: 'p2', type: 'PRODUCT', name: 'Chicken Suya (500g)', price: 3200, category: 'Protein', quantity: 15 },
-  { id: 'p3', type: 'PRODUCT', name: 'Fresh Tilapia Fish', price: 2800, category: 'Seafood', quantity: 8 },
-  { id: 'p4', type: 'PRODUCT', name: 'Palm Oil (1L)', price: 1500, category: 'Pantry', quantity: 50 },
-  { id: 'p5', type: 'PRODUCT', name: 'Egusi (1kg)', price: 2200, category: 'Pantry', quantity: 30 },
-  { id: 'p6', type: 'PRODUCT', name: 'Plantain Chips (200g)', price: 800, category: 'Snacks', quantity: 100 },
-  { id: 'f1', type: 'FOODPACK', name: 'Family Dinner Pack', price: 12500, category: 'Food Pack', quantity: 10 },
-  { id: 'f2', type: 'FOODPACK', name: 'Weekend Protein Bundle', price: 9800, category: 'Food Pack', quantity: 5 },
-  { id: 'f3', type: 'FOODPACK', name: 'Healthy Starter Pack', price: 7200, category: 'Food Pack', quantity: 12 },
-];
 
 const ORDER_STATUSES: AdminOrderStatus[] = [
   'PENDING',
