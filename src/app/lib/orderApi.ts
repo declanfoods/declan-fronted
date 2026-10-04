@@ -138,6 +138,15 @@ export const orderApi = {
       '/api/v1/orders/active'
     ),
 
+
+
+
+  cancelOrder: (orderId: string, body: { reason?: string }) =>
+    api.patch<ApiResponse<{}>>(
+      `/api/v1/orders/${orderId}/cancel`,
+      body
+    ),
+
   getOrders: (params?: {
     limit?: number;
     page?: number;

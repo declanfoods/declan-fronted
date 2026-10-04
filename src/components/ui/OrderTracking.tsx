@@ -1,20 +1,91 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, X } from 'lucide-react';
 import Container from '../layout/Container';
 import SplashLoader from './SplashLoader';
 import { formatNaira } from '../data/products';
 import { orderApi, type Order, type OrderTimelineEvent } from '../../app/lib/orderApi';
+import { useToast } from './Toast';
 
+// ─── Helpers ──────────────────────────────────────────────────────────────────
 
-const formatDate = (iso: string | null) => iso ?
-  new Date(iso).toLocaleDateString('en-NG', {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  }) : "N/A";
+const formatDate = (iso: string | null) =>
+  iso
+    ? new Date(iso).toLocaleDateString('en-NG', {
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+      })
+    : 'N/A';
+
+/** Only PENDING orders can be cancelled by the customer. */
+const isCancellable = (status: string) => status === 'PENDING';
+
+// ─── Cancel confirmation modal ────────────────────────────────────────────────
+
+interface CancelModalProps {
+  onConfirm: (reason: string) => void;
+  onClose: () => void;
+  loading: boolean;
+}
+
+function CancelOrderModal({ onConfirm, onClose, loading }: CancelModalProps) {
+  const [reason, setReason] = useState('');
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 sm:items-center">
+      <div className="absolute inset-0" onClick={onClose} aria-hidden />
+
+      <div className="relative z-10 w-full max-w-sm rounded-t-3xl bg-white p-6 sm:rounded-3xl">
+        <div className="mb-4 flex items-center justify-between">
+          <h2 className="text-base font-bold text-gray-900">Cancel Order?</h2>
+          <button
+            type="button"
+            onClick={onClose}
+            className="flex h-8 w-8 items-center justify-center rounded-full bg-gray-100 text-gray-500"
+          >
+            <X size={16} />
+          </button>
+        </div>
+
+        <p className="text-sm text-gray-500">
+          Are you sure you want to cancel this order? This cannot be undone.
+        </p>
+
+        <textarea
+          value={reason}
+          onChange={(e) => setReason(e.target.value)}
+          placeholder="Tell us why you're cancelling (optional)"
+          rows={3}
+          className="mt-4 w-full resize-none rounded-2xl border border-gray-200 p-3 text-sm text-gray-800 outline-none placeholder:text-gray-400 focus:border-primary focus:ring-2 focus:ring-primary/20"
+        />
+
+        <div className="mt-4 flex gap-3">
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={loading}
+            className="flex-1 rounded-full border-2 border-gray-200 py-3 text-sm font-semibold text-gray-600 disabled:opacity-50"
+          >
+            Keep Order
+          </button>
+          <button
+            type="button"
+            disabled={loading}
+            onClick={() => onConfirm(reason.trim())}
+            className="flex-1 rounded-full bg-red-500 py-3 text-sm font-semibold text-white disabled:opacity-50"
+          >
+            {loading ? 'Cancelling...' : 'Yes, Cancel'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Main component ───────────────────────────────────────────────────────────
 
 export default function OrderTracking() {
   const { orderId } = useParams<{ orderId: string }>();
@@ -25,12 +96,16 @@ export default function OrderTracking() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
+  const [showCancelModal, setShowCancelModal] = useState(false);
+  const [cancelling, setCancelling] = useState(false);
+  const [cancelError, setCancelError] = useState('');
+  const { showToast } = useToast();
+
   const fetchOrder = async () => {
     if (!orderId) return;
     try {
       const res = await orderApi.getOrderById(orderId);
       setOrder(res.data.data.order);
-      
       setTimeline(
         res.data.data.orderTimeline ?? res.data.data.order.orderTimeline ?? []
       );
@@ -46,10 +121,26 @@ export default function OrderTracking() {
     };
     init();
 
-    // Poll every 30s for live status updates
     const interval = setInterval(fetchOrder, 30000);
     return () => clearInterval(interval);
   }, [orderId]);
+
+  const handleCancelOrder = async (reason: string) => {
+    if (!orderId) return;
+    setCancelling(true);
+    setCancelError('');
+    try {
+      const response = await orderApi.cancelOrder(orderId, { reason: reason || undefined });
+      setShowCancelModal(false);
+      showToast(response.data.message, "success")
+      // Re-fetch so the status updates to CANCELLED immediately
+      await fetchOrder();
+    } catch (err: any) {
+      showToast(err.response?.data?.message ?? "Failed to cancel order. Please try again.")
+    } finally {
+      setCancelling(false);
+    }
+  };
 
   if (loading) return <SplashLoader />;
 
@@ -67,10 +158,12 @@ export default function OrderTracking() {
     );
   }
 
-  const isDelivered = ['DELIVERED', 'COMPLETED'].includes(order.orderStatus);
+  const isDelivered  = ['DELIVERED', 'COMPLETED'].includes(order.orderStatus);
+  const isCancelled  = order.orderStatus === 'CANCELLED';
+  const canCancel    = isCancellable(order.orderStatus);
   const deliveryCode = order.delivery?.deliveryCode ?? '';
-  const codeDigits = deliveryCode ? deliveryCode.split('') : [];
-  const passedCount = timeline.filter((t) => t.passed).length;
+  const codeDigits   = deliveryCode ? deliveryCode.split('') : [];
+  const passedCount  = timeline.filter((t) => t.passed).length;
 
   return (
     <div className="min-h-screen bg-white">
@@ -93,7 +186,7 @@ export default function OrderTracking() {
       <Container className="py-8">
         <div className="mx-auto max-w-2xl space-y-6">
 
-          {/* Delivery code — only show if not yet delivered */}
+          {/* Delivery code */}
           {codeDigits.length > 0 && !isDelivered && (
             <section className="rounded-3xl border-2 border-primary bg-white p-6 shadow-sm sm:p-8">
               <h2 className="text-center text-sm font-bold uppercase tracking-widest text-primary">
@@ -114,19 +207,29 @@ export default function OrderTracking() {
               </p>
             </section>
           )}
-          
+
           {/* Status banner */}
-          <section className="rounded-3xl border-2 border-accent bg-accent/10 p-4 sm:p-5">
+          <section
+            className={`rounded-3xl border-2 p-4 sm:p-5 ${
+              isCancelled
+                ? 'border-red-200 bg-red-50'
+                : 'border-accent bg-accent/10'
+            }`}
+          >
             <div className="flex items-center justify-between text-sm font-semibold text-ink">
               <span>
-                <span className="mr-1 inline-block h-2 w-2 rounded-full bg-accent" />
-                {isDelivered
+                <span
+                  className={`mr-1 inline-block h-2 w-2 rounded-full ${
+                    isCancelled ? 'bg-red-400' : 'bg-accent'
+                  }`}
+                />
+                {isCancelled
+                  ? 'Order cancelled'
+                  : isDelivered
                   ? 'Order delivered! 🎉'
                   : `Status: ${order.orderStatus.replace(/_/g, ' ')}`}
               </span>
-              <span className="text-xs text-ink-soft">
-                {order.orderNumber}
-              </span>
+              <span className="text-xs text-ink-soft">{order.orderNumber}</span>
             </div>
           </section>
 
@@ -135,25 +238,20 @@ export default function OrderTracking() {
             <section className="rounded-3xl border-2 border-primary bg-white p-6 shadow-sm">
               <h3 className="mb-4 text-lg font-bold text-ink">Order Progress</h3>
 
-                            {/*
-                REMOVED: a row of tiny stage labels sat above this bar, listing
-                the same stage names that the list underneath already shows in
-                full. Every stage appeared twice on one screen — once at
-                text-[10px] with no state or timestamp, once properly below.
-                The bar stays; the duplicate text is gone.
-              */}
               <div className="relative h-3 overflow-hidden rounded-full bg-muted">
                 <div
                   className="absolute left-0 top-0 h-full rounded-full bg-primary transition-all duration-500"
                   style={{
-                    width: timeline.length > 1
-                      ? `${((passedCount - 0.5) / (timeline.length - 1)) * 100}%`
-                      : passedCount > 0 ? '100%' : '0%',
+                    width:
+                      timeline.length > 1
+                        ? `${((passedCount - 0.5) / (timeline.length - 1)) * 100}%`
+                        : passedCount > 0
+                        ? '100%'
+                        : '0%',
                   }}
                 />
               </div>
 
-              {/* Event list */}
               <div className="mt-6 flex flex-col gap-0">
                 {timeline.map((event, idx) => (
                   <div key={idx} className="flex gap-4">
@@ -194,9 +292,11 @@ export default function OrderTracking() {
                   </div>
                 ))}
               </div>
+
               <div>
                 <i className="text-gray-500">
-                  Estimated Delivery time: {formatDate(order.estimatedDeliveryTime?.toString() ?? "")}
+                  Estimated Delivery time:{' '}
+                  {formatDate(order.estimatedDeliveryTime?.toString() ?? '')}
                 </i>
               </div>
             </section>
@@ -276,7 +376,7 @@ export default function OrderTracking() {
                       </div>
                     )}
                     <div className="flex-1">
-                      <p className="text-base font-semibold text-ink capitalize">
+                      <p className="text-base font-semibold capitalize text-ink">
                         {item.itemName}
                       </p>
                       <p className="text-xs text-ink-soft">
@@ -299,15 +399,53 @@ export default function OrderTracking() {
             </div>
           </section>
 
-          <button
-            type="button"
-            onClick={() => navigate('/app/orders')}
-            className="w-full rounded-full bg-primary py-4 text-lg font-bold text-white transition-colors hover:bg-primary-dark"
-          >
-            {isDelivered ? 'Back to My Orders' : 'View All Orders'}
-          </button>
+          {/* Cancel error (shown outside the modal so it persists if modal closes) */}
+          {cancelError && (
+            <p className="rounded-2xl bg-red-50 px-4 py-3 text-sm font-medium text-red-600">
+              {cancelError}
+            </p>
+          )}
+
+          {/* Action buttons */}
+          <div className="flex flex-col gap-3">
+            <button
+              type="button"
+              onClick={() => navigate('/app/orders')}
+              className="w-full rounded-full bg-primary py-4 text-lg font-bold text-white transition-colors hover:bg-primary-dark"
+            >
+              {isDelivered ? 'Back to My Orders' : 'View All Orders'}
+            </button>
+
+            {/*
+              Cancel button rules:
+              - Only shown when status is PENDING
+              - Hidden once the order is already cancelled or delivered
+              - Disabled while cancellation is in progress
+            */}
+            {canCancel && (
+              <button
+                type="button"
+                onClick={() => setShowCancelModal(true)}
+                disabled={cancelling}
+                className="w-full rounded-full border-2 border-red-300 py-4 text-lg font-bold text-red-500 transition-colors hover:bg-red-50 disabled:opacity-50"
+              >
+                Cancel Order
+              </button>
+            )}
+          </div>
         </div>
       </Container>
+
+      {showCancelModal && (
+        <CancelOrderModal
+          loading={cancelling}
+          onClose={() => {
+            setShowCancelModal(false);
+            setCancelError('');
+          }}
+          onConfirm={handleCancelOrder}
+        />
+      )}
     </div>
   );
 }
