@@ -148,7 +148,7 @@ export default function Cart() {
   const isEmpty  = items.length === 0;
 
   // True when at least one item requires payment before the order is processed
-  const hasPayBeforeDeliveryItem = items.some((i) => i.acceptPaymentOnDelivery);
+  const hasPayBeforeDeliveryItem = items.some((i) => i.acceptPaymentOnDelivery === false);
   const subtotal      = cart?.subTotal ?? 0;
   const transferCharge = hasPayBeforeDeliveryItem ? TRANSFER_CHARGE : 0;
   const totalToPay    = subtotal + transferCharge;
