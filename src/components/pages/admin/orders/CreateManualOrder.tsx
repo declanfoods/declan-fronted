@@ -13,8 +13,10 @@ import {
   CreditCard,
   Banknote,
   X,
+  User,
 } from 'lucide-react';
-import type { AdminOrderStatus } from '../../../../app/lib/adminOrderApi';
+import { adminOrderApi, type AdminOrderStatus } from '../../../../app/lib/adminOrderApi';
+import { AdminProductPickerSheet, type OrderLine } from '../../../admin/AdminProductPickerSheet';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Mock data — swap for real API calls when ready
@@ -94,20 +96,7 @@ const PAYMENT_METHODS: { key: PaymentMethod; label: string; sub: string; icon: R
   },
 ];
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Types
-// ─────────────────────────────────────────────────────────────────────────────
 
-type OrderLine = {
-  product: MockProduct;
-  qty: number;
-};
-
-type Tab = 'PRODUCT' | 'FOODPACK';
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Helpers
-// ─────────────────────────────────────────────────────────────────────────────
 
 function fmt(n: number) {
   return `₦${n.toLocaleString()}`;
@@ -128,7 +117,7 @@ function SectionHeader({ icon, title }: { icon: React.ReactNode; title: string }
   );
 }
 
-function QtyControl({
+export function QtyControl({
   value,
   onInc,
   onDec,
@@ -162,140 +151,13 @@ function QtyControl({
 // Product Picker Sheet
 // ─────────────────────────────────────────────────────────────────────────────
 
-function ProductPickerSheet({
-  lines,
-  onToggle,
-  onClose,
-}: {
-  lines: OrderLine[];
-  onToggle: (product: MockProduct) => void;
-  onClose: () => void;
-}) {
-  const [tab, setTab] = useState<Tab>('PRODUCT');
-  const [search, setSearch] = useState('');
 
-  const visible = MOCK_PRODUCTS.filter(
-    (p) =>
-      p.type === tab &&
-      (search === '' || p.name.toLowerCase().includes(search.toLowerCase())),
-  );
-
-  const selectedIds = new Set(lines.map((l) => l.product.id));
-
-  return (
-    <div
-      className="fixed inset-0 z-50 flex flex-col bg-black/50"
-      onClick={(e) => e.target === e.currentTarget && onClose()}
-    >
-      <div className="mt-auto flex max-h-[85vh] flex-col rounded-t-3xl bg-white">
-        {/* Handle */}
-        <div className="flex justify-center pt-3">
-          <div className="h-1 w-10 rounded-full bg-gray-200" />
-        </div>
-
-        {/* Header */}
-        <div className="flex items-center justify-between px-5 py-4">
-          <p className="text-base font-bold text-gray-900">Add Items</p>
-          <button
-            type="button"
-            onClick={onClose}
-            className="flex h-8 w-8 items-center justify-center rounded-full bg-gray-100 text-gray-500"
-          >
-            <X size={16} />
-          </button>
-        </div>
-
-        {/* Tab toggle */}
-        <div className="mx-5 mb-3 flex rounded-full bg-gray-100 p-1">
-          {(['PRODUCT', 'FOODPACK'] as Tab[]).map((t) => (
-            <button
-              key={t}
-              type="button"
-              onClick={() => setTab(t)}
-              className={`flex flex-1 items-center justify-center gap-1.5 rounded-full py-2 text-xs font-semibold transition-colors ${
-                tab === t ? 'bg-primary text-white shadow-sm' : 'text-gray-500'
-              }`}
-            >
-              {t === 'PRODUCT' ? <Package size={13} /> : <UtensilsCrossed size={13} />}
-              {t === 'PRODUCT' ? 'Products' : 'Food Packs'}
-            </button>
-          ))}
-        </div>
-
-        {/* Search */}
-        <div className="mx-5 mb-3 flex items-center gap-2 rounded-full border border-gray-200 px-4 py-2.5">
-          <Search size={15} className="shrink-0 text-gray-400" />
-          <input
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder={tab === 'PRODUCT' ? 'Search products...' : 'Search food packs...'}
-            className="w-full bg-transparent text-sm text-gray-700 outline-none placeholder:text-gray-400"
-          />
-        </div>
-
-        {/* List */}
-        <div className="flex-1 overflow-y-auto px-5 pb-8">
-          {visible.length === 0 && (
-            <p className="py-10 text-center text-sm text-gray-400">No items found.</p>
-          )}
-          <div className="space-y-2">
-            {visible.map((product) => {
-              const selected = selectedIds.has(product.id);
-              return (
-                <button
-                  key={product.id}
-                  type="button"
-                  onClick={() => onToggle(product)}
-                  className={`flex w-full items-center gap-3 rounded-2xl border-2 p-3 text-left transition-colors ${
-                    selected
-                      ? 'border-primary bg-primary/5'
-                      : 'border-gray-100 bg-white hover:border-primary/30'
-                  }`}
-                >
-                  <div
-                    className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl ${
-                      selected ? 'bg-primary/10' : 'bg-gray-100'
-                    }`}
-                  >
-                    {product.type === 'FOODPACK' ? (
-                      <UtensilsCrossed size={18} className={selected ? 'text-primary' : 'text-gray-400'} />
-                    ) : (
-                      <Package size={18} className={selected ? 'text-primary' : 'text-gray-400'} />
-                    )}
-                  </div>
-
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-bold text-gray-900">{product.name}</p>
-                    <p className="text-xs text-gray-400">
-                      {product.category} · {product.quantity} in stock
-                    </p>
-                  </div>
-
-                  <div className="flex flex-col items-end gap-1">
-                    <p className="text-sm font-bold text-primary">{fmt(product.price)}</p>
-                    <div
-                      className={`flex h-5 w-5 items-center justify-center rounded-full border-2 ${
-                        selected ? 'border-primary bg-primary' : 'border-gray-300'
-                      }`}
-                    >
-                      {selected && <span className="h-2 w-2 rounded-full bg-white" />}
-                    </div>
-                  </div>
-                </button>
-              );
-            })}
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Status Picker Sheet
 // ─────────────────────────────────────────────────────────────────────────────
 
-function StatusPickerSheet({
+export function StatusPickerSheet({
   current,
   onSelect,
   onClose,
@@ -353,7 +215,7 @@ function StatusPickerSheet({
 // Main Page
 // ─────────────────────────────────────────────────────────────────────────────
 
-export default function ManualOrder() {
+export default function CreateManualOrder() {
   const navigate = useNavigate();
 
   // Items
@@ -367,6 +229,11 @@ export default function ManualOrder() {
   const [status, setStatus] = useState<AdminOrderStatus>('COMPLETED');
   const [statusPickerOpen, setStatusPickerOpen] = useState(false);
 
+  // Customer details (optional)
+  const [customerExpanded, setCustomerExpanded] = useState(false);
+  const [customerName, setCustomerName] = useState('');
+  const [customerPhone, setCustomerPhone] = useState('');
+
   // Notes
   const [note, setNote] = useState('');
 
@@ -376,32 +243,31 @@ export default function ManualOrder() {
 
   // ── helpers ──────────────────────────────────────────────────────────────
 
-  function toggleProduct(product: MockProduct) {
+  function toggleLine(incoming: OrderLine) {
     setLines((prev) => {
-      const exists = prev.find((l) => l.product.id === product.id);
-      if (exists) return prev.filter((l) => l.product.id !== product.id);
-      return [...prev, { product, qty: 1 }];
+      const exists = prev.find((l) => l.id === incoming.id);
+      if (exists) return prev.filter((l) => l.id !== incoming.id);
+      return [...prev, incoming];
     });
   }
 
-  function setQty(productId: string, delta: number) {
+  function setQty(id: string, delta: number) {
     setLines((prev) =>
       prev.map((l) =>
-        l.product.id === productId
-          ? { ...l, qty: Math.max(1, Math.min(l.product.quantity, l.qty + delta)) }
+        l.id === id
+          ? { ...l, quantity: Math.max(1, Math.min(l.maxQty, l.quantity + delta)) }
           : l,
       ),
     );
   }
 
-  function removeLine(productId: string) {
-    setLines((prev) => prev.filter((l) => l.product.id !== productId));
+  function removeLine(id: string) {
+    setLines((prev) => prev.filter((l) => l.id !== id));
   }
 
-  const subtotal = lines.reduce((sum, l) => sum + l.product.price * l.qty, 0);
-  const totalUnits = lines.reduce((s, l) => s + l.qty, 0);
-
-  const canSubmit = lines.length > 0;
+  const subtotal   = lines.reduce((sum, l) => sum + l.price * l.quantity, 0);
+  const totalUnits = lines.reduce((s, l) => s + l.quantity, 0);
+  const canSubmit  = lines.length > 0;
 
   const handleSubmit = async () => {
     if (!canSubmit) {
@@ -411,19 +277,35 @@ export default function ManualOrder() {
     setError('');
     setSubmitting(true);
 
-    // TODO: wire to adminOrderApi.createManualOrder(payload)
-    // payload shape:
-    // {
-    //   items: lines.map(l => ({ itemId: l.product.id, quantity: l.qty, type: l.product.type })),
-    //   paymentMethod,
-    //   orderStatus: status,
-    //   note: note || undefined,
-    // }
-    await new Promise((r) => setTimeout(r, 1000));
+    try {
+      console.log()
+      await adminOrderApi.createWalkInOrder({
+        items: lines.map((l) => ({
+          id:       l.id,
+          itemType: l.itemType,
+          quantity: l.quantity,
+        })),
+        paymentMethod,
+        orderStatus: status,
+        note:        note.trim() || undefined,
+        customer:
+          customerName.trim() || customerPhone.trim()
+            ? {
+                fullname:    customerName.trim()  || undefined,
+                phoneNumber: customerPhone.trim() || undefined,
+              }
+            : undefined,
+      });
 
-    setSubmitting(false);
-    navigate('/admin/orders');
+      navigate('/admin/orders');
+    } catch (err: any) {
+      setError(err.response?.data?.message ?? 'Failed to create order. Please try again.');
+    } finally {
+      setSubmitting(false);
+    }
   };
+
+  const hasCustomerData = customerName.trim() || customerPhone.trim();
 
   // ── render ────────────────────────────────────────────────────────────────
 
@@ -486,11 +368,11 @@ export default function ManualOrder() {
             <div className="space-y-3">
               {lines.map((line) => (
                 <div
-                  key={line.product.id}
+                  key={line.id}
                   className="flex items-center gap-3 rounded-xl border border-gray-100 p-3"
                 >
                   <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10">
-                    {line.product.type === 'FOODPACK' ? (
+                    {line.itemType === 'FOODPACK' ? (
                       <UtensilsCrossed size={16} className="text-primary" />
                     ) : (
                       <Package size={16} className="text-primary" />
@@ -498,21 +380,21 @@ export default function ManualOrder() {
                   </div>
 
                   <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-bold text-gray-900">{line.product.name}</p>
-                    <p className="text-xs text-gray-400">{fmt(line.product.price)} each</p>
+                    <p className="truncate text-sm font-bold text-gray-900">{line.name}</p>
+                    <p className="text-xs text-gray-400">{fmt(line.price)} each</p>
                   </div>
 
                   <div className="flex items-center gap-2">
                     <QtyControl
-                      value={line.qty}
-                      onInc={() => setQty(line.product.id, +1)}
-                      onDec={() => setQty(line.product.id, -1)}
+                      value={line.quantity}
+                      onInc={() => setQty(line.id, +1)}
+                      onDec={() => setQty(line.id, -1)}
                     />
                     <button
                       type="button"
-                      onClick={() => removeLine(line.product.id)}
+                      onClick={() => removeLine(line.id)}
                       className="ml-1 flex h-7 w-7 items-center justify-center rounded-full text-red-400 hover:bg-red-50"
-                      aria-label={`Remove ${line.product.name}`}
+                      aria-label={`Remove ${line.name}`}
                     >
                       <Trash2 size={14} />
                     </button>
@@ -531,10 +413,57 @@ export default function ManualOrder() {
           )}
         </div>
 
+        {/* ── Customer Details (optional) ── */}
+        <div className="rounded-2xl bg-white p-4 shadow-sm">
+          <button
+            type="button"
+            onClick={() => setCustomerExpanded((v) => !v)}
+            className="flex w-full items-center justify-between"
+          >
+            <div className="flex items-center gap-2">
+              <SectionHeader icon={<User size={14} />} title="Customer Details" />
+              <span className="rounded-full bg-gray-100 px-2 py-0.5 text-[10px] font-semibold text-gray-400">
+                Optional
+              </span>
+              {hasCustomerData && !customerExpanded && (
+                <span className="h-2 w-2 rounded-full bg-primary" />
+              )}
+            </div>
+            <ChevronDown
+              size={16}
+              className={`text-gray-400 transition-transform ${customerExpanded ? 'rotate-180' : ''}`}
+            />
+          </button>
+
+          {customerExpanded && (
+            <div className="mt-3 space-y-3">
+              <input
+                value={customerName}
+                onChange={(e) => setCustomerName(e.target.value)}
+                placeholder="Full name"
+                className="w-full rounded-xl border border-gray-200 p-3 text-sm text-gray-800
+                           placeholder:text-gray-400 outline-none focus:border-primary
+                           focus:ring-2 focus:ring-primary/20"
+              />
+              <input
+                type="tel"
+                value={customerPhone}
+                onChange={(e) => setCustomerPhone(e.target.value)}
+                placeholder="Phone number"
+                className="w-full rounded-xl border border-gray-200 p-3 text-sm text-gray-800
+                           placeholder:text-gray-400 outline-none focus:border-primary
+                           focus:ring-2 focus:ring-primary/20"
+              />
+              <p className="text-xs text-gray-400">
+                Leave blank to record this as an anonymous walk-in.
+              </p>
+            </div>
+          )}
+        </div>
+
         {/* ── Payment Method ── */}
         <div className="rounded-2xl bg-white p-4 shadow-sm">
           <SectionHeader icon={<CreditCard size={14} />} title="Payment Method" />
-
           <div className="space-y-2">
             {PAYMENT_METHODS.map((method) => {
               const selected = paymentMethod === method.key;
@@ -556,12 +485,10 @@ export default function ManualOrder() {
                   >
                     {method.icon}
                   </span>
-
                   <div className="flex-1">
                     <p className="text-sm font-bold text-gray-900">{method.label}</p>
                     <p className="text-xs text-gray-400">{method.sub}</p>
                   </div>
-
                   <span
                     className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 ${
                       selected ? 'border-primary bg-primary' : 'border-gray-300'
@@ -578,7 +505,6 @@ export default function ManualOrder() {
         {/* ── Order Status ── */}
         <div className="rounded-2xl bg-white p-4 shadow-sm">
           <SectionHeader icon={<ClipboardList size={14} />} title="Order Status" />
-
           <button
             type="button"
             onClick={() => setStatusPickerOpen(true)}
@@ -593,7 +519,6 @@ export default function ManualOrder() {
             </div>
             <ChevronDown size={16} className="text-gray-400" />
           </button>
-
           <p className="mt-2 text-xs text-gray-400">
             Walk-in orders typically start as Completed. Adjust if the order is still being prepared.
           </p>
@@ -602,7 +527,6 @@ export default function ManualOrder() {
         {/* ── Admin Note ── */}
         <div className="rounded-2xl bg-white p-4 shadow-sm">
           <SectionHeader icon={<ClipboardList size={14} />} title="Note" />
-
           <textarea
             value={note}
             onChange={(e) => setNote(e.target.value)}
@@ -628,9 +552,19 @@ export default function ManualOrder() {
         {lines.length > 0 && (
           <div className="mb-3 flex items-center justify-between px-1">
             <span className="text-xs text-gray-500">
-              {lines.length} product type{lines.length !== 1 ? 's' : ''} ·{' '}
+              {lines.length} type{lines.length !== 1 ? 's' : ''} ·{' '}
               {totalUnits} unit{totalUnits !== 1 ? 's' : ''} ·{' '}
-              <span className="font-semibold text-gray-700">{paymentMethod === 'CASH' ? 'Cash' : 'Transfer'}</span>
+              <span className="font-semibold text-gray-700">
+                {paymentMethod === 'CASH' ? 'Cash' : 'Transfer'}
+              </span>
+              {hasCustomerData && (
+                <>
+                  {' · '}
+                  <span className="font-semibold text-gray-700">
+                    {customerName.trim() || customerPhone.trim()}
+                  </span>
+                </>
+              )}
             </span>
             <span className="text-base font-extrabold text-primary">{fmt(subtotal)}</span>
           </div>
@@ -659,9 +593,9 @@ export default function ManualOrder() {
 
       {/* ── Sheets ── */}
       {pickerOpen && (
-        <ProductPickerSheet
+        <AdminProductPickerSheet
           lines={lines}
-          onToggle={toggleProduct}
+          onToggle={toggleLine}
           onClose={() => setPickerOpen(false)}
         />
       )}

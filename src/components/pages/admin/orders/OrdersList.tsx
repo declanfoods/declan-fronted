@@ -6,6 +6,7 @@ import {
   Search,
   Plus,
   Bike,
+  Store,
 } from 'lucide-react';
 
 import AdminBottomNav from '../../../admin/AdminBottomNav';
@@ -281,15 +282,19 @@ export default function OrdersList() {
                 </p>
               </div>
 
-              {/* Rider */}
-              <div className="mt-2 flex items-center gap-2 text-xs text-gray-500">
-                <Bike
-                  size={14}
-                  className="text-gray-400"
-                />
-
-                {order.rider?.fullname ??
-                  'Unassigned'}
+              {/* Channel / Rider */}
+              <div className="mt-2 flex items-center gap-2">
+                {order.orderChannel === 'WALK_IN' ? (
+                  <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2.5 py-1 text-[11px] font-semibold text-amber-700 border border-amber-200">
+                    <Store size={11} />
+                    Walk-in
+                  </span>
+                ) : (
+                  <span className="flex items-center gap-1.5 text-xs text-gray-500">
+                    <Bike size={14} className="text-gray-400" />
+                    {order.rider?.fullname ?? 'Unassigned'}
+                  </span>
+                )}
               </div>
             </div>
           ))}
@@ -299,6 +304,7 @@ export default function OrdersList() {
       <button
         type="button"
         className="fixed bottom-24 right-5 z-20 flex items-center gap-2 rounded-full bg-primary px-5 py-3 text-sm font-semibold text-white shadow-lg"
+        onClick={() => navigate("/admin/orders/manual")}
       >
         <Plus
           size={16}

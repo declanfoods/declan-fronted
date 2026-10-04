@@ -8,6 +8,7 @@ import {
   UtensilsCrossed,
   HeadphonesIcon,
   UserX,
+  Store,
 } from 'lucide-react';
 
 import {
@@ -19,6 +20,8 @@ import StatusPill from '../../../admin/StatusPill';
 import MarkOrderProcessingModal from '../../../ui/MarkOrderProcessingModal';
 import { useToast } from '../../../ui/Toast';
 
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
 function formatAmount(amount: unknown) {
   const num = Number(amount);
   return Number.isNaN(num) ? '—' : `₦${num.toLocaleString()}`;
@@ -26,6 +29,36 @@ function formatAmount(amount: unknown) {
 
 const isGuest = (customerType: string) =>
   customerType?.toUpperCase() === 'GUEST';
+
+const isWalkIn = (order: AdminOrderDetails) =>
+  order.orderChannel === 'WALK_IN';
+
+/**
+ * Rider button label and whether it should render at all.
+ *
+ * - Walk-in orders: never assignable — no button
+ * - PENDING:        not ready yet — no button
+ * - PROCESSING:     ready to assign — "Assign Rider"
+ * - ASSIGNED+:      can swap — "Reassign Rider"
+ */
+const STATUSES_PAST_PROCESSING: string[] = [
+  'ASSIGNED',
+  'PICKED_UP',
+  'IN_TRANSIT',
+  'CODE_EXCHANGED',
+  'DELIVERED',
+  'COMPLETED',
+];
+
+function getRiderButtonLabel(order: AdminOrderDetails): string | null {
+  if (isWalkIn(order)) return null;
+  if (order.orderStatus === 'PENDING') return null;
+  if (order.orderStatus === 'PROCESSING') return 'Assign Rider';
+  if (STATUSES_PAST_PROCESSING.includes(order.orderStatus)) return 'Reassign Rider';
+  return null;
+}
+
+// ─── Component ────────────────────────────────────────────────────────────────
 
 export default function OrderDetails() {
   const navigate = useNavigate();
@@ -102,7 +135,9 @@ export default function OrderDetails() {
     );
   }
 
-  const guest = isGuest(order.customer.customerType);
+  const guest          = isGuest(order.customer.customerType);
+  const walkIn         = isWalkIn(order);
+  const riderBtnLabel  = getRiderButtonLabel(order);
 
   return (
     <div className="flex min-h-screen flex-col bg-[#F3F7EE] pb-28">
@@ -118,21 +153,31 @@ export default function OrderDetails() {
       </header>
 
       <main className="flex-1 space-y-4 px-5 pt-5">
+
         {/* Current state */}
         <div className="rounded-2xl bg-primary p-4 text-white">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <span className="flex h-9 w-9 items-center justify-center rounded-full bg-white/20">
-                <UtensilsCrossed size={16} />
+                {walkIn ? <Store size={16} /> : <UtensilsCrossed size={16} />}
               </span>
               <div>
                 <p className="text-xs text-white/80">CURRENT STATE</p>
                 <p className="font-bold">{order.orderStatus}</p>
               </div>
             </div>
-            <div className="text-right">
-              <p className="text-xs text-white/80">Order</p>
-              <p className="font-bold">#{order.orderNumber ?? order.id.slice(0, 8)}</p>
+
+            <div className="flex flex-col items-end gap-1">
+              {walkIn && (
+                <span className="inline-flex items-center gap-1 rounded-full bg-white/20 px-2.5 py-0.5 text-[11px] font-semibold text-white">
+                  <Store size={10} />
+                  Walk-in
+                </span>
+              )}
+              <div className="text-right">
+                <p className="text-xs text-white/80">Order</p>
+                <p className="font-bold">#{order.orderNumber ?? order.id.slice(0, 8)}</p>
+              </div>
             </div>
           </div>
         </div>
@@ -146,21 +191,28 @@ export default function OrderDetails() {
 
           <div className="flex items-start gap-3">
             <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gray-100 text-sm font-bold text-gray-600">
-              {order.customer.fullname.slice(0, 2).toUpperCase()}
+              {(order.customer.fullname || 'WI').slice(0, 2).toUpperCase()}
             </span>
 
             <div className="flex-1 min-w-0">
               <div className="flex flex-wrap items-center gap-2">
-                <p className="font-bold text-gray-900">{order.customer.fullname}</p>
+                <p className="font-bold text-gray-900">
+                  {order.customer.fullname || 'Walk-in Customer'}
+                </p>
                 {guest && (
                   <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-semibold text-amber-600 border border-amber-200">
                     <UserX size={11} />
                     Guest
                   </span>
                 )}
+                {walkIn && (
+                  <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-semibold text-amber-600 border border-amber-200">
+                    <Store size={11} />
+                    Walk-in
+                  </span>
+                )}
               </div>
 
-              {/* Phone number */}
               {order.customer.phoneNumber ? (
                 <a
                   href={`tel:${order.customer.phoneNumber}`}
@@ -173,23 +225,30 @@ export default function OrderDetails() {
                 <p className="mt-0.5 text-sm text-gray-400">No phone on record</p>
               )}
 
-              {/* Guest notice */}
               {guest && (
                 <p className="mt-1.5 rounded-xl bg-amber-50 px-3 py-2 text-xs text-amber-700">
                   This order was placed by a guest — no account is linked to it.
                 </p>
               )}
+              {walkIn && (
+                <p className="mt-1.5 rounded-xl bg-amber-50 px-3 py-2 text-xs text-amber-700">
+                  This order was placed in-store at Declan Foods.
+                </p>
+              )}
             </div>
           </div>
 
-          <div className="mt-3 border-t border-gray-100 pt-3">
-            <p className="text-xs font-semibold tracking-wide text-gray-400">DELIVERY ADDRESS</p>
-            <p className="mt-1 text-sm text-gray-700">{order.customer.addressLine}</p>
-          </div>
+          {/* Hide delivery address for walk-in — it's always "Declan foods store" */}
+          {!walkIn && (
+            <div className="mt-3 border-t border-gray-100 pt-3">
+              <p className="text-xs font-semibold tracking-wide text-gray-400">DELIVERY ADDRESS</p>
+              <p className="mt-1 text-sm text-gray-700">{order.customer.addressLine}</p>
+            </div>
+          )}
         </section>
 
-        {/* Rider */}
-        {order.deliveryRider && (
+        {/* Assigned rider — only relevant for non-walk-in orders */}
+        {!walkIn && order.deliveryRider && (
           <section className="rounded-2xl bg-white p-4 shadow-sm">
             <p className="mb-3 text-xs font-semibold tracking-wide text-gray-400">
               ASSIGNED RIDER
@@ -229,13 +288,11 @@ export default function OrderDetails() {
                 )}
                 <div className="flex-1">
                   <p className="text-sm font-semibold text-gray-800">
-                    {/* API returns itemName; fall back to name for safety */}
                     {item.itemName ?? item.name ?? 'Product'}
                   </p>
                   <p className="text-xs text-gray-400">Qty: {item.quantity ?? 0}</p>
                 </div>
                 <p className="text-sm font-bold text-gray-900">
-                  {/* API returns unitPrice; fall back to price for safety */}
                   {formatAmount(item.unitPrice ?? item.price)}
                 </p>
               </div>
@@ -287,13 +344,23 @@ export default function OrderDetails() {
 
       {/* Bottom actions */}
       <div className="fixed bottom-0 left-0 right-0 z-20 flex gap-3 border-t border-gray-100 bg-white p-4">
-        <button
-          type="button"
-          onClick={() => navigate(`/admin/orders/${id}/assign-rider`)}
-          className="flex-1 rounded-full border-2 border-primary py-3 text-sm font-semibold text-primary"
-        >
-          Assign Rider
-        </button>
+        {/*
+          Rider assignment rules:
+          - Walk-in orders: never shown
+          - PENDING: not shown (order isn't ready yet)
+          - PROCESSING: "Assign Rider"
+          - ASSIGNED and beyond: "Reassign Rider"
+        */}
+        {riderBtnLabel && (
+          <button
+            type="button"
+            onClick={() => navigate(`/admin/orders/${id}/assign-rider`)}
+            className="flex-1 rounded-full border-2 border-primary py-3 text-sm font-semibold text-primary"
+          >
+            {riderBtnLabel}
+          </button>
+        )}
+
         <button
           type="button"
           disabled={actionLoading || order.orderStatus !== 'PENDING'}

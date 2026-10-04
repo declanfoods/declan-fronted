@@ -24,6 +24,7 @@ export interface AdminOrder {
   orderStatus: AdminOrderStatus;
   amount?: number | string;
   paid?: boolean;
+  orderChannel: "WEB" | "WALK_IN";
   customer?: AdminOrderCustomer;
   deliveryAddress?: string;
   numberOfItems?: number;
@@ -110,6 +111,7 @@ export interface AdminOrderDetails {
   estimatedDelivery: string;
   orderTimeline: AdminOrderTimeline[];
   customer: AdminOrderDetailsCustomer;
+  orderChannel: "WEB" | "WALK_IN"
   deliveryRider: {
     id: string;
     fullname?: string;
@@ -124,6 +126,23 @@ export interface AdminOrderDetails {
 
 export interface AdminPendingOrdersCount {
   pendingOrders: number;
+}
+
+export interface WalkInOrderItem {
+  id: string;
+  itemType: 'PRODUCT' | 'FOODPACK';
+  quantity: number;
+}
+
+export interface WalkInOrderPayload {
+  items: WalkInOrderItem[];
+  paymentMethod: 'CASH' | 'TRANSFER';
+  orderStatus?: AdminOrderStatus;
+  note?: string;
+  customer?: {
+    fullname?: string;
+    phoneNumber?: string;
+  };
 }
 
 interface ApiResponse<T> {
@@ -172,6 +191,15 @@ export const adminOrderApi = {
       '/api/v1/admin/orders/metrics',
       { params: period ? { period } : undefined }
     ),
+
+  createWalkInOrder: (data: WalkInOrderPayload) =>
+  {
+    console.log(data)
+    return api.post<ApiResponse<{ order: AdminOrderDetails }>>(
+      '/api/v1/admin/orders',
+      data
+    )}
+    ,
 };
 
 export type OrderMetricsPeriod = 'today' | 'week' | 'month';

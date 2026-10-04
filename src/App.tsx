@@ -155,7 +155,14 @@ export default function App() {
               </AdminProtectedRoute>
             }
           />
-          <Route path="/admin/orders/manual" element={<CreateManualOrder/>}/>
+          
+          <Route path="/admin/orders/manual" element={
+              <AdminProtectedRoute>
+                <CreateManualOrder/>
+              </AdminProtectedRoute>
+            }
+          />
+
           <Route
             path="/admin/orders/:id"
             element={
