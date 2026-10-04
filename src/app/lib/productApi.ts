@@ -13,6 +13,7 @@ export interface ApiProduct {
   scale: string;
   quantity: number;
   createdAt: string;
+  acceptPaymentOnDelivery: boolean;
   imageUrls: string[];
   category: ProductCategory;
   discount: null | Record<string, any>;

@@ -81,6 +81,7 @@ export interface AdminFoodPackDetail {
   isHidden: boolean;
   percentOff: number;
   itemCount: number;
+  acceptPaymentOnDelivery: boolean;
   category: FoodPackCategory;
   createdAt: string;
   updatedAt: string;
@@ -134,6 +135,7 @@ export interface CreateFoodPackPayload {
   price: number;
   categoryId?: string;
   items: FoodPackProductInput[];
+  acceptPaymentOnDelivery: boolean;
   imageUrls: string[];
   featuredPack?: boolean;
   visibleToCustomers?: boolean;
@@ -144,6 +146,7 @@ export interface UpdateFoodPackPayload {
   description?: string;
   price?: number;
   categoryId?: string;
+  acceptPaymentOnDelivery?: boolean;
   imageUrls?: string[];
   featuredPack?: boolean;
   visibleToCustomers?: boolean;

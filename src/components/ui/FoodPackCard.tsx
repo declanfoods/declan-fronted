@@ -78,6 +78,12 @@ export default function FoodPackCard({ pack, onCartUpdate }: FoodPackCardProps) 
             </p>
           )}
         </div>
+        {/* Pay-before-delivery notice */}
+        {pack.acceptPaymentOnDelivery === false && (
+          <span className="mt-2 self-start rounded-full bg-amber-100 px-2.5 py-0.5 text-[11px] font-semibold text-amber-700">
+            💳 Pay before delivery
+          </span>
+        )}
 
         {hasDiscount && (
           <div className="mt-2 flex items-center gap-2">

@@ -17,6 +17,7 @@ export default function AddProduct() {
   const [imageUrl, setImageUrl] = useState('');
   const [featured, setFeatured] = useState(false);
   const [visible, setVisible] = useState(true);
+  const [acceptPaymentOnDelivery, setAcceptPaymentOnDelivery] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
 
@@ -47,6 +48,7 @@ export default function AddProduct() {
         imageUrls: imageUrl ? [imageUrl] : [],
         featuredProduct: featured,
         visibleToCustomers: visible,
+        acceptPaymentOnDelivery,
         ...(discount ? { discount: Number(discount) } : {}),
       });
       navigate('/admin/products');
@@ -171,40 +173,76 @@ export default function AddProduct() {
           </div>
         </div>
 
-        <div className="flex items-center justify-between">
-          <div>
-            <p className="text-sm font-semibold text-gray-800">Featured Product</p>
-            <p className="text-xs text-gray-400">Promote on the home screen carousel</p>
-          </div>
-          <button
-            type="button"
-            onClick={() => setFeatured((v) => !v)}
-            className={`h-6 w-11 rounded-full transition-colors ${featured ? 'bg-primary' : 'bg-gray-200'}`}
-          >
-            <span
-              className={`block h-5 w-5 translate-y-0.5 rounded-full bg-white shadow transition-transform ${
-                featured ? 'translate-x-5' : 'translate-x-0.5'
-              }`}
-            />
-          </button>
-        </div>
+        {/* ── Toggles ── */}
+        <div className="space-y-4 rounded-2xl border border-gray-100 p-4">
 
-        <div className="flex items-center justify-between">
-          <div>
-            <p className="text-sm font-semibold text-gray-800">Visible to Customers</p>
-            <p className="text-xs text-gray-400">Uncheck to hide without deleting</p>
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-semibold text-gray-800">Featured Product</p>
+              <p className="text-xs text-gray-400">Promote on the home screen carousel</p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setFeatured((v) => !v)}
+              className={`h-6 w-11 rounded-full transition-colors ${featured ? 'bg-primary' : 'bg-gray-200'}`}
+            >
+              <span
+                className={`block h-5 w-5 translate-y-0.5 rounded-full bg-white shadow transition-transform ${
+                  featured ? 'translate-x-5' : 'translate-x-0.5'
+                }`}
+              />
+            </button>
           </div>
-          <button
-            type="button"
-            onClick={() => setVisible((v) => !v)}
-            className={`h-6 w-11 rounded-full transition-colors ${visible ? 'bg-primary' : 'bg-gray-200'}`}
-          >
-            <span
-              className={`block h-5 w-5 translate-y-0.5 rounded-full bg-white shadow transition-transform ${
-                visible ? 'translate-x-5' : 'translate-x-0.5'
-              }`}
-            />
-          </button>
+
+          <div className="border-t border-gray-100" />
+
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-semibold text-gray-800">Visible to Customers</p>
+              <p className="text-xs text-gray-400">Uncheck to hide without deleting</p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setVisible((v) => !v)}
+              className={`h-6 w-11 rounded-full transition-colors ${visible ? 'bg-primary' : 'bg-gray-200'}`}
+            >
+              <span
+                className={`block h-5 w-5 translate-y-0.5 rounded-full bg-white shadow transition-transform ${
+                  visible ? 'translate-x-5' : 'translate-x-0.5'
+                }`}
+              />
+            </button>
+          </div>
+
+          <div className="border-t border-gray-100" />
+
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-semibold text-gray-800">Requires Payment Before Delivery</p>
+              <p className="text-xs text-gray-400">
+                Customer must transfer payment and send proof before this item is dispatched
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setAcceptPaymentOnDelivery((v) => !v)}
+              className={`h-6 w-11 rounded-full transition-colors ${acceptPaymentOnDelivery ? 'bg-amber-500' : 'bg-gray-200'}`}
+            >
+              <span
+                className={`block h-5 w-5 translate-y-0.5 rounded-full bg-white shadow transition-transform ${
+                  acceptPaymentOnDelivery ? 'translate-x-5' : 'translate-x-0.5'
+                }`}
+              />
+            </button>
+          </div>
+
+          {/* Contextual warning when the toggle is on */}
+          {acceptPaymentOnDelivery && (
+            <div className="rounded-xl bg-amber-50 px-3 py-2.5 text-xs text-amber-700">
+              ⚠️ Orders containing this product will require upfront payment and a ₦50 transfer charge before dispatch.
+              The customer will be notified on the tracking page.
+            </div>
+          )}
         </div>
       </main>
 

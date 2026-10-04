@@ -17,6 +17,7 @@ export interface ApiFoodpack {
   originalPrice: number;
   amountOff: number;
   amounOffInPercent: number;
+  acceptPaymentOnDelivery: boolean;
   imageUrls: string[];
   createdAt: string;
   updatedAt: string;

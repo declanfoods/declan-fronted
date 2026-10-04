@@ -11,6 +11,7 @@ export interface OrderItem {
   itemName: string;
   itemType: 'PRODUCT' | 'FOODPACK';
   quantity: number;
+  acceptPaymentOnDelivery: boolean;
   unitPrice: number;
   itemId: string;
   imageUrls?: string[];

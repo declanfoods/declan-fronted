@@ -23,6 +23,7 @@ export interface AdminProduct {
   price: string;
   scale: string;
   sku: string;
+  acceptPaymentOnDelivery: boolean;
   isHidden: boolean;
   stock_status: 'AVAILABLE' | 'OUT_OF_STOCK' | string;
   quantity: number;
@@ -89,6 +90,7 @@ export interface CreateProductPayload {
   price: number;
   description: string;
   quantity: number;
+  acceptPaymentOnDelivery: boolean;
   scale: string;
   categoryId: string;
   imageUrls: string[];
@@ -102,6 +104,7 @@ export interface UpdateProductPayload {
   description?: string;
   price?: number;
   scale?: string;
+  acceptPaymentOnDelivery?: boolean;
   imageUrls?: string[];
   discount?: number;
   categoryId?: string;

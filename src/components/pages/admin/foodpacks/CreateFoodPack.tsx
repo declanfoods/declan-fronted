@@ -32,6 +32,7 @@ export default function CreateFoodPack() {
 
   const [sellingPrice, setSellingPrice] = useState(0);
   const [featured, setFeatured] = useState(true);
+  const [acceptPaymentOnDelivery, setAcceptPaymentOnDelivery] = useState(false);
   const [visible, setVisible] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
@@ -112,6 +113,7 @@ export default function CreateFoodPack() {
           quantity: p.qty,
           quantityUnit: p.scale,
         })),
+        acceptPaymentOnDelivery: !acceptPaymentOnDelivery,
         imageUrls: imageUrl ? [imageUrl] : [],
         featuredPack: featured,
         visibleToCustomers: visible,
@@ -335,6 +337,36 @@ export default function CreateFoodPack() {
             />
           </button>
         </div>
+
+        <div className="border-t border-gray-100" />
+
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-semibold text-gray-800">Requires Payment Before Delivery</p>
+              <p className="text-xs text-gray-400">
+                Customer must transfer payment and send proof before this item is dispatched
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setAcceptPaymentOnDelivery((v) => !v)}
+              className={`h-6 w-11 rounded-full transition-colors ${acceptPaymentOnDelivery ? 'bg-amber-500' : 'bg-gray-200'}`}
+            >
+              <span
+                className={`block h-5 w-5 translate-y-0.5 rounded-full bg-white shadow transition-transform ${
+                  acceptPaymentOnDelivery ? 'translate-x-5' : 'translate-x-0.5'
+                }`}
+              />
+            </button>
+          </div>
+
+          {/* Contextual warning when the toggle is on */}
+          {acceptPaymentOnDelivery && (
+            <div className="rounded-xl bg-amber-50 px-3 py-2.5 text-xs text-amber-700">
+              ⚠️ Orders containing this product will require upfront payment and a ₦50 transfer charge before dispatch.
+              The customer will be notified on the tracking page.
+            </div>
+          )}
 
         <button
           type="button"

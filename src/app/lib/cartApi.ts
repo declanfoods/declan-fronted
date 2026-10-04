@@ -6,6 +6,7 @@ export interface CartItem {
   itemCategoryName: string;
   itemId: string;
   itemType: 'PRODUCT' | 'FOODPACK';
+  acceptPaymentOnDelivery: boolean;
   itemUrls: string[];
   itemPrice: string;
   quantity: number;

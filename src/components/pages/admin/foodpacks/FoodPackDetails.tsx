@@ -37,6 +37,16 @@ export default function FoodPackDetails() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
+const refreshSilently = async () => {
+    if (!id) return;
+    try {
+      const res = await adminFoodPackApi.getFoodPackById(id);
+      setPack(res.data.data.foodpack);
+    } catch {
+      // Leave the existing figures on screen; the card reports its own errors.
+    }
+  };
+
   const handleToggleHide = async () => {
     if (!id || !pack) return;
     setActionLoading(true);
@@ -49,6 +59,23 @@ export default function FoodPackDetails() {
       setActionLoading(false);
     }
   };
+
+  const handleTogglePaymentOnDelivery = async () => {
+      
+    if (!id || !pack) return;
+    setActionLoading(true);
+    try {
+      console.log(pack.acceptPaymentOnDelivery)
+      await adminFoodPackApi.updateFoodPack(id, {
+        acceptPaymentOnDelivery: !pack.acceptPaymentOnDelivery,
+      });
+      await refreshSilently();
+    } catch (err: any) {
+      setError(err.response?.data?.message ?? 'Failed to update payment setting.');
+    } finally {
+      setActionLoading(false);
+    }
+    };
 
   const handleDelete = async () => {
     if (!id) return;
@@ -180,6 +207,52 @@ export default function FoodPackDetails() {
                 <ChevronRight size={18} className="text-gray-300" />
               </div>
             ))}
+          </div>
+          <div className="mt-3 rounded-2xl border border-gray-100 p-4">
+            <div className="flex items-center justify-between">
+              <div className="flex-1 pr-4">
+                <p className="text-sm font-semibold text-gray-800">
+                  Requires Payment Before Delivery
+                </p>
+                <p className="mt-0.5 text-xs text-gray-400">
+                  When on, customers must transfer payment and send proof before this product is dispatched
+                </p>
+              </div>
+              <button
+                type="button"
+                disabled={actionLoading}
+                onClick={handleTogglePaymentOnDelivery}
+                className={`h-6 w-11 shrink-0 rounded-full transition-colors disabled:opacity-50 ${
+                  pack.acceptPaymentOnDelivery ? 'bg-gray-200' : 'bg-amber-500' 
+                }`}
+              >
+                <span
+                  className={`block h-5 w-5 translate-y-0.5 rounded-full bg-white shadow transition-transform ${
+                    pack.acceptPaymentOnDelivery ?  'translate-x-0.5' : 'translate-x-5' 
+                  }`}
+                />
+              </button>
+            </div>
+ 
+            {/* Status badge + contextual note */}
+            <div className="mt-3 flex items-center gap-2">
+              <span
+                className={`rounded-full px-2.5 py-1 text-[11px] font-bold ${
+                  pack.acceptPaymentOnDelivery
+                  ? 'bg-gray-100 text-gray-500'  
+                  : 'bg-amber-100 text-amber-700'
+                    
+                }`}
+              >
+                {pack.acceptPaymentOnDelivery === false ? 'Payment before delivery required' : 'Pay on delivery allowed'}
+              </span>
+            </div>
+ 
+            {pack.acceptPaymentOnDelivery === false && (
+              <p className="mt-2 text-xs text-amber-700">
+                ⚠️ Orders containing this foodpack will show a payment banner to the customer with a ₦50 transfer charge.
+              </p>
+            )}
           </div>
         </section>
 

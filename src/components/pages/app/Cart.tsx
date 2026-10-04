@@ -11,15 +11,11 @@ import { isAuthenticated } from '../../../app/lib/auth';
 import { useCartCatalogue } from '../../../app/hooks/useCartCatalogue';
 import { getCataloguePrice } from '../../../app/lib/productPricing';
 
+const TRANSFER_CHARGE = 50;
+
 export default function Cart() {
   const navigate = useNavigate();
   const [cart, setCart] = useState<CartType | null>(null);
-
-  /*
-    The cart line itself carries no discount — only `itemPrice`. This pulls the
-    public product and food pack lists so the cart can show the struck-through
-    original and a "% OFF" badge. See useCartCatalogue.ts.
-  */
   const { resolveLine, catalogueEntryFor } = useCartCatalogue();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -49,15 +45,6 @@ export default function Cart() {
     }
   }, []);
 
-  /*
-    ⚠️ Guests only. A guest's cart is this browser's localStorage — there is no
-    server copy — so a line saved before a price or discount changed would be
-    charged at the old figure. Rewrite any line that disagrees with the live
-    catalogue, then re-read.
-
-    Signed-in carts are left alone: the server owns those prices and its
-    subtotal, and quietly rewriting them here would desync the two.
-  */
   useEffect(() => {
     if (isAuthenticated() || !cart) return;
 
@@ -157,8 +144,14 @@ export default function Cart() {
     );
   }
 
-  const items = cart?.cartItems ?? [];
-  const isEmpty = items.length === 0;
+  const items    = cart?.cartItems ?? [];
+  const isEmpty  = items.length === 0;
+
+  // True when at least one item requires payment before the order is processed
+  const hasPayBeforeDeliveryItem = items.some((i) => i.acceptPaymentOnDelivery);
+  const subtotal      = cart?.subTotal ?? 0;
+  const transferCharge = hasPayBeforeDeliveryItem ? TRANSFER_CHARGE : 0;
+  const totalToPay    = subtotal + transferCharge;
 
   return (
     <AppLayout title="My Cart">
@@ -195,9 +188,7 @@ export default function Cart() {
         {isEmpty ? (
           <div className="mt-12 text-center">
             <p className="text-5xl">🛒</p>
-            <p className="mt-4 text-lg font-semibold text-ink-soft">
-              Your cart is empty
-            </p>
+            <p className="mt-4 text-lg font-semibold text-ink-soft">Your cart is empty</p>
             <button
               onClick={() => navigate('/app/shop')}
               className="mt-4 rounded-full bg-primary px-8 py-3 text-sm font-semibold text-white hover:bg-primary-dark"
@@ -209,17 +200,10 @@ export default function Cart() {
           <>
             <div className="flex flex-col gap-4">
               {items.map((item) => {
-                const imageUrl = item.itemUrls?.[0] ?? '';
+                const imageUrl  = item.itemUrls?.[0] ?? '';
                 const itemTotal = Number(item.itemPrice) * item.quantity;
                 const isUpdating = updatingItems.has(item.id);
-
-                /*
-                  The unit price is the cart's own figure — that is what gets
-                  charged. The catalogue only supplies the pre-discount price to
-                  strike through, so a discount the server is not actually
-                  applying is never drawn as if it were.
-                */
-                const pricing = resolveLine(item);
+                const pricing   = resolveLine(item);
 
                 return (
                   <div
@@ -238,13 +222,21 @@ export default function Cart() {
                       </div>
                     )}
 
-                    <div className="flex-1 min-w-0">
-                      <p className="text-xs font-medium text-ink-soft capitalize">
+                    <div className="min-w-0 flex-1">
+                      <p className="text-xs font-medium capitalize text-ink-soft">
                         {item.itemCategoryName}
                       </p>
-                      <p className="text-base font-semibold text-ink capitalize truncate">
+                      <p className="truncate text-base font-semibold capitalize text-ink">
                         {item.itemName}
                       </p>
+
+                      {/* Pay-before-delivery badge */}
+                      {item.acceptPaymentOnDelivery && (
+                        <span className="mt-1 inline-block rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold text-amber-700">
+                          💳 Pay before delivery
+                        </span>
+                      )}
+
                       <p className="mt-1 text-lg font-bold text-ink">
                         {formatNaira(itemTotal)}
                       </p>
@@ -283,10 +275,7 @@ export default function Cart() {
                         </button>
                         <span className="min-w-[1.5rem] text-center text-base font-semibold text-ink">
                           {isUpdating ? (
-                            <Loader2
-                              size={16}
-                              className="animate-spin text-primary"
-                            />
+                            <Loader2 size={16} className="animate-spin text-primary" />
                           ) : (
                             item.quantity
                           )}
@@ -316,25 +305,17 @@ export default function Cart() {
               })}
             </div>
 
-            {/*
-              What the discounts on these lines add up to. Derived from the same
-              per-line pricing, so it can never disagree with the prices shown
-              above it.
-            */}
+            {/* Discount savings row */}
             {(() => {
               const savings = items.reduce(
-                (sum, item) =>
-                  sum + resolveLine(item).discountAmount * item.quantity,
+                (sum, item) => sum + resolveLine(item).discountAmount * item.quantity,
                 0
               );
               if (savings <= 0) return null;
-
               return (
                 <>
                   <div className="mt-4 flex items-center justify-between rounded-2xl bg-accent/10 px-4 py-3">
-                    <span className="text-sm font-semibold text-accent">
-                      Discount savings
-                    </span>
+                    <span className="text-sm font-semibold text-accent">Discount savings</span>
                     <span className="text-base font-extrabold text-accent">
                       −{formatNaira(savings)}
                     </span>
@@ -346,27 +327,49 @@ export default function Cart() {
 
             {items.length === 0 && <div className="my-8 border-t border-muted" />}
 
+            {/* Totals */}
             <div className="flex flex-col gap-3">
               <div className="flex items-center justify-between">
                 <span className="text-lg font-semibold text-ink">Subtotal</span>
-                <span className="text-lg font-bold text-ink">
-                  {formatNaira(cart?.subTotal ?? 0)}
-                </span>
+                <span className="text-lg font-bold text-ink">{formatNaira(subtotal)}</span>
               </div>
+
+              {/* Transfer charge line — only when cart has a pay-before-delivery item */}
+              {hasPayBeforeDeliveryItem && (
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-medium text-amber-700">Transfer charge</span>
+                  <span className="text-sm font-bold text-amber-700">
+                    +{formatNaira(TRANSFER_CHARGE)}
+                  </span>
+                </div>
+              )}
+
               <div className="flex items-center justify-between">
                 <span className="text-lg font-semibold text-ink">Total Payment</span>
                 <span className="text-2xl font-extrabold text-ink">
-                  {formatNaira(cart?.subTotal ?? 0)}
+                  {formatNaira(totalToPay)}
                 </span>
               </div>
             </div>
 
+            {/* Pay-before-delivery cart notice */}
+            {hasPayBeforeDeliveryItem && (
+              <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3">
+                <p className="text-sm font-semibold text-amber-800">
+                  💳 Payment required before processing
+                </p>
+                <p className="mt-1 text-xs leading-relaxed text-amber-700">
+                  Your cart contains item(s) that must be paid for upfront. After checkout,
+                  transfer{' '}
+                  <span className="font-bold">{formatNaira(totalToPay)}</span> and send proof
+                  of payment to our WhatsApp. Your order will be cancelled after 48 hours if
+                  payment is not received.
+                </p>
+              </div>
+            )}
+
             <div className="mt-8">
-              <Button
-                size="lg"
-                className="w-full"
-                onClick={() => navigate('/app/checkout')}
-              >
+              <Button size="lg" className="w-full" onClick={() => navigate('/app/checkout')}>
                 Proceed to Checkout
               </Button>
             </div>
