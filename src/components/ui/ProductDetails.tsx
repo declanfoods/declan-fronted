@@ -83,6 +83,7 @@ export default function ProductDetails() {
             itemCategoryName: product.category?.name ?? 'Product',
             itemId: product.id,
             itemType: 'PRODUCT',
+            acceptPaymentOnDelivery: product.acceptPaymentOnDelivery,
             itemUrls: product.imageUrls ?? [],
             // Discounted price — see productPricing.ts. Checkout prices off this.
             itemPrice: String(getEffectivePrice(product).price),
