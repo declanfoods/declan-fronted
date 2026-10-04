@@ -231,7 +231,7 @@ export default function Cart() {
                       </p>
 
                       {/* Pay-before-delivery badge */}
-                      {item.acceptPaymentOnDelivery && (
+                      {item.acceptPaymentOnDelivery === false && (
                         <span className="mt-1 inline-block rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold text-amber-700">
                           💳 Pay before delivery
                         </span>
