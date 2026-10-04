@@ -17,7 +17,6 @@ import AdminBottomNav from '../../../admin/AdminBottomNav';
 import { getEffectivePrice } from '../../../../app/lib/productPricing';
 import ProductActionsMenu from './ProductActionsMenu';
 import AdminFilterSheet, {
-  emptyFilterState,
   type ProductFilterState,
   type PriceRangeKey,
 } from '../../../admin/AdminFilterSheet';
