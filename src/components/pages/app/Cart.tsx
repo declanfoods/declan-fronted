@@ -11,7 +11,12 @@ import { isAuthenticated } from '../../../app/lib/auth';
 import { useCartCatalogue } from '../../../app/hooks/useCartCatalogue';
 import { getCataloguePrice } from '../../../app/lib/productPricing';
 
-const TRANSFER_CHARGE = 50;
+
+function getTransferCharge(amount: number): number {
+  if (amount >= 30_000) return 150;
+  if (amount >= 10_000) return 100;
+  return 50;
+}
 
 export default function Cart() {
   const navigate = useNavigate();
@@ -150,7 +155,7 @@ export default function Cart() {
   // True when at least one item requires payment before the order is processed
   const hasPayBeforeDeliveryItem = items.some((i) => i.acceptPaymentOnDelivery === false);
   const subtotal      = cart?.subTotal ?? 0;
-  const transferCharge = hasPayBeforeDeliveryItem ? TRANSFER_CHARGE : 0;
+  const transferCharge = hasPayBeforeDeliveryItem ? getTransferCharge(subtotal) : 0;
   const totalToPay    = subtotal + transferCharge;
 
   return (
@@ -339,7 +344,7 @@ export default function Cart() {
                 <div className="flex items-center justify-between">
                   <span className="text-sm font-medium text-amber-700">Transfer charge</span>
                   <span className="text-sm font-bold text-amber-700">
-                    +{formatNaira(TRANSFER_CHARGE)}
+                    +{formatNaira(getTransferCharge(subtotal))}
                   </span>
                 </div>
               )}

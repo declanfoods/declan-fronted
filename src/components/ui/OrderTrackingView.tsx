@@ -1,7 +1,9 @@
 import { ArrowLeft } from 'lucide-react';
 import Container from '../layout/Container';
 import { formatNaira } from '../data/products';
-import type { Order, OrderTimelineEvent } from '../../app/lib/orderApi';
+import { type Order, type OrderTimelineEvent } from '../../app/lib/orderApi';
+import { PaymentRequiredBanner } from './PaymentRequiredBanner';
+
 
 const formatDate = (iso: string | null) =>
   iso ?
@@ -22,6 +24,17 @@ type OrderTrackingViewProps = {
   backLabel?: string;
 };
 
+const requiresPaymentBeforeDelivery = (order: Order): boolean =>
+  order.items.some((item) => item.acceptPaymentOnDelivery === false);
+
+
+function getTransferCharge(amount: number): number {
+  if (amount >= 30_000) return 150;
+  if (amount >= 10_000) return 100;
+  return 50;
+}
+
+
 export default function OrderTrackingView({
   order,
   timeline,
@@ -32,6 +45,12 @@ export default function OrderTrackingView({
   const deliveryCode = order.delivery?.deliveryCode ?? '';
   const codeDigits = deliveryCode ? deliveryCode.split('') : [];
   const passedCount = timeline.filter((t) => t.passed).length;
+  const needsPayment  = requiresPaymentBeforeDelivery(order);
+  const transferCharge = needsPayment ? getTransferCharge(order.totalPrice) : 0;
+  const totalWithCharge = order.totalPrice + transferCharge;
+
+  const isCancelled   = order.orderStatus === 'CANCELLED';
+
 
   return (
     <div className="min-h-screen bg-white">
@@ -53,6 +72,15 @@ export default function OrderTrackingView({
 
       <Container className="py-8">
         <div className="mx-auto max-w-2xl space-y-6">
+            {/* Payment required banner — shown when order needs upfront payment
+                and hasn't been delivered or cancelled yet */}
+            {needsPayment && !isDelivered && !isCancelled && (
+              <PaymentRequiredBanner
+                orderNumber={order.orderNumber}
+                totalWithCharge={totalWithCharge}
+                transferCharge={transferCharge}
+              />
+            )}
           {/* Delivery code — only show if not yet delivered */}
           {codeDigits.length > 0 && !isDelivered && (
             <section className="rounded-3xl border-2 border-primary bg-white p-6 shadow-sm sm:p-8">

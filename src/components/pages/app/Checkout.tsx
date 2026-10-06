@@ -21,6 +21,12 @@ const FREE_DELIVERY_FLOOR = 3000;
 function getDeliveryFee(subtotal: number): number {
   return subtotal >= FREE_DELIVERY_FLOOR ? 0 : DELIVERY_FEE;
 }
+
+function getTransferCharge(amount: number): number {
+  if (amount >= 30_000) return 150;
+  if (amount >= 10_000) return 100;
+  return 50;
+}
 // ─────────────────────────────────────────────────────────────────────────────
 
 export default function Checkout() {
@@ -279,6 +285,10 @@ export default function Checkout() {
   const deliveryFee  = getDeliveryFee(subtotal);
   const orderTotal   = subtotal + deliveryFee;
   const freeDelivery = deliveryFee === 0;
+
+  const hasPayBeforeDelivery = cart.cartItems.some((i) => i.acceptPaymentOnDelivery === false);
+  const transferCharge = hasPayBeforeDelivery ? getTransferCharge(subtotal) : 0;
+
   // ──────────────────────────────────────────────────────────────────────────
 
   return (
@@ -566,6 +576,13 @@ export default function Checkout() {
                   <span className="font-medium text-ink">{formatNaira(deliveryFee)}</span>
                 )}
               </div>
+
+              {hasPayBeforeDelivery && (
+                <div className="flex items-center justify-between">
+                  <span className="text-ink-soft">Transfer charge</span>
+                  <span className="font-medium text-amber-700">{formatNaira(transferCharge)}</span>
+                </div>
+              )}
 
               {/* Nudge banner — only shown when fee applies */}
               {!freeDelivery && (
