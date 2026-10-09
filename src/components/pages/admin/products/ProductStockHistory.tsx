@@ -1,4 +1,3 @@
-// ProductStockHistory.tsx
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { ArrowLeft, TrendingUp, TrendingDown, Package, ChevronLeft, ChevronRight } from 'lucide-react';
@@ -135,7 +134,7 @@ export default function ProductStockHistory() {
 
         {!loading && !error && history.length > 0 && (
           <div className="space-y-3">
-            {history.map((record, idx) => {
+            {history.map((record) => {
               const isIncrement = record.operationType === 'increment';
 
               return (
