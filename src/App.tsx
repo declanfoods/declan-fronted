@@ -82,6 +82,7 @@ import CommissionCashbackSettings from './components/pages/admin/referral/Commis
 import WithdrawalSettings from './components/pages/admin/referral/WithdrawalSettings';
 import HomeReferralOverview from './components/pages/app/HomeReferralOverview';
 import CreateManualOrder from './components/pages/admin/orders/CreateManualOrder';
+import ProductStockHistory from './components/pages/admin/products/ProductStockHistory';
 
 
 
@@ -232,6 +233,16 @@ export default function App() {
             element={
               <AdminProtectedRoute>
                 <AdminProductList />
+              </AdminProtectedRoute>
+            }
+            
+          />
+
+          <Route
+            path="/admin/products/:id/stock-history"
+            element={
+              <AdminProtectedRoute>
+                <ProductStockHistory/>
               </AdminProtectedRoute>
             }
           />

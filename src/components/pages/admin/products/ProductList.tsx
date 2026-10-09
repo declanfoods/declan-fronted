@@ -350,11 +350,16 @@ export default function ProductList() {
     }
   };
 
+  const handleViewStockHistory = (actionsProduct: AdminProduct) => {
+    navigate(`/admin/products/${actionsProduct.id}/stock-history`);
+    setActionsProduct(null)
+  }
+
   const handleMarkOutOfStock = async (product: AdminProduct) => {
     try {
       await adminProductApi.updateStock(product.id, {
         quantity:  product.quantity,
-        operation: 'decrement',
+        operation: 'DECREMENT',
       });
       setActionsProduct(null);
       fetchProducts();
@@ -600,6 +605,7 @@ export default function ProductList() {
       {actionsProduct && (
         <ProductActionsMenu
           product={{
+            id:     actionsProduct.id,
             name:  actionsProduct.name,
             sku:   actionsProduct.sku,
             price: formatPrice(String(getEffectivePrice(actionsProduct).price)),
@@ -617,6 +623,7 @@ export default function ProductList() {
           }}
           onToggleHide={() => handleHideToggle(actionsProduct)}
           onMarkOutOfStock={() => handleMarkOutOfStock(actionsProduct)}
+          onViewStockHistory={() => handleViewStockHistory(actionsProduct)}
         />
       )}
 

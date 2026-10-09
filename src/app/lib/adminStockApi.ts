@@ -15,26 +15,6 @@ export interface StockHistoryPagination {
   hasPreviousPage: boolean;
 }
 
-/*
-|--------------------------------------------------------------------------
-| Stock history records
-|--------------------------------------------------------------------------
-| ⚠️ STILL UNDOCUMENTED. None of the three stock history endpoints
-|    (/history, /history/:recordId, /product/:productId/history) has a saved
-|    response in the collection, so the exact field names are unknown.
-|
-| All three DO exist on the live server — probed, 401 rather than a
-| `Cannot GET` 404.
-|
-| Rather than guess one shape and break on a near miss, the record is kept
-| loose and read through `toStockRecord()` below, which accepts several
-| plausible spellings for each field. That way the screen renders real data
-| whichever way the backend named things, and it degrades to placeholders
-| rather than blanks if a field is simply absent.
-|
-| Tell the backend dev: a saved 200 on each route would let all of this
-| defensiveness go away.
-*/
 export interface StockHistoryRecord {
   id: string;
   /** ISO timestamp of the change. */
@@ -57,6 +37,29 @@ export interface StockHistoryRecord {
   actor: string | null;
   /** The untouched row, so a details view can show anything not mapped. */
   raw: Record<string, unknown>;
+}
+
+export interface ProductStockHistory {
+  id: string;
+  quantity: number;
+  operationType: 'increment' | 'decrement';
+  quantityBeforeOperation: number;
+  quantityAfterOperation: number;
+  createdAt: Date;
+  product: {
+    id: string;
+    name: string;
+    description: string;
+    price: string;
+    scale: string;
+    sku: string;
+    isHidden: boolean;
+    imageUrls: string[];
+    category: {
+      id: string;
+      name: string;
+    }
+  }
 }
 
 function firstOf<T>(bag: Record<string, unknown>, keys: string[]): T | null {
@@ -183,18 +186,18 @@ export function toStockHistory(data: unknown): {
 
 export const adminStockApi = {
   getAllHistory: (filters?: StockHistoryFilters) =>
-    api.get<ApiResponse<unknown>>(
+    api.get<ApiResponse<{stockHistory: ProductStockHistory[], pagination: StockHistoryPagination}>>(
       '/api/v1/admin/stocks/history',
       { params: filters }
     ),
 
   getHistoryById: (recordId: string) =>
-    api.get<ApiResponse<unknown>>(
+    api.get<ApiResponse<{stockHistoryRecord: ProductStockHistory}>>(
       `/api/v1/admin/stocks/history/${recordId}`
     ),
 
   getProductHistory: (productId: string, filters?: StockHistoryFilters) =>
-    api.get<ApiResponse<unknown>>(
+    api.get<ApiResponse<{stockHistory: ProductStockHistory[], pagination: StockHistoryPagination}>>(
       `/api/v1/admin/stocks/product/${productId}/history`,
       { params: filters }
     ),

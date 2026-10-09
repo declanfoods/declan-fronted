@@ -1,13 +1,14 @@
-import { Eye, Pencil, EyeOff, Eye as EyeIcon, Ban, ChevronRight } from 'lucide-react';
+import { Eye, Pencil, EyeOff, Eye as EyeIcon, Ban, ChevronRight, History } from 'lucide-react';
 
 type ProductActionsMenuProps = {
-  product: { name: string; sku: string; price: string; img: string };
+  product: { id: string; name: string; sku: string; price: string; img: string };
   isHidden?: boolean;
   onClose: () => void;
   onView: () => void;
   onEdit: () => void;
   onToggleHide: () => void;
   onMarkOutOfStock: () => void;
+  onViewStockHistory: () => void;
 };
 
 export default function ProductActionsMenu({
@@ -18,6 +19,7 @@ export default function ProductActionsMenu({
   onEdit,
   onToggleHide,
   onMarkOutOfStock,
+  onViewStockHistory
 }: ProductActionsMenuProps) {
   const actions = [
     { label: 'View Product', icon: Eye, onClick: onView },
@@ -28,6 +30,7 @@ export default function ProductActionsMenu({
       onClick: onToggleHide,
     },
     { label: 'Mark Out of Stock', icon: Ban, onClick: onMarkOutOfStock },
+    { label: 'View Stock History', icon: History, onClick: onViewStockHistory }
   ];
 
   return (
