@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, MoreVertical, Check, EyeOff, Clock, ChevronDown } from 'lucide-react';
+import { ArrowLeft, MoreVertical, Check, EyeOff, Clock, ChevronDown, PackagePlus } from 'lucide-react';
 import { adminProductApi, type AdminProduct, type AdminProductCategory } from '../../../../app/lib/adminProductApi';
 import ProductDiscountCard from './ProductDiscountCard';
 import AdminImageUpload from '../../../admin/AdminImageUpload';
+import UpdateStockModal from './components/UpdateStockModal';
 
 type Visibility = 'Published' | 'Hidden' | 'Scheduled';
 
@@ -20,20 +21,21 @@ export default function EditProduct() {
   const [description, setDescription] = useState('');
   const [price, setPrice] = useState('');
   const [scale, setScale] = useState('');
-  const [stock, setStock] = useState('');
+  
   const [visibility, setVisibility] = useState<Visibility>('Published');
   const [imageUrl, setImageUrl] = useState('');
   const [categories, setCategories] = useState<AdminProductCategory[]>([]);
   const [categoryId, setCategoryId] = useState('');
 
-  /*
-    Pulls the product and, on first load, seeds the form from it.
-
-    `fillForm` is false when this is a refresh after a discount change: the
-    discount card edits `original.discount`, and re-seeding the form would throw
-    away anything the admin had already typed into name/price/description but
-    not yet saved.
-  */
+  const [stockModalOpen, setStockModalOpen] = useState(false);
+  
+  const handleStockUpdate = async (quantity: number, operation: 'INCREMENT' | 'DECREMENT') => {
+    if (!id) return;
+    await adminProductApi.updateStock(id, { quantity, operation });
+    // Refresh original so the displayed stock stays current.
+    // fillForm: false so the admin's unsaved name/price edits are preserved.
+    await loadProduct({ fillForm: false });
+  };
   const loadProduct = async ({ fillForm }: { fillForm: boolean }) => {
     if (!id) return;
     try {
@@ -46,7 +48,6 @@ export default function EditProduct() {
         setDescription(p.description);
         setPrice(String(p.price));
         setScale(p.scale);
-        setStock(String(p.quantity));
         setVisibility(p.isHidden ? 'Hidden' : 'Published');
         setImageUrl(p.imageUrls?.[0] ?? '');
         setCategoryId(p.category?.id ?? '');
@@ -90,16 +91,6 @@ export default function EditProduct() {
       const newPrice = Number(price);
       if (newPrice !== currentPrice) {
         await adminProductApi.updateProductPrice(id, { currentPrice, newPrice });
-      }
-
-      // 3. Update stock if it changed
-      const newStock = Number(stock);
-      const stockDelta = newStock - original.quantity;
-      if (stockDelta !== 0) {
-        await adminProductApi.updateStock(id, {
-          quantity: Math.abs(stockDelta),
-          operation: stockDelta > 0 ? 'increment' : 'decrement',
-        });
       }
 
       // 4. Update visibility if it changed
@@ -201,14 +192,21 @@ export default function EditProduct() {
                 className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-sm font-semibold text-gray-800 outline-none"
               />
             </div>
-            <div>
-              <label className="mb-1 block text-xs text-gray-500">Stock Level</label>
-              <input
-                value={stock}
-                onChange={(e) => setStock(e.target.value)}
-                inputMode="numeric"
-                className="w-full rounded-xl border border-primary bg-white px-3 py-2.5 text-sm font-semibold text-primary outline-none"
-              />
+              <div>
+                <label className="mb-1 block text-xs text-gray-500">Stock Level</label>
+                <div className="flex items-center justify-between rounded-xl border border-gray-200 bg-white px-3 py-2.5">
+                  <span className="text-sm font-semibold text-gray-800">
+                    {original.quantity} units
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setStockModalOpen(true)}
+                    className="flex items-center gap-1 rounded-full bg-primary/10 px-3 py-1 text-xs font-semibold text-primary"
+                  >
+                    <PackagePlus size={12} />
+                    Update
+                  </button>
+                </div>
             </div>
           </div>
           <div className="mt-3">
@@ -300,6 +298,14 @@ export default function EditProduct() {
           {saving ? 'Saving...' : 'Save Changes'}
         </button>
       </div>
+      {stockModalOpen && original && (
+        <UpdateStockModal
+          productName={original.name}
+          currentStock={original.quantity}
+          onConfirm={handleStockUpdate}
+          onClose={() => setStockModalOpen(false)}
+        />
+      )}
     </div>
   );
 }

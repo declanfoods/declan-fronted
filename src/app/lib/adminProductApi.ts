@@ -112,7 +112,7 @@ export interface UpdateProductPayload {
 
 export interface StockUpdatePayload {
   quantity: number;
-  operation: 'increment' | 'decrement';
+  operation: 'INCREMENT' | 'DECREMENT';
 }
 
 export interface UpdateProductPricePayload {
