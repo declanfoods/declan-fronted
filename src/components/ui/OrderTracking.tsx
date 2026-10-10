@@ -344,7 +344,7 @@ export default function OrderTracking() {
                         <p className="text-base font-semibold capitalize text-ink">
                           {item.itemName}
                         </p>
-                        {item.acceptPaymentOnDelivery && (
+                        {item.acceptPaymentOnDelivery === false && (
                           <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold text-amber-700">
                             Pay before delivery
                           </span>
