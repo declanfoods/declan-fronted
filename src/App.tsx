@@ -83,6 +83,7 @@ import WithdrawalSettings from './components/pages/admin/referral/WithdrawalSett
 import HomeReferralOverview from './components/pages/app/HomeReferralOverview';
 import CreateManualOrder from './components/pages/admin/orders/CreateManualOrder';
 import ProductStockHistory from './components/pages/admin/products/ProductStockHistory';
+import AdminGeneralDiscounts from './components/pages/admin/discounts/AdminGeneralDiscount';
 
 
 
@@ -267,6 +268,15 @@ export default function App() {
             element={
               <AdminProtectedRoute>
                 <AdminStockHistory />
+              </AdminProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/admin/discounts"
+            element={
+              <AdminProtectedRoute>
+                <AdminGeneralDiscounts />
               </AdminProtectedRoute>
             }
           />

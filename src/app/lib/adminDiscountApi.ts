@@ -2,9 +2,7 @@ import api from './axios';
 
 export interface CreateDiscountPayload {
   discountValue: number;
-  discountType: string; // e.g. 'fixed_discount' | 'percentage_discount'
-  isPermanent: boolean;
-  expiryDateInMilliseconds: number;
+  discountType: string;
 }
 
 interface ApiResponse<T> {

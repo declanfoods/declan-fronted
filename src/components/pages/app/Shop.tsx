@@ -11,6 +11,8 @@ import AdminFilterSheet, {
 } from '../../admin/AdminFilterSheet';
 import { productApi, type ApiProduct, type ProductCategory } from '../../../app/lib/productApi';
 import { foodpackApi, type ApiFoodpack } from '../../../app/lib/foodpackApi';
+import { discountApi, type GeneralDiscount } from '../../../app/lib/discountApi';
+import { DiscountBanner } from '../../ui/DiscountBanner';
 
 type ShopTab = 'all' | 'products' | 'food-packs';
 
@@ -47,6 +49,18 @@ export default function Shop() {
   const [filterOpen, setFilterOpen] = useState(false);
   const [filterState, setFilterState] = useState<ProductFilterState>(emptyFilterState);
   const primaryCategory = filterState.categoryIds[0];
+
+
+  const [activeDiscount, setActiveDiscount] = useState<GeneralDiscount | null>(null);
+  const [bannerDismissed, setBannerDismissed] = useState(false);
+
+  useEffect(() => {
+    discountApi
+      .getCurrentDiscount()
+      .then((res) => setActiveDiscount(res.data.data.discount))
+      .catch(() => {});
+  }, []);
+
   // Fetch categories once
   useEffect(() => {
     productApi.getCategories().then((res) => {
@@ -202,6 +216,13 @@ export default function Shop() {
           {filterActiveCount > 0 ? filterActiveCount : ''}
         </button>
       </div>
+
+      {activeDiscount && !bannerDismissed && (
+        <DiscountBanner
+          discount={activeDiscount}
+          onDismiss={() => setBannerDismissed(true)}
+        />
+      )}
 
       {/* Tab switcher */}
       <div className="inline-flex overflow-hidden rounded-full border-2 border-primary bg-white p-1">

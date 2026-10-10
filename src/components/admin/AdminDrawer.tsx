@@ -21,6 +21,7 @@ import {
   FolderTree,
   CreditCard,
   History,
+  Tag,
 } from 'lucide-react';
 import { adminLogout } from '../../app/lib/adminAuth';
 // Same asset the public site uses (see components/ui/Logo.tsx).
@@ -65,16 +66,10 @@ const mainLinks: DrawerLink[] = [
 ];
 
 const opsLinks: DrawerLink[] = [
-  // Payment methods an admin switches on and off at checkout.
+  { label: 'Discounts', to: '/admin/discounts', icon: Tag },
   { label: 'Payments', to: '/admin/payments', icon: CreditCard },
-  // The stock ledger — every change to product stock.
   { label: 'Stock History', to: '/admin/stocks', icon: History },
-  // Referral Dashboard — new blank tab.
   { label: 'Referrals', to: '/admin/referrals', icon: Share2, newTab: true },
-  // FIX: this pointed at '/admin/delivery', which has NO route defined in
-  // App.tsx. Clicking it fell through to the catch-all `path="*"`, so an admin
-  // tapping "Delivery" was dumped on the public marketing homepage.
-  // Delivery operations (assign rider, update status) live under /admin/orders.
   { label: 'Delivery', to: '/admin/orders', icon: Truck },
   { label: 'Rider Management', to: '/admin/riders', icon: Bike },
 ];
