@@ -9,6 +9,10 @@ import { PaymentRequiredBanner } from './PaymentRequiredBanner';
 import { CancelOrderModal } from './CancelOrderModal';
 
 
+const BANK_NAME = "Palmpay";
+const BANK_ACCOUNT = "8923521478";
+const ACCOUNT_NAME = "Declan Foods"
+
 function getTransferCharge(amount: number): number {
   if (amount >= 30_000) return 150;
   if (amount >= 10_000) return 100;
@@ -114,7 +118,7 @@ export default function OrderTracking() {
   const isCancelled   = order.orderStatus === 'CANCELLED';
   const canCancel     = isCancellable(order.orderStatus);
   const needsPayment  = requiresPaymentBeforeDelivery(order);
-  const transferCharge = needsPayment ? getTransferCharge(order.totalPrice) : 0;
+  const transferCharge = needsPayment || order.payment?.paymentMethod.toLowerCase().includes("transfer") ? getTransferCharge(order.totalPrice) : 0;
   const totalWithCharge = order.totalPrice + transferCharge;
 
   const deliveryCode  = order.delivery?.deliveryCode ?? '';
@@ -293,6 +297,19 @@ export default function OrderTracking() {
                   <p className="text-sm font-semibold text-ink">
                     {order.payment.paymentMethod}
                   </p>
+                  <p>
+                    {order.payment.paymentMethodDescription}
+                  </p>
+
+                  {order.payment.paymentMethod.toLowerCase().includes('transfer') && (
+  <div className="mt-3 rounded-2xl bg-primary/10 p-4 text-sm">
+    <p className="font-bold text-ink">Pay into this account:</p>
+    <p className="mt-1 text-ink-soft">Bank: <span className="font-semibold text-ink">{BANK_NAME}</span></p>
+    <p className="text-ink-soft">Acc. No: <span className="font-semibold text-ink">{BANK_ACCOUNT}</span></p>
+    <p className="text-ink-soft">Acc. Name: <span className="font-semibold text-ink">{ACCOUNT_NAME}</span></p>
+  </div>
+)}
+                   
                   <span
                     className={
                       'mt-1 inline-flex rounded-full px-3 py-0.5 text-xs font-semibold ' +
@@ -304,9 +321,7 @@ export default function OrderTracking() {
                     {order.payment.paymentStatus}
                   </span>
                 </div>
-                <p className="text-xl font-extrabold text-ink">
-                  {formatNaira(order.payment.amount)}
-                </p>
+                
               </div>
             </section>
           )}
@@ -374,12 +389,13 @@ export default function OrderTracking() {
                   <span>{formatNaira(order.deliveryPrice)}</span>
                 </div>
               )}
-              {needsPayment && (
+              {needsPayment || order.payment?.paymentMethod.toLowerCase().includes("transfer") && (
                 <div className="flex justify-between text-amber-700">
                   <span>Transfer charge</span>
                   <span>{formatNaira(transferCharge)}</span>
                 </div>
               )}
+
               <div className="flex justify-between border-t border-muted/60 pt-3 text-base font-bold text-ink">
                 <span>Total to pay</span>
                 <span>{formatNaira(totalWithCharge)}</span>

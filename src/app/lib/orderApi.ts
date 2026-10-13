@@ -31,6 +31,7 @@ export interface OrderPayment {
   amount: number;
   paymentStatus: string;
   paymentMethod: string;
+  paymentMethodDescription: string;
 }
 
 export interface Order {
