@@ -257,7 +257,7 @@ export default function Cart() {
                           </span>
                           {pricing.percentOff > 0 && (
                             <span className="rounded-full bg-accent/10 px-2 py-0.5 text-[10px] font-bold text-accent">
-                              {pricing.percentOff}% OFF
+                               {item.discount?.discountType.includes("fixed") ? "#" + pricing.percentOff + " OFF" : pricing.percentOff + "% OFF"}
                             </span>
                           )}
                         </div>
