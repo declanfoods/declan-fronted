@@ -3,7 +3,6 @@ import { useQuery } from '@tanstack/react-query';
 import { productApi, type ApiProduct } from '../lib/productApi';
 import { foodpackApi, type ApiFoodpack } from '../lib/foodpackApi';
 import {
-  getCataloguePrice,
   type EffectivePrice,
 } from '../lib/productPricing';
 import type { CartItem } from '../lib/cartApi';
