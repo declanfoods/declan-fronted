@@ -7,7 +7,7 @@ import { formatNaira } from '../../data/products';
 import { cartApi, type Cart } from '../../../app/lib/cartApi';
 import { useCartCatalogue } from '../../../app/hooks/useCartCatalogue';
 import { paymentApi, type PaymentMethod } from '../../../app/lib/paymentApi';
-import { orderApi, type Order } from '../../../app/lib/orderApi';
+import { orderApi } from '../../../app/lib/orderApi';
 import { addressApi, type DeliveryAddress } from '../../../app/lib/addressApi';
 import { guestCart } from '../../../app/lib/guestCart';
 import { guestOrderApi } from '../../../app/lib/guestOrderApi';
