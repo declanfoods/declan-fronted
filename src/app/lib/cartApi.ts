@@ -1,5 +1,15 @@
 import api from './axios';
 
+interface Discount {
+  id: string;
+  discountPrice: number;
+  discountValue: number;
+  isPermanent: boolean;
+  discountType: string;
+  isExpired: boolean;
+  originalPrice: string | boolean;  
+}
+
 export interface CartItem {
   id: string;
   itemName: string;
@@ -10,6 +20,7 @@ export interface CartItem {
   itemUrls: string[];
   itemPrice: string;
   quantity: number;
+  discount?: Discount | null;
 }
 
 export interface Cart {

@@ -47,17 +47,19 @@
 
 /** The `discount` object as it arrives on a product. Every field is optional. */
 export interface DiscountLike {
-  discountValue?: number | null;
-  discountType?: string | null;
-  isExpired?: boolean | null;
-  originalPrice?: string | number | null;
-  discountPrice?: string | number | null;
+  id: string;
+  discountPrice: number;
+  discountValue: number;
+  isPermanent: boolean;
+  discountType: string;
+  isExpired: boolean;
+  originalPrice: string | boolean;  
 }
 
 /** Anything priceable: `ApiProduct`, `AdminProduct`, a foodpack, whatever. */
 export interface PriceShape {
   price: string | number;
-  discount?: DiscountLike | null;
+  discount: DiscountLike | null;
 }
 
 export interface EffectivePrice {

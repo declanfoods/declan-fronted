@@ -5,6 +5,16 @@ export interface ProductCategory {
   name: string;
 }
 
+export interface ProductDiscount {
+  id: string;
+  discountPrice: number;
+  discountValue: number;
+  isPermanent: boolean;
+  discountType: string;
+  isExpired: boolean;
+  originalPrice: string | boolean;  
+}
+
 export interface ApiProduct {
   id: string;
   name: string;
@@ -16,7 +26,7 @@ export interface ApiProduct {
   acceptPaymentOnDelivery: boolean;
   imageUrls: string[];
   category: ProductCategory;
-  discount: null | Record<string, any>;
+  discount: ProductDiscount | null;
   // only on single product — may not exist on list
   rating?: number;
   reviewCount?: number;

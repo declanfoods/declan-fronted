@@ -7,12 +7,13 @@ import { formatNaira } from '../../data/products';
 import { cartApi, type Cart } from '../../../app/lib/cartApi';
 import { useCartCatalogue } from '../../../app/hooks/useCartCatalogue';
 import { paymentApi, type PaymentMethod } from '../../../app/lib/paymentApi';
-import { orderApi } from '../../../app/lib/orderApi';
+import { orderApi, type Order } from '../../../app/lib/orderApi';
 import { addressApi, type DeliveryAddress } from '../../../app/lib/addressApi';
 import { guestCart } from '../../../app/lib/guestCart';
 import { guestOrderApi } from '../../../app/lib/guestOrderApi';
 import { isAuthenticated } from '../../../app/lib/auth';
 import { useToast } from '../../ui/Toast';
+import { GuestVerifyStep } from '../../ui/GuestVerifiyStep';
 
 // ─── Delivery fee logic ───────────────────────────────────────────────────────
 const DELIVERY_FEE        = 400;
@@ -28,6 +29,7 @@ function getTransferCharge(amount: number): number {
   return 50;
 }
 // ─────────────────────────────────────────────────────────────────────────────
+
 
 export default function Checkout() {
   const { resolveLine } = useCartCatalogue();
@@ -54,6 +56,7 @@ export default function Checkout() {
   const [guestState, setGuestState] = useState('');
   const [guestLandmark, setGuestLandmark] = useState('');
 
+
   // Guest verification step
   const [placedOrderNumber, setPlacedOrderNumber] = useState<string>('');
   const [verifyCode, setVerifyCode] = useState('');
@@ -61,6 +64,9 @@ export default function Checkout() {
   const [verifyError, setVerifyError] = useState('');
   const [verified, setVerified] = useState(false);
 
+
+
+  
   useEffect(() => {
     const fetchData = async () => {
       try {
@@ -227,32 +233,15 @@ export default function Checkout() {
             </button>
           </>
         ) : (
-          <>
-            <p className="text-xl font-bold text-ink">Verify Your Order</p>
-            <p className="max-w-sm text-sm text-ink-soft">
-              We sent a verification code to{' '}
-              <span className="font-semibold">{guestEmail}</span> for order{' '}
-              <span className="font-semibold text-ink">{placedOrderNumber}</span>. Enter it below
-              to confirm.
-            </p>
-            <input
-              value={verifyCode}
-              onChange={(e) => setVerifyCode(e.target.value)}
-              placeholder="Verification code"
-              className="w-full max-w-xs rounded-full border-2 border-primary px-5 py-3 text-center text-sm outline-none"
-            />
-            {verifyError && (
-              <p className="text-sm font-medium text-red-600">{verifyError}</p>
-            )}
-            <button
-              type="button"
-              disabled={verifying}
-              onClick={handleVerifyOrder}
-              className="w-full max-w-xs rounded-full bg-primary py-3 text-sm font-semibold text-white disabled:opacity-60"
-            >
-              {verifying ? 'Verifying...' : 'Verify Order'}
-            </button>
-          </>
+          <GuestVerifyStep
+            orderNumber={placedOrderNumber}
+            email={guestEmail}
+            verifyCode={verifyCode}
+            setVerifyCode={setVerifyCode}
+            verifying={verifying}
+            verifyError={verifyError}
+            onVerify={handleVerifyOrder}
+          />
         )}
       </div>
     );
@@ -283,12 +272,20 @@ export default function Checkout() {
   // ─── Totals ────────────────────────────────────────────────────────────────
   const subtotal     = Number(cart.subTotal);
   const deliveryFee  = getDeliveryFee(subtotal);
-  const orderTotal   = subtotal + deliveryFee;
   const freeDelivery = deliveryFee === 0;
 
   const hasPayBeforeDelivery = cart.cartItems.some((i) => i.acceptPaymentOnDelivery === false);
-  const transferCharge = hasPayBeforeDelivery ? getTransferCharge(subtotal) : 0;
+  const isTransferMethod     = (paymentMethods.find((m) => m.id === selectedPayment)
+                                ?.title?.toLowerCase().includes('transfer') || 
+                              paymentMethods.find((m) => m.id === selectedPayment)
+                                ?.description?.toLowerCase().includes('bank charges')
+                              ) ?? false;
 
+  const transferCharge = (hasPayBeforeDelivery || isTransferMethod)
+    ? getTransferCharge(subtotal)
+    : 0;
+
+  const orderTotal = subtotal + deliveryFee + transferCharge;
   // ──────────────────────────────────────────────────────────────────────────
 
   return (
@@ -577,7 +574,14 @@ export default function Checkout() {
                 )}
               </div>
 
-              {hasPayBeforeDelivery && (
+              {/* {transferCharge > 0 && (
+              <div className="flex items-center justify-between">
+                <span className="text-ink-soft">Transfer charge</span>
+                <span className="font-medium text-amber-700">{formatNaira(transferCharge)}</span>
+              </div>
+            )} */}
+
+              {(hasPayBeforeDelivery || transferCharge > 0) && (
                 <div className="flex items-center justify-between">
                   <span className="text-ink-soft">Transfer charge</span>
                   <span className="font-medium text-amber-700">{formatNaira(transferCharge)}</span>

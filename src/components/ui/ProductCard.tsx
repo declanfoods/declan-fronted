@@ -41,6 +41,7 @@ export default function ProductCard({ product, onCartUpdate }: ProductCardProps)
           itemType:         'PRODUCT',
           itemUrls:         product.imageUrls ?? [],
           itemPrice:        String(pricing.price),
+          discount:         product.discount
         });
       }
       setAdded(true);

@@ -26,7 +26,7 @@ export default function Cart() {
   const [error, setError] = useState('');
   const [updatingItems, setUpdatingItems] = useState<Set<string>>(new Set());
   const [clearing, setClearing] = useState(false);
-
+  
   const fetchCart = async () => {
     if (!isAuthenticated()) {
       setCart(guestCart.toCart());
@@ -209,6 +209,7 @@ export default function Cart() {
                 const itemTotal = Number(item.itemPrice) * item.quantity;
                 const isUpdating = updatingItems.has(item.id);
                 const pricing   = resolveLine(item);
+                
 
                 return (
                   <div

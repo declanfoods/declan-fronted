@@ -37,6 +37,11 @@ export interface TrackGuestOrderPayload {
   email: string;
 }
 
+export interface RequestOrderVerificationMail {
+  orderNumber: string;
+  email: string;
+}
+
 interface ApiResponse<T> {
   success: boolean;
   message: string;
@@ -49,6 +54,11 @@ export const guestOrderApi = {
   createGuestOrder: (data: CreateGuestOrderPayload) =>
     api.post<ApiResponse<{ order : {orderNumber: string; [key: string]: unknown} }>>(
       '/api/v1/orders/guest',
+      data
+    ),
+    
+    resendVerification: (data: RequestOrderVerificationMail) => api.post<ApiResponse<{}>>(
+      '/api/v1/orders/guest/resend-verification',
       data
     ),
 

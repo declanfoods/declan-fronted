@@ -31,6 +31,7 @@ export const guestCart = {
   /** id should be the product/foodpack id — used as the local cart-item id too. */
   addItem: (item: Omit<CartItem, 'quantity'>, qty = 1) => {
     const items = read();
+    console.log(item)
     const existing = items.find((i) => i.id === item.id);
     if (existing) {
       existing.quantity += qty;
@@ -38,6 +39,7 @@ export const guestCart = {
       items.push({ ...item, quantity: qty });
     }
     write(items);
+    // console.log(items)
   },
 
   setQty: (itemId: string, quantity: number) => {
