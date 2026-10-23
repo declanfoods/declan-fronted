@@ -5,6 +5,7 @@ import { cartApi } from '../../app/lib/cartApi';
 import { guestCart } from '../../app/lib/guestCart';
 import { isAuthenticated } from '../../app/lib/auth';
 import { formatNaira } from '../data/products';
+import { useNavigate } from 'react-router';
 
 interface FoodPackCardProps {
   pack: ApiFoodpack;
@@ -14,6 +15,7 @@ interface FoodPackCardProps {
 export default function FoodPackCard({ pack, onCartUpdate }: FoodPackCardProps) {
   const [adding, setAdding] = useState(false);
   const [added, setAdded] = useState(false);
+  const navigate = useNavigate();
 
   const imageUrl = pack.imageUrls?.[0] ?? '';
   const price = Number(pack.price);
@@ -47,7 +49,10 @@ export default function FoodPackCard({ pack, onCartUpdate }: FoodPackCardProps) 
   };
 
   return (
-    <div className="overflow-hidden rounded-2xl border border-muted bg-white shadow-sm">
+    <div 
+      className="overflow-hidden rounded-2xl border border-muted bg-white shadow-sm"
+      onClick={() => navigate("/app/shop/foodpacks/" + pack.id)}
+      >
       {imageUrl ? (
         <img src={imageUrl} alt={pack.name} className="h-32 w-full object-cover" />
       ) : (

@@ -55,4 +55,9 @@ export const foodpackApi = {
       '/api/v1/foodpacks',
       { params: filters }
     ),
+
+    getFoodpackById: (id: string) => 
+      api.get<ApiResponse<{foodpack: ApiFoodpack}>>(
+        "/api/v1/foodpacks/" + id
+      )
 };

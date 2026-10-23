@@ -84,6 +84,7 @@ import HomeReferralOverview from './components/pages/app/HomeReferralOverview';
 import CreateManualOrder from './components/pages/admin/orders/CreateManualOrder';
 import ProductStockHistory from './components/pages/admin/products/ProductStockHistory';
 import AdminGeneralDiscounts from './components/pages/admin/discounts/AdminGeneralDiscount';
+import CustomerFoodPackDetailPage from './components/pages/app/referral/CustomerFoodpackDetailPage';
 
 
 
@@ -110,6 +111,7 @@ export default function App() {
           <Route path="/app/referrals/overview" element={<HomeReferralOverview />}/>
           <Route path="/app/shop" element={<Shop />} />
           <Route path="/app/shop/:id" element={<ProductDetails />} />
+          <Route path="/app/shop/foodpacks/:foodpackId" element={< CustomerFoodPackDetailPage />}/>
           <Route path="/app/cart" element={<AppCart />} />
           <Route path="/app/profile" element={<Profile />} />
           {/* FIX: this path had a leading space — " /app/orders/:orderId" —
