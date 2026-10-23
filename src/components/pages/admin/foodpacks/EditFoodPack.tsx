@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, MoreVertical, Trash2, Plus, Search } from 'lucide-react';
+import { ArrowLeft, MoreVertical, Trash2, Plus, Search, Minus } from 'lucide-react';
 import {
   adminFoodPackApi,
   type AdminFoodPackDetail,
+  type FoodPackDetailItem,
 } from '../../../../app/lib/adminFoodPackApi';
 import { adminProductApi, type AdminProduct } from '../../../../app/lib/adminProductApi';
 import AdminImageUpload from '../../../admin/AdminImageUpload';
@@ -27,6 +28,9 @@ export default function EditFoodPack() {
   const [searching, setSearching] = useState(false);
   const [itemBusyId, setItemBusyId] = useState<string | null>(null);
 
+  // Optimistic local quantities — keyed by item id
+  const [localQuantities, setLocalQuantities] = useState<Record<string, number>>({});
+
   const fetchPack = async () => {
     if (!id) return;
     setLoading(true);
@@ -38,6 +42,10 @@ export default function EditFoodPack() {
       setImageUrl(p.imageUrls?.[0] ?? '');
       setSellingPrice(p.price);
       setVisible(!p.isHidden);
+      // Seed local quantities from fetched items
+      const qty: Record<string, number> = {};
+      p.items.forEach((item) => { qty[item.id] = item.quantity; });
+      setLocalQuantities(qty);
     } catch (err: any) {
       setError(err.response?.data?.message ?? 'Failed to load food pack.');
     } finally {
@@ -94,6 +102,49 @@ export default function EditFoodPack() {
       fetchPack();
     } catch (err: any) {
       setError(err.response?.data?.message ?? 'Failed to remove item.');
+    } finally {
+      setItemBusyId(null);
+    }
+  };
+
+  const handleQuantityChange = async (
+    item: FoodPackDetailItem,
+    operation: 'increment' | 'decrement'
+  ) => {
+    if (!id) return;
+
+    const current = localQuantities[item.id] ?? item.quantity;
+    if (operation === 'decrement' && current <= 1) return; // floor at 1
+
+    // Optimistic update so the UI feels instant
+    setLocalQuantities((prev) => ({
+      ...prev,
+      [item.id]: operation === 'increment' ? current + 1 : current - 1,
+    }));
+    setItemBusyId(item.id);
+    setError('');
+
+    try {
+      await adminFoodPackApi.updateItemQuantity(id, item.id, {
+        operation,
+        quantity: 1,
+      });
+      // Silently refresh to keep server state in sync (no loader flash)
+      adminFoodPackApi.getFoodPackById(id).then((res) => {
+        const updated = res.data.data.foodpack;
+        setPack(updated);
+        setSellingPrice(updated.price);
+        const qty: Record<string, number> = {};
+        updated.items.forEach((i) => { qty[i.id] = i.quantity; });
+        setLocalQuantities(qty);
+      });
+    } catch (err: any) {
+      // Roll back optimistic update on failure
+      setLocalQuantities((prev) => ({
+        ...prev,
+        [item.id]: current,
+      }));
+      setError(err.response?.data?.message ?? 'Failed to update quantity.');
     } finally {
       setItemBusyId(null);
     }
@@ -197,11 +248,13 @@ export default function EditFoodPack() {
           />
         </div>
 
+        {/* ── Included Products ── */}
         <div>
           <div className="mb-2 flex items-center justify-between">
             <p className="text-sm font-semibold text-gray-700">Included Products</p>
           </div>
 
+          {/* Search */}
           <div className="relative mb-3">
             <div className="flex items-center gap-2 rounded-full bg-gray-100 px-4 py-2.5">
               <Search size={16} className="text-gray-400" />
@@ -246,36 +299,77 @@ export default function EditFoodPack() {
             )}
           </div>
 
+          {/* Item list */}
           <div className="space-y-2">
-            {pack.items.map((p) => (
-              <div
-                key={p.id}
-                className="flex items-center gap-3 rounded-xl border border-gray-100 p-3"
-              >
-                {p.imageUrls?.[0] && (
-                  <img src={p.imageUrls[0]} alt={p.name} className="h-10 w-10 rounded-lg object-cover" />
-                )}
-                <div className="flex-1">
-                  <p className="text-sm font-semibold text-gray-800">{p.name}</p>
-                  <p className="text-xs text-gray-400">Quantity: {p.quantity}</p>
-                </div>
-                <button
-                  type="button"
-                  disabled={itemBusyId === p.id}
-                  onClick={() => handleRemoveItem(p.id)}
-                  aria-label={`Remove ${p.name}`}
-                  className="text-red-500 disabled:opacity-40"
+            {pack.items.map((item) => {
+              const qty = localQuantities[item.id] ?? item.quantity;
+              const busy = itemBusyId === item.id;
+
+              return (
+                <div
+                  key={item.id}
+                  className="flex items-center gap-3 rounded-xl border border-gray-100 p-3"
                 >
-                  <Trash2 size={18} />
-                </button>
-              </div>
-            ))}
+                  {item.imageUrls?.[0] && (
+                    <img
+                      src={item.imageUrls[0]}
+                      alt={item.name}
+                      className="h-10 w-10 flex-shrink-0 rounded-lg object-cover"
+                    />
+                  )}
+
+                  <div className="flex-1 min-w-0">
+                    <p className="truncate text-sm font-semibold text-gray-800">{item.name}</p>
+
+                    {/* Quantity stepper */}
+                    <div className="mt-1.5 flex items-center gap-2">
+                      <button
+                        type="button"
+                        disabled={busy || qty <= 1}
+                        onClick={() => handleQuantityChange(item, 'decrement')}
+                        className="flex h-6 w-6 items-center justify-center rounded-full border border-gray-200 text-gray-500 transition-colors hover:border-primary hover:text-primary disabled:opacity-30"
+                      >
+                        <Minus size={12} />
+                      </button>
+
+                      <span className="min-w-[1.5rem] text-center text-sm font-bold text-gray-800">
+                        {busy ? (
+                          <span className="inline-block h-3.5 w-3.5 animate-spin rounded-full border-2 border-primary border-t-transparent align-middle" />
+                        ) : (
+                          qty
+                        )}
+                      </span>
+
+                      <button
+                        type="button"
+                        disabled={busy}
+                        onClick={() => handleQuantityChange(item, 'increment')}
+                        className="flex h-6 w-6 items-center justify-center rounded-full border border-gray-200 text-gray-500 transition-colors hover:border-primary hover:text-primary disabled:opacity-30"
+                      >
+                        <Plus size={12} />
+                      </button>
+                    </div>
+                  </div>
+
+                  <button
+                    type="button"
+                    disabled={busy}
+                    onClick={() => handleRemoveItem(item.id)}
+                    aria-label={`Remove ${item.name}`}
+                    className="flex-shrink-0 text-red-400 transition-colors hover:text-red-600 disabled:opacity-40"
+                  >
+                    <Trash2 size={18} />
+                  </button>
+                </div>
+              );
+            })}
             {pack.items.length === 0 && (
               <p className="text-sm text-gray-400">No products in this pack yet.</p>
             )}
           </div>
         </div>
 
+        {/* ── Price configuration ── */}
         <div className="rounded-2xl border border-gray-100 p-4">
           <p className="mb-3 text-xs font-semibold tracking-wide text-gray-400">
             PRICE CONFIGURATION
