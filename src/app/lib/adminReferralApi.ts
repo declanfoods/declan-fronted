@@ -103,7 +103,7 @@ export interface AdminReferralFilters {
   page?: number;
   limit?: number;
   sortOrder?: "ASC" | "DESC";
-  sortBy: "networkSize" | "name" | "date" | "commissions"
+  sortBy?: "networkSize" | "name" | "date" | "commissions"
 }
 
 /*
