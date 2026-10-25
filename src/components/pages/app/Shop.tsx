@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { Search, SlidersHorizontal } from 'lucide-react';
+import { Search, SlidersHorizontal, ChevronLeft, ChevronRight } from 'lucide-react';
 import AppLayout from '../../app/AppLayout';
 import ProductCard from '../../ui/ProductCard';
 import FoodPackCard from '../../ui/FoodPackCard';
@@ -42,14 +42,12 @@ export default function Shop() {
   const [foodpacksLoading, setFoodpacksLoading] = useState(false);
 
   const [categories, setCategories] = useState<ProductCategory[]>([]);
-  
 
   const [initialLoading, setInitialLoading] = useState(true);
   const [error, setError] = useState('');
   const [filterOpen, setFilterOpen] = useState(false);
   const [filterState, setFilterState] = useState<ProductFilterState>(emptyFilterState);
   const primaryCategory = filterState.categoryIds[0];
-
 
   const [activeDiscount, setActiveDiscount] = useState<GeneralDiscount | null>(null);
   const [bannerDismissed, setBannerDismissed] = useState(false);
@@ -61,14 +59,12 @@ export default function Shop() {
       .catch(() => {});
   }, []);
 
-  // Fetch categories once
   useEffect(() => {
     productApi.getCategories().then((res) => {
       setCategories(res.data.data.productCategories);
     }).catch(() => {});
   }, []);
 
-  // Fetch products
   useEffect(() => {
     if (active === 'food-packs') return;
     setProductsLoading(true);
@@ -92,7 +88,6 @@ export default function Shop() {
       });
   }, [productPage, query, primaryCategory, active]);
 
-  // Fetch foodpacks
   useEffect(() => {
     if (active === 'products') return;
     setFoodpacksLoading(true);
@@ -113,7 +108,6 @@ export default function Shop() {
       });
   }, [foodpackPage, query, active]);
 
-  // Debounced search
   useEffect(() => {
     const timeout = setTimeout(() => {
       setProductPage(1);
@@ -136,7 +130,9 @@ export default function Shop() {
   const isLoading = productsLoading || foodpacksLoading;
 
   const filterActiveCount =
-    filterState.categoryIds.length + filterState.priceRanges.length + filterState.availability.length;
+    filterState.categoryIds.length +
+    filterState.priceRanges.length +
+    filterState.availability.length;
 
   const applyPriceAndAvailability = <T extends { price: string | number; quantity?: number }>(
     list: T[]
@@ -167,10 +163,8 @@ export default function Shop() {
 
   const visibleFoodpacks = applyPriceAndAvailability(foodpacks);
 
-  const totalPages =
-    active === 'food-packs' ? foodpackTotalPages : productTotalPages;
-  const currentPage =
-    active === 'food-packs' ? foodpackPage : productPage;
+  const totalPages = active === 'food-packs' ? foodpackTotalPages : productTotalPages;
+  const currentPage = active === 'food-packs' ? foodpackPage : productPage;
 
   const handlePageChange = (page: number) => {
     if (active === 'food-packs') {
@@ -242,8 +236,6 @@ export default function Shop() {
         ))}
       </div>
 
-      
-
       {error && (
         <p className="mt-4 rounded-xl bg-red-50 px-4 py-3 text-sm font-medium text-red-600">
           {error}
@@ -275,9 +267,7 @@ export default function Shop() {
         visibleProducts.length === 0 &&
         visibleFoodpacks.length === 0 && (
           <div className="mt-12 text-center">
-            <p className="text-lg font-semibold text-ink-soft">
-              No products found
-            </p>
+            <p className="text-lg font-semibold text-ink-soft">No products found</p>
             {query && (
               <button
                 onClick={() => setQuery('')}
@@ -289,27 +279,32 @@ export default function Shop() {
           </div>
         )}
 
-      {/* Pagination */}
+      {/* Pagination — prev / page X of Y / next */}
       {!isLoading && totalPages > 1 && (
-        <div className="mt-8 flex items-center justify-center gap-3">
-          {Array.from({ length: totalPages }).map((_, i) => {
-            const pageNum = i + 1;
-            return (
-              <button
-                key={pageNum}
-                onClick={() => handlePageChange(pageNum)}
-                aria-label={`Page ${pageNum}`}
-                className={
-                  'flex h-8 w-8 items-center justify-center rounded-full border-2 text-sm font-bold transition-colors ' +
-                  (currentPage === pageNum
-                    ? 'border-primary bg-primary text-white'
-                    : 'border-primary bg-white text-primary hover:bg-primary/5')
-                }
-              >
-                {pageNum}
-              </button>
-            );
-          })}
+        <div className="mt-8 flex items-center justify-center gap-4">
+          <button
+            type="button"
+            onClick={() => handlePageChange(currentPage - 1)}
+            disabled={currentPage <= 1}
+            className="flex h-9 w-9 items-center justify-center rounded-full border-2 border-primary text-primary transition-colors hover:bg-primary/5 disabled:border-muted disabled:text-muted disabled:cursor-not-allowed"
+            aria-label="Previous page"
+          >
+            <ChevronLeft size={18} />
+          </button>
+
+          <span className="text-sm font-semibold text-ink">
+            {currentPage} / {totalPages}
+          </span>
+
+          <button
+            type="button"
+            onClick={() => handlePageChange(currentPage + 1)}
+            disabled={currentPage >= totalPages}
+            className="flex h-9 w-9 items-center justify-center rounded-full border-2 border-primary text-primary transition-colors hover:bg-primary/5 disabled:border-muted disabled:text-muted disabled:cursor-not-allowed"
+            aria-label="Next page"
+          >
+            <ChevronRight size={18} />
+          </button>
         </div>
       )}
 
