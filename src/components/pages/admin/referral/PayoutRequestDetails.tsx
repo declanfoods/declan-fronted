@@ -140,7 +140,7 @@ export default function PayoutRequestDetails() {
   };
 
   const detail = detailQuery.data;
-  const isPending = detail?.requestStatus === 'PENDING';
+  const isPending = detail?.status === 'PENDING';
   const busy = approve.isPending || reject.isPending;
 
   // ── Loading ───────────────────────────────────────────────────────────
@@ -190,7 +190,7 @@ export default function PayoutRequestDetails() {
   }
 
   const account = detail.accountDetails;
-  const tone = STATUS_TONE[detail.requestStatus] ?? 'bg-gray-100 text-gray-500';
+  const tone = STATUS_TONE[detail.status] ?? 'bg-gray-100 text-gray-500';
   const wallet = detail.wallet;
   const walletBalance = Number(wallet?.referralWalletBalance ?? 0);
   const cashbackBalance = Number(wallet?.cashbackWalletBalance ?? 0);
@@ -310,7 +310,7 @@ export default function PayoutRequestDetails() {
               </p>
             </div>
             <span className={`rounded-full px-3 py-1 text-[10px] font-bold ${tone}`}>
-              {titleCase(detail.requestStatus)}
+              {titleCase(detail.status)}
             </span>
           </div>
 
@@ -586,7 +586,7 @@ export default function PayoutRequestDetails() {
               Back to Queue
             </button>
             <p className="mt-2 text-center text-xs text-gray-400">
-              This request is {titleCase(detail.requestStatus).toLowerCase()} — no further
+              This request is {titleCase(detail.status).toLowerCase()} — no further
               action needed.
             </p>
           </div>

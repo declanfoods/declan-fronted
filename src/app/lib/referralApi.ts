@@ -201,7 +201,7 @@ export interface ReferralDownline {
 */
 
 export type PayoutVerificationStatus = 'UNVERIFIED' | 'VERIFIED';
-export type PayoutRequestStatus = 'PENDING' | 'CANCELLED' | 'APPROVED' | 'REJECTED';
+export type PayoutRequestStatus = 'PENDING' | 'CANCELLED' | 'SUCCESSFUL' | 'REJECTED';
 
 /** Bank block. The API returns this under two different key names. */
 export interface PayoutBankDetails {

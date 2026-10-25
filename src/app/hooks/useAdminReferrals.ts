@@ -58,6 +58,16 @@ export function useAdminReferrals(filters?: AdminReferralFilters) {
   });
 }
 
+
+export const useAdminReferralMetrics = () => {
+  return useQuery({
+    queryKey: ['admin', 'referrals', 'metrics'],
+    queryFn: () =>
+      adminReferralApi.getReferralsMetrics().then((res) => res.data.data),
+  });
+};
+
+
 export function useUserReferralMetrics(userId?: string) {
   return useQuery<AdminUserReferralSummary, Error>({
     queryKey: queryKeys.adminUserReferralMetrics(userId ?? ''),
@@ -216,7 +226,7 @@ export function useAdminPayoutRequests(filters?: PayoutRequestFilters) {
       } catch (error) {
         const status = (error as { response?: { status?: number } })?.response?.status;
         const sentParams = Boolean(
-          filters && (filters.page || filters.limit || filters.requestStatus)
+          filters && (filters.page || filters.limit || filters.status)
         );
 
         if (sentParams && (status === 400 || status === 422)) {

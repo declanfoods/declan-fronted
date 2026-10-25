@@ -12,7 +12,8 @@ import {
   Loader2,
   Package,
   ShoppingBasket,
-  
+  AlertCircle,
+  ChevronRight,
 } from 'lucide-react';
 import AdminBottomNav from '../../admin/AdminBottomNav';
 import AdminDrawer from '../../admin/AdminDrawer';
@@ -20,56 +21,13 @@ import Logo from '../../ui/Logo';
 import { formatNaira } from '../../data/products';
 import { getApiErrorMessage } from '../../../app/lib/api-types';
 import { adminDashboardApi } from '../../../app/lib/adminDashboardApi';
+import { adminReferralApi } from '../../../app/lib/adminReferralApi';
 import type {
   AdminDashboardOverview,
   DashboardTopItem,
 } from '../../../app/lib/adminDashboardApi';
 import { queryKeys } from '../../../app/lib/query-client';
 
-/*
-|==========================================================================
-| ADMIN → DASHBOARD   /admin
-|==========================================================================
-|
-| THIS PAGE WAS ENTIRELY HARDCODED. Every card on it was a literal in this
-| file — "Revenue increased by 18% compared to yesterday's mid-day average",
-| "Order volumes peak between 12 PM and 3 PM daily", three invented low-stock
-| rows, two invented top products, one invented top food pack, and a "Recent
-| Activity" list of events that never happened.
-|
-| It now runs on GET /api/v1/admin/dashboard/overview, which returns exactly
-| five things:
-|
-|   revenueInsight  { todayRevenue, yesterdaySameTimeRevenue,
-|                     changePercentage|null, direction }
-|   peakHours       { peakStartHour, peakEndHour, description }
-|   lowStockAlerts  [ { productId, productName, quantityLeft } ]
-|   topProducts     [ { itemId, name, imageUrls[], totalSold, totalRevenue } ]
-|   topFoodPacks    [ same shape ]
-|
-| ── WHAT WAS DELETED, AND WHY ────────────────────────────────────────────
-| "Recent Activity" is GONE. The endpoint has no activity feed and no other
-| endpoint supplies one, so those three rows could only ever have been
-| invented. Leaving a fake feed on a page where every other number is now
-| real is worse than leaving a gap — an admin would have no way to tell which
-| half of the screen to trust. The section comes back the day there is an
-| endpoint behind it.
-|
-| ── TWO PAYLOAD DETAILS HANDLED HERE ─────────────────────────────────────
-| 1. `changePercentage` IS NULL when yesterday has no comparable figure, and
-|    `direction` is the string 'up' | 'down' | 'neutral'. Null is "no
-|    comparison available", not "no change", so the card says exactly that
-|    instead of printing 0%. The arrow follows `direction` — 'neutral' gets a
-|    dash, not an up arrow.
-| 2. `imageUrls` is an ARRAY and can be empty or hold duplicates (the saved
-|    foodpack sample repeats the same URL twice). The thumbnail takes the
-|    first entry and falls back to an icon when there is none.
-|
-| `todayRevenue`, `totalRevenue` and `totalSold` are plain numbers here, not
-| the money strings used elsewhere in this API.
-*/
-
-/** One leaderboard row — products and food packs share the shape. */
 function TopItemRow({
   item,
   isProduct,
@@ -77,10 +35,6 @@ function TopItemRow({
   item: DashboardTopItem;
   isProduct: boolean;
 }) {
-  /*
-    First image only. The array can be empty, and the saved samples show it
-    repeating the same URL, so index 0 with a fallback is the whole job.
-  */
   const thumb = item.imageUrls?.[0];
 
   return (
@@ -126,6 +80,25 @@ export default function AdminDashboard() {
     },
   });
 
+  // Lightweight check — page 1, limit 1, status PENDING.
+  // We only care whether at least one result comes back.
+  const pendingPayoutsQuery = useQuery({
+    queryKey: ['admin', 'referrals', 'payouts', 'pending-check'],
+    queryFn: async () => {
+      const res = await adminReferralApi.getPayoutRequests({
+        status: 'PENDING',
+        page: 1,
+        limit: 1,
+      });
+      return res.data.data;
+    },
+    // Don't let a failed payout check affect the rest of the dashboard
+    retry: false,
+  });
+
+  const hasPendingPayouts =
+    (pendingPayoutsQuery.data?.payoutRequests?.length ?? 0) > 0;
+
   const data = overviewQuery.data;
   const revenue = data?.revenueInsight;
   const peak = data?.peakHours;
@@ -133,13 +106,14 @@ export default function AdminDashboard() {
   const topProducts = data?.topProducts ?? [];
   const topFoodPacks = data?.topFoodPacks ?? [];
 
-  /*
-    'up' | 'down' | 'neutral' drives the icon. Anything unexpected is treated
-    as neutral rather than guessed at.
-  */
   const direction = revenue?.direction ?? 'neutral';
   const RevenueIcon =
     direction === 'up' ? TrendingUp : direction === 'down' ? TrendingDown : Minus;
+
+  const handleRefresh = () => {
+    overviewQuery.refetch();
+    pendingPayoutsQuery.refetch();
+  };
 
   return (
     <div className="flex min-h-screen flex-col bg-[#F3F7EE]">
@@ -148,7 +122,7 @@ export default function AdminDashboard() {
         <div className="flex items-center gap-2">
           <button
             type="button"
-            onClick={() => overviewQuery.refetch()}
+            onClick={handleRefresh}
             disabled={overviewQuery.isFetching}
             aria-label="Refresh"
             className="flex h-10 w-10 items-center justify-center rounded-full bg-white text-primary shadow-sm disabled:opacity-50"
@@ -170,6 +144,34 @@ export default function AdminDashboard() {
       </header>
 
       <main className="flex-1 space-y-4 px-5 pb-24 pt-6">
+
+        {/* ─── Action Required ─── */}
+        {hasPendingPayouts && (
+          <section>
+            <p className="mb-1.5 text-xs font-semibold tracking-wide text-gray-400">
+              ACTION REQUIRED
+            </p>
+            <button
+              type="button"
+              onClick={() => navigate('/admin/referrals/queue')}
+              className="flex w-full items-center gap-3 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-left"
+            >
+              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-amber-100 text-amber-600">
+                <AlertCircle size={16} strokeWidth={2} />
+              </span>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-semibold text-amber-800">
+                  Payout requests awaiting approval
+                </p>
+                <p className="text-xs text-amber-600">
+                  Review and action pending withdrawal requests
+                </p>
+              </div>
+              <ChevronRight size={16} className="shrink-0 text-amber-400" />
+            </button>
+          </section>
+        )}
+
         {/* ─── Loading ─── */}
         {overviewQuery.isLoading && (
           <div className="flex flex-col items-center gap-3 py-16">
@@ -215,10 +217,6 @@ export default function AdminDashboard() {
                 <p className="mt-1 text-sm text-white/90">
                   {revenue.changePercentage === null ||
                   revenue.changePercentage === undefined ? (
-                    /*
-                      No comparable figure for yesterday — say that, rather
-                      than showing "0%" which reads as "flat".
-                    */
                     <>
                       Today so far. No comparison available for the same time
                       yesterday.
@@ -248,7 +246,6 @@ export default function AdminDashboard() {
                   <Clock size={16} strokeWidth={2} />
                   Peak Hours
                 </div>
-                {/* Server-written sentence — shown as-is, not re-worded. */}
                 <p className="mt-1 text-sm text-white/80">{peak.description}</p>
               </div>
             )}
@@ -336,15 +333,6 @@ export default function AdminDashboard() {
                 </div>
               )}
             </section>
-
-            {/*
-              "Recent Activity" USED TO BE HERE.
-              It was three hardcoded rows — "New customer registered, 2hr
-              ago", "Referral payout approved, 15m ago", "Order #DF-899
-              delivered, 1hr ago" — and there is no endpoint behind any of
-              them. DELETE this comment when an activity feed ships.
-            */}
-          
           </>
         )}
       </main>

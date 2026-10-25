@@ -18,7 +18,7 @@ export interface AdminPayoutRequest {
   accountDetails: PayoutBankDetails;
   /** String on reads ("2000.00") — run it through Number(). */
   amount: string | number;
-  requestStatus: PayoutRequestStatus;
+  status: PayoutRequestStatus;
   createdAt: string;
   /** Only present on the customer-side endpoints. */
   verificationStatus?: PayoutVerificationStatus;
@@ -44,7 +44,7 @@ export interface AdminPayoutRequestDetail extends AdminPayoutRequest {
 export interface PayoutRequestFilters {
   page?: number;
   limit?: number;
-  requestStatus?: PayoutRequestStatus;
+  status?: PayoutRequestStatus;
 }
 
 
@@ -86,13 +86,6 @@ export interface UserReferralMetricItem {
   totalNetwork: number;
 }
 
-/*
-|--------------------------------------------------------------------------
-| Get Referrals (list, filterable by level) — GET /admin/referrals
-|--------------------------------------------------------------------------
-| Quirk: commissions is sometimes a numeric string ("0.00") and sometimes
-| a bare number (0) depending on the record — kept as the union it is.
-*/
 
 export interface AdminReferralListItem {
   id: string;
@@ -109,6 +102,8 @@ export interface AdminReferralFilters {
   level?: number;
   page?: number;
   limit?: number;
+  sortOrder?: "ASC" | "DESC";
+  sortBy: "networkSize" | "name" | "date" | "commissions"
 }
 
 /*
@@ -210,6 +205,14 @@ export interface UpdateWithdrawalPayload {
   minWithdrawalAmount: number;
 }
 
+export interface AdminReferalMetrics {
+  totalReferralNetwork: number;
+  numberOfPeopleWithNetwork: number;
+  listedReferrers: number;
+  totalAmountEarned: number;
+  suspendedReferrersCount: number;
+}
+
 export const adminReferralApi = {
   /**
    * GET /admin/referrals/users/:id/metrics
@@ -260,6 +263,11 @@ export const adminReferralApi = {
   // Withdrawal config
   getWithdrawalConfig: () =>
     api.get<ApiResponse<WithdrawalConfig>>('/api/v1/admin/config/withdrawal'),
+
+  getReferralsMetrics: () =>
+      api.get<ApiResponse<{metrics: AdminReferalMetrics}>>(
+        '/api/v1/admin/referrals/metrics'
+      ),
 
   updateWithdrawalConfig: (data: UpdateWithdrawalPayload) =>
     api.patch<ApiResponse<WithdrawalConfig>>('/api/v1/admin/config/withdrawal', data),
