@@ -142,7 +142,7 @@ function isDrinksCategory(name: string): boolean {
 function isSnacksCategory(name: string): boolean {
   const normalized = normalizeCategoryName(name);
 
-  return normalized.includes('snack');
+  return normalized.includes('snack') || normalized.includes("biscuit");
 }
 
 function matchesMajorCategory(
