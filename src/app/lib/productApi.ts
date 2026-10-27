@@ -3,6 +3,7 @@ import api from './axios';
 export interface ProductCategory {
   id: string;
   name: string;
+  productsCount: number;
 }
 
 export interface ProductDiscount {
