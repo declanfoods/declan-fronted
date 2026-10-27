@@ -11,6 +11,7 @@ import {
   ChevronRight,
   RefreshCw,
   Users,
+  ArrowDownToLine,
 } from 'lucide-react';
 import ReferralBottomNav from '../../../admin/ReferralBottomNav';
 import { useAdminReferrals, useAdminReferralMetrics } from '../../../../app/hooks/useAdminReferrals';
@@ -55,6 +56,13 @@ export default function ReferralDashboard() {
     referralsQuery.refetch();
     metricsQuery.refetch();
   };
+
+  // Retention rate: payout vs earned — gives a sense of how much has been
+  // actually disbursed relative to what was earned
+  const payoutRate =
+    metrics?.totalAmountEarned && metrics.totalAmountEarned > 0
+      ? Math.round((metrics.totalPayout / metrics.totalAmountEarned) * 100)
+      : null;
 
   return (
     <div className="flex min-h-screen flex-col bg-[#F3F7EE] pb-10">
@@ -149,6 +157,7 @@ export default function ReferralDashboard() {
                 LIFETIME COMMISSIONS
               </p>
             </div>
+
             <div className="rounded-2xl bg-rose-600 p-4 text-white">
               <p className="text-xs text-white/80">Suspended Referrers</p>
               <p className="mt-1 text-xl font-extrabold">
@@ -157,6 +166,37 @@ export default function ReferralDashboard() {
               <p className="mt-2 flex items-center gap-1 text-[10px] font-semibold text-white/80">
                 <ClipboardList size={11} />
                 FLAGGED ACCOUNTS
+              </p>
+            </div>
+
+            {/* Total Payout — all time */}
+            <div className="rounded-2xl bg-emerald-600 p-4 text-white">
+              <p className="text-xs text-white/80">Total Payout</p>
+              <p className="mt-1 text-xl font-extrabold">
+                {isLoading
+                  ? '—'
+                  : `₦${(metrics?.totalPayout ?? 0).toLocaleString()}`}
+              </p>
+              {payoutRate !== null && !isLoading && (
+                <p className="mt-1 text-[10px] text-white/70">{payoutRate}% of earned</p>
+              )}
+              <p className="mt-2 flex items-center gap-1 text-[10px] font-semibold text-white/80">
+                <ArrowDownToLine size={11} />
+                ALL-TIME DISBURSED
+              </p>
+            </div>
+
+            {/* Total Payout This Month */}
+            <div className="rounded-2xl bg-emerald-700 p-4 text-white">
+              <p className="text-xs text-white/80">Payout This Month</p>
+              <p className="mt-1 text-xl font-extrabold">
+                {isLoading
+                  ? '—'
+                  : `₦${(metrics?.totalPayoutThisMonth ?? 0).toLocaleString()}`}
+              </p>
+              <p className="mt-2 flex items-center gap-1 text-[10px] font-semibold text-white/80">
+                <ArrowDownToLine size={11} />
+                {new Date().toLocaleString('default', { month: 'long' }).toUpperCase()}
               </p>
             </div>
           </div>

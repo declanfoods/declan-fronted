@@ -211,6 +211,8 @@ export interface AdminReferalMetrics {
   listedReferrers: number;
   totalAmountEarned: number;
   suspendedReferrersCount: number;
+  totalPayout: number;
+  totalPayoutThisMonth: number;
 }
 
 export const adminReferralApi = {
