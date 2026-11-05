@@ -18,6 +18,7 @@ import StatusPill from '../../../admin/StatusPill';
 import {
   useAdminUser,
   useSuspendUser,
+  useToggleReferralPrivileges,
   useUnsuspendUser,
   useVerifyUser,
 } from '../../../../app/hooks/useAdminUsers';
@@ -27,34 +28,6 @@ import {
   defaultCustomerMessage,
 } from '../../../../app/lib/whatsapp';
 
-/*
-|--------------------------------------------------------------------------
-| Admin → User Actions  (titled "User Profile" on screen)
-|--------------------------------------------------------------------------
-| CHANGES IN THIS PASS (requested):
-|
-|  1. REMOVED the entire "WALLET & TRANSACTIONS" section
-|     (Credit Wallet / Debit Wallet / Issue Refund). Those three endpoints
-|     don't exist on the backend anyway — see the audit.
-|
-|  2. REMOVED the "Send Notification" row from COMMUNICATION.
-|     `POST /admin/users/:id/notify` does not exist.
-|
-|  3. "View Referral Network" now opens in a NEW TAB (target="_blank").
-|     It renders a real <a href> instead of a client-side navigate(), so the
-|     admin keeps this screen and can compare side by side. rel="noopener
-|     noreferrer" is required: without it the new tab gets a handle on
-|     window.opener and can redirect this page.
-|
-| REMAINING ROWS
-|   ✅ Suspend / Reactivate  → PATCH /admin/users/:id/suspended | /unsuspend
-|   ✅ Verify Account        → PATCH /admin/users/:id/verify   (only if PENDING)
-|   ✅ View Referral Network → /admin/referrals/members/:id    (NEW TAB)
-|   ✅ View Referral Earnings → /admin/users/:id/financials
-|   ✅ Call / Email          → tel: / mailto:
-|   ⛔ Delete Account              → no DELETE /admin/users/:id
-|   ⛔ Disable Referral Privileges → no PATCH endpoint
-*/
 
 type ActionRow = {
   label: string;
@@ -79,6 +52,7 @@ export default function UserActions() {
   const suspend = useSuspendUser();
   const unsuspend = useUnsuspendUser();
   const verify = useVerifyUser();
+  const toggleReferral = useToggleReferralPrivileges();
 
   const user = userQuery.data;
 
@@ -112,7 +86,7 @@ export default function UserActions() {
 
   const isSuspended = user.userStatus === 'SUSPENDED';
   const isPending = user.userStatus === 'PENDING_VERIFICATION';
-  const isBusy = suspend.isPending || unsuspend.isPending || verify.isPending;
+  const isBusy = suspend.isPending || unsuspend.isPending || verify.isPending || toggleReferral.isPending;
 
   const run = (
     mutation: ReturnType<typeof useSuspendUser>,
@@ -155,25 +129,51 @@ export default function UserActions() {
     { label: 'Delete Account', icon: Trash2, danger: true, unavailable: true },
   ];
 
-  const referralRows: ActionRow[] = [
-    {
-      /*
-        REVERSED per request. This opened in a new browser tab, which landed
-        on a blank page — a second tab boots the whole app cold at a deep URL
-        instead of reusing the running one. It now navigates in-app, which is
-        what every other row in this menu does.
-      */
-      label: 'View Referral Network',
-      icon: Share2,
-      onClick: () => navigate(`/admin/referrals/members/${user.id}`),
-    },
-    {
-      label: 'View Referral Earnings',
-      icon: Wallet,
-      onClick: () => navigate(`/admin/users/${user.id}/financials`),
-    },
-    { label: 'Disable Referral Privileges', icon: UserX, unavailable: true },
-  ];
+
+    const referralPrivilegesEnabled = user.referralPrivilegesEnabled ?? true;
+
+    const referralRows: ActionRow[] = [
+      {
+        label: 'View Referral Network',
+        icon: Share2,
+        onClick: () => navigate(`/admin/referrals/members/${user.id}`),
+      },
+      {
+        label: 'View Referral Earnings',
+        icon: Wallet,
+        onClick: () => navigate(`/admin/users/${user.id}/financials`),
+      },
+      {
+        label: referralPrivilegesEnabled ? 'Disable Referral Privileges' : 'Enable Referral Privileges',
+        icon: referralPrivilegesEnabled ? UserX : CheckCircle2,
+        danger: referralPrivilegesEnabled,
+        onClick: () => {
+          if (!id) return;
+
+          const message = referralPrivilegesEnabled
+            ? `Disable referral privileges for ${user.fullname}? They will stop earning commissions.`
+            : `Re-enable referral privileges for ${user.fullname}?`;
+
+          if (!window.confirm(message)) return;
+
+          toggleReferral.mutate(
+            { userId: id, enable: !referralPrivilegesEnabled },
+            {
+              onSuccess: () =>{
+                userQuery.refetch(),
+                window.alert(
+                  referralPrivilegesEnabled
+                    ? 'Referral privileges disabled.'
+                    : 'Referral privileges enabled.'
+                )
+              },
+              onError: (error) =>
+                window.alert(getApiErrorMessage(error, 'Could not update referral privileges.')),
+            }
+          );
+        },
+      },
+    ];
 
   // NOTE: "WALLET & TRANSACTIONS" section removed on request.
   // (Credit Wallet / Debit Wallet / Issue Refund — no backend endpoints.)

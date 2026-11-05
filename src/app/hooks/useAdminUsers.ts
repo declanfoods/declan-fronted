@@ -6,6 +6,7 @@ import {
 } from '@tanstack/react-query';
 import { adminUserApi } from '../lib/adminUserApi';
 import type {
+    AdminUpdateWalletBalanceRequest,
   AdminUserActivity,
   AdminUserDetail,
   AdminUserFilters,
@@ -197,6 +198,34 @@ export function useSuspendUser() {
   return useMutation({
     mutationFn: (userId: string) => adminUserApi.suspendUser(userId),
     onSuccess: (_res, userId) => invalidate(userId),
+  });
+}
+
+export function useToggleReferralPrivileges() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ userId, enable }: { userId: string; enable: boolean }) =>
+      enable
+        ? adminUserApi.enableReferralPrivileges(userId)
+        : adminUserApi.disableReferralPrivileges(userId),
+    onSuccess: (_, { userId }) => {
+      queryClient.invalidateQueries({ queryKey: ['admin', 'user', userId] });
+    },
+  });
+}
+
+
+export function useUpdateWalletBalance() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ userId, body }: { userId: string; body: AdminUpdateWalletBalanceRequest }) =>
+      adminUserApi.updateWalletBalance(userId, body),
+    onSuccess: (_, { userId }) => {
+      // Invalidate so the profile re-fetches with the new balance
+      queryClient.invalidateQueries({ queryKey: ['admin', 'user', userId] });
+    },
   });
 }
 

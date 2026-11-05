@@ -1,32 +1,13 @@
 import api from './axios';
 import type { ApiResponse, ApiPagination } from './api-types';
 
-/*
-|--------------------------------------------------------------------------
-| ADMIN USER MANAGEMENT API
-|--------------------------------------------------------------------------
-| Changes from the previous version:
-|  - `ApiResponse<T>` now comes from the shared `api-types.ts` instead of
-|    being redeclared here (it was redeclared in 30 files).
-|  - `getUserMetrics()` used to return `Record<string, unknown>`, which made
-|    the analytics screen impossible to type. See `AdminUserMetrics` below —
-|    the shape is now declared, with a documented assumption.
-|  - Pagination type is the shared `ApiPagination` (identical fields).
-*/
+
 
 export type AdminPagination = ApiPagination;
 
 export type AdminUserStatus = 'PENDING_VERIFICATION' | 'ACTIVE' | 'SUSPENDED';
 
-/**
- * GET /api/v1/admin/users/metrics
- *
- * ⚠️ ASSUMPTION: the backend does not document this payload yet. The fields
- * below are the ones the User Analytics screen needs. If the real response
- * differs, only `normaliseUserMetrics()` in
- * `src/components/pages/admin/users/UserAnalytics.tsx` needs to change —
- * every field is read defensively and falls back to a derived value.
- */
+
 export interface AdminUserMetrics {
   totalUsers: number;
   activeUsers: number;
@@ -39,11 +20,7 @@ export interface AdminUserMetrics {
   referralTiers?: { tier: string; label: string; count: number }[];
 }
 
-/*
-|--------------------------------------------------------------------------
-| Get Users (list) — GET /admin/users
-|--------------------------------------------------------------------------
-*/
+
 
 export interface AdminUserListItem {
   id: string;
@@ -67,11 +44,7 @@ export interface AdminUserFilters {
   status?: AdminUserStatus;
 }
 
-/*
-|--------------------------------------------------------------------------
-| Get User By ID — GET /admin/users/:id
-|--------------------------------------------------------------------------
-*/
+
 
 export interface AdminUserFinancialOverview {
   referralWalleBalance: string; // sic — typo is in the real API response
@@ -93,13 +66,10 @@ export interface AdminUserDetail {
   joinedAt: string;
   referralCode: string;
   financialOverview: AdminUserFinancialOverview;
+  referralPrivilegesEnabled: boolean;
 }
 
-/*
-|--------------------------------------------------------------------------
-| Get user orders — GET /admin/users/:id/orders
-|--------------------------------------------------------------------------
-*/
+
 
 export interface AdminUserOrderItem {
   itemName: string;
@@ -116,11 +86,7 @@ export interface AdminUserOrder {
   rider: { id: string; fullname: string } | null;
 }
 
-/*
-|--------------------------------------------------------------------------
-| Get user activities — GET /admin/users/:id/activities
-|--------------------------------------------------------------------------
-*/
+
 
 export interface AdminUserActivity {
   id: string;
@@ -130,11 +96,7 @@ export interface AdminUserActivity {
   createdAt: string;
 }
 
-/*
-|--------------------------------------------------------------------------
-| Get User Transactions — GET /admin/users/:id/transactions
-|--------------------------------------------------------------------------
-*/
+
 
 export interface AdminUserTransaction {
   id: string;
@@ -148,11 +110,7 @@ export interface AdminUserTransaction {
   createdAt: string;
 }
 
-/*
-|--------------------------------------------------------------------------
-| Get Wallet — GET /admin/users/:id/wallets
-|--------------------------------------------------------------------------
-*/
+
 
 export interface AdminUserWallet {
   id: string;
@@ -161,12 +119,6 @@ export interface AdminUserWallet {
   lifetimeEarned: string;
 }
 
-/*
-|--------------------------------------------------------------------------
-| Get referrals (a user's own downline, admin view) — GET /admin/users/:id/referrals
-|--------------------------------------------------------------------------
-| Note: response key is singular "referral", not "referrals".
-*/
 
 export interface AdminUserReferral {
   id: string;
@@ -181,13 +133,6 @@ export interface AdminUserReferral {
   totalCommissionEarnedOnReferral: number;
 }
 
-/*
-|--------------------------------------------------------------------------
-| Get referral transactions — GET /admin/users/:id/referral-transactions
-|--------------------------------------------------------------------------
-| Note: response key is "referral_transactions" (snake_case), unlike
-| everything else in this API which is camelCase.
-*/
 
 export interface AdminUserReferralTransaction {
   id: string;
@@ -199,6 +144,12 @@ export interface AdminUserReferralTransaction {
   sourceUserId: string;
   balanceAfter: string;
   createdAt: string;
+}
+
+export interface AdminUpdateWalletBalanceRequest {
+  amount: number;
+  operation: 'CREDIT' | 'DEBIT';
+  reason: string;
 }
 
 export const adminUserApi = {
@@ -265,4 +216,18 @@ export const adminUserApi = {
         pagination: ApiPagination;
       }>
     >(`/api/v1/admin/users/${id}/referral-transactions`, { params: filters }),
+
+    updateWalletBalance: (userId: string, apiRequest: AdminUpdateWalletBalanceRequest) => 
+      api.patch<
+      ApiResponse<{}>
+    >(
+      `/api/v1/admin/users/${userId}/referral-wallet/balance/update`,
+      apiRequest
+    ),
+
+    disableReferralPrivileges: (userId: string) =>
+  api.patch<ApiResponse<unknown>>(`/api/v1/admin/users/${userId}/referral-privileges/disable`),
+
+enableReferralPrivileges: (userId: string) =>
+  api.patch<ApiResponse<unknown>>(`/api/v1/admin/users/${userId}/referral-privileges/enable`),
 };
