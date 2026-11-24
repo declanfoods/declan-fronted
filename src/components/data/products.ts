@@ -52,6 +52,4 @@ export const dealsProducts: Product[] = [
 ];
 
 export const hottestProducts = [...dealsProducts];
-export function formatNaira(amount: number) {
-  return `₦${amount.toLocaleString('en-NG')}`;
-}
+export { formatNaira } from '../../shared/formatters/formatNaira';

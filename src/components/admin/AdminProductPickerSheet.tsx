@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { X, Package, UtensilsCrossed, Search, AlertTriangle } from 'lucide-react';
-import { adminProductApi, type AdminProduct } from '../../app/lib/adminProductApi';
-import { adminFoodPackApi, type AdminFoodPackSummary } from '../../app/lib/adminFoodPackApi';
+import { adminProductApi, type AdminProduct } from '../../features/admin/inventory/api/adminProductApi';
+import { adminFoodPackApi, type AdminFoodPackSummary } from '../../features/admin/inventory/api/adminFoodPackApi';
 import { useDebounce } from '../../app/hooks/useDebounce';
 
 type Tab = 'PRODUCT' | 'FOODPACK';

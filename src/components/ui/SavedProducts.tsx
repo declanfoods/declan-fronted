@@ -1,9 +1,9 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Trash2, Loader2 } from 'lucide-react';
-import AppLayout from '../app/AppLayout';
+import AppLayout from '../../app/layouts/customer/AppLayout';
 import SplashLoader from './SplashLoader';
-import ProductCard from './ProductCard';
+import ProductCard from '../../features/catalogue/components/ProductCard';
 import { savedApi, type SavedProduct } from '../../app/lib/savedApi';
 
 export default function SavedProducts() {

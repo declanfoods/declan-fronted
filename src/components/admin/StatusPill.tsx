@@ -1,4 +1,4 @@
-import type { AdminOrderStatus } from '../../app/lib/adminOrderApi';
+import type { AdminOrderStatus } from '../../features/admin/orders/api';
 
 interface StatusPillProps {
   label: string | AdminOrderStatus;

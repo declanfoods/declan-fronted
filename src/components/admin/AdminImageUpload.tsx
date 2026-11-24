@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react';
 import { Camera, X, Loader2 } from 'lucide-react';
-import { uploadApi, extractUploadedUrl } from '../../app/lib/adminUploadApi';
+import { uploadApi, extractUploadedUrl } from '../../shared/uploads/api';
 
 type AdminImageUploadProps = {
   value: string;
@@ -28,7 +28,7 @@ export default function AdminImageUpload({
     setError('');
     setUploading(true);
     try {
-      const res = await uploadApi.uploadFile(file);
+      const res = await uploadApi.uploadFile(file, 'admin');
       const url = extractUploadedUrl(res.data.data);
       if (!url) {
         setError('Upload succeeded but no URL was returned.');

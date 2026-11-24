@@ -1,5 +1,5 @@
 import api from './axios';
-import type { ApiProduct } from './productApi';
+import type { ApiProduct } from '../../features/catalogue/api/productApi';
 
 export interface SavedProduct {
   id: string;

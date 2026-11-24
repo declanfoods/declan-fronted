@@ -4,14 +4,14 @@ import { useState, useEffect } from 'react';
 import Container from '../../layout/Container';
 import Section from '../../layout/Section';
 import SectionHeading from '../../ui/SectionHeading';
-import ProductCard from '../../ui/ProductCard';
+import ProductCard from '../../../features/catalogue/components/ProductCard';
 import Button from '../../ui/Button';
 import Hero from '../../landing/Hero';
 import RewardsSection from '../../landing/RewardsSection';
 import HowItWorks from '../../landing/HowItWorks';
 import CTABanner from '../../landing/CTABanner';
-import { productApi, type ApiProduct } from '../../../app/lib/productApi';
-import { isAuthenticated } from '../../../app/lib/auth';
+import { productApi, type ApiProduct } from '../../../features/catalogue/api/productApi';
+import { isAuthenticated } from '../../../features/auth/session';
 
 export default function Home() {
   const [essentials, setEssentials] = useState<ApiProduct[]>([]);
