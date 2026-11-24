@@ -1,0 +1,243 @@
+import { formatAmount } from '../formatAmount';
+import { useAdminOrders } from '../queries';
+import { getApiErrorMessage } from '../../../../app/lib/api-types';
+import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import {
+  ArrowLeft,
+  MoreVertical,
+  Search,
+  Plus,
+  Bike,
+  Store,
+} from 'lucide-react';
+
+import AdminBottomNav from '../../../../app/layouts/admin/AdminBottomNav';
+import StatusPill from '../../components/StatusPill';
+import OrderActionsSheet from '../components/OrderActionsSheet';
+
+import {
+  type AdminOrder,
+  type AdminOrderStatus,
+} from '../api';
+
+const filters: {
+  label: string;
+  status?: AdminOrderStatus;
+}[] = [
+  { label: 'All' },
+  { label: 'Pending', status: 'PENDING' },
+  { label: 'Processing', status: 'PROCESSING' },
+  { label: 'Assigned', status: 'ASSIGNED' },
+  { label: 'In Transit', status: 'IN_TRANSIT' },
+  { label: 'Delivered', status: 'DELIVERED' },
+];
+
+
+function formatOrderDate(dateString?: string) {
+  if (!dateString) return '';
+
+  const date = new Date(dateString);
+  if (Number.isNaN(date.getTime())) return '';
+
+  const time = date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+  // Compare calendar dates, not raw ms, so "yesterday" works even if <24 hrs ago
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  const orderDay = new Date(date);
+  orderDay.setHours(0, 0, 0, 0);
+
+  const diffDays = Math.round((today.getTime() - orderDay.getTime()) / (1000 * 60 * 60 * 24));
+
+  if (diffDays === 0) return `Today, ${time}`;
+  if (diffDays === 1) return `Yesterday, ${time}`;
+  if (diffDays <= 7) return `${diffDays} days ago, ${time}`;
+
+  // Older than 7 days — show "Mon Oct 20, HH:MM"
+  const label = date.toLocaleDateString([], {
+    weekday: 'short',
+    month: 'short',
+    day: 'numeric',
+  });
+  return `${label}, ${time}`;
+}
+
+export default function OrdersList() {
+  const navigate = useNavigate();
+
+  const [activeFilter, setActiveFilter] = useState('All');
+  const [actionsOrder, setActionsOrder] = useState<AdminOrder | null>(null);
+  const status = filters.find((filter) => filter.label === activeFilter)?.status;
+  const query = useAdminOrders(status);
+  const orders = query.data ?? [];
+  const loading = query.isPending;
+  const error = query.isError ? getApiErrorMessage(query.error, 'Failed to load orders.') : '';
+
+  return (
+    <div className="relative flex min-h-screen flex-col bg-[#F3F7EE]">
+      {/* Header */}
+      <header className="flex items-center justify-between px-5 pt-6">
+        <button type="button" onClick={() => navigate(-1)} className="text-primary-dark">
+          <ArrowLeft size={22} strokeWidth={2} />
+        </button>
+
+        <h1 className="text-lg font-bold text-primary-dark">Orders</h1>
+
+        <button type="button" className="text-primary-dark">
+          <MoreVertical size={22} strokeWidth={2} />
+        </button>
+      </header>
+
+      {/* Search */}
+      <div className="px-5 pt-4">
+        <div className="flex items-center gap-2 rounded-2xl bg-white px-4 py-3 shadow-sm">
+          <Search size={18} className="text-gray-400" />
+          <input
+            placeholder="Search order ID, customer..."
+            className="w-full bg-transparent text-sm text-gray-700 outline-none placeholder:text-gray-400"
+          />
+        </div>
+      </div>
+
+      {/* Filters */}
+      <div className="mt-4 flex gap-2 overflow-x-auto px-5 pb-1 scrollbar-hide">
+        {filters.map((filter) => (
+          <button
+            key={filter.label}
+            type="button"
+            onClick={() => setActiveFilter(filter.label)}
+            className={`whitespace-nowrap rounded-full px-4 py-2 text-sm font-semibold transition-colors ${
+              activeFilter === filter.label
+                ? 'bg-primary text-white'
+                : 'bg-white text-gray-500'
+            }`}
+          >
+            {filter.label}
+          </button>
+        ))}
+      </div>
+
+      {/* Orders */}
+      <main className="flex-1 space-y-3 px-5 pb-28 pt-4">
+        {error && (
+          <div role="alert" className="rounded-xl bg-red-50 px-4 py-3 text-sm font-medium text-red-600">
+            <p>{error}</p>
+            <button type="button" onClick={() => void query.refetch()} className="mt-2 font-semibold underline">
+              Try Again
+            </button>
+          </div>
+        )}
+
+        {loading && (
+          <p className="py-10 text-center text-sm text-gray-400">Loading orders...</p>
+        )}
+
+        {!loading && !error && orders.length === 0 && (
+          <p className="py-10 text-center text-sm text-gray-400">No orders found.</p>
+        )}
+
+        {!loading &&
+          orders.map((order) => (
+            <div key={order.id} className="rounded-2xl bg-white p-4 shadow-sm">
+              {/* Customer */}
+              <div className="flex items-start justify-between">
+                <button
+                  type="button"
+                  onClick={() => navigate(`/admin/orders/${order.id}`)}
+                  className="flex items-center gap-3 text-left"
+                >
+                  <span className="flex h-11 w-11 items-center justify-center rounded-full bg-[#F3F7EE] text-sm font-bold text-primary-dark">
+                    {(order.customer?.fullname ?? 'C').slice(0, 2).toUpperCase()}
+                  </span>
+
+                  <div>
+                    <p className="font-bold text-gray-900">
+                      {order.customer?.fullname ?? 'Customer'}
+                    </p>
+                    <p className="text-xs text-gray-400">
+                      {order.orderNumber ?? `#${order.id.slice(0, 8)}`}
+                    </p>
+                  </div>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setActionsOrder(order)}
+                  aria-label="Order actions"
+                  className="text-gray-400"
+                >
+                  <MoreVertical size={18} />
+                </button>
+              </div>
+
+              {/* Amount / Items */}
+              <div className="mt-3 flex items-center justify-between">
+                <div>
+                  <p className="text-xs text-gray-400">Amount</p>
+                  <div className="flex items-center gap-2">
+                    <p className="font-bold text-gray-900">{formatAmount(order.amount)}</p>
+                    {order.paid !== undefined && (
+                      <StatusPill label={order.paid ? 'PAID' : 'UNPAID'} />
+                    )}
+                  </div>
+                </div>
+
+                <div className="text-right">
+                  <p className="text-xs text-gray-400">Items</p>
+                  <p className="font-bold text-gray-900">{order.numberOfItems ?? 0} Items</p>
+                </div>
+              </div>
+
+              {/* Status / Date */}
+              <div className="mt-3 flex items-center justify-between border-t border-gray-100 pt-3">
+                <StatusPill label={order.orderStatus} dot />
+                <p className="text-xs text-gray-400">{formatOrderDate(order.placedAt)}</p>
+              </div>
+
+              {/* Channel / Rider */}
+              <div className="mt-2 flex items-center gap-2">
+                {order.orderChannel === 'WALK_IN' ? (
+                  <span className="inline-flex items-center gap-1 rounded-full border border-amber-200 bg-amber-50 px-2.5 py-1 text-[11px] font-semibold text-amber-700">
+                    <Store size={11} />
+                    Walk-in
+                  </span>
+                ) : (
+                  <span className="flex items-center gap-1.5 text-xs text-gray-500">
+                    <Bike size={14} className="text-gray-400" />
+                    {order.rider?.fullname ?? 'Unassigned'}
+                  </span>
+                )}
+              </div>
+            </div>
+          ))}
+      </main>
+
+      {/* Create Manual Order */}
+      <button
+        type="button"
+        className="fixed bottom-24 right-5 z-20 flex items-center gap-2 rounded-full bg-primary px-5 py-3 text-sm font-semibold text-white shadow-lg"
+        onClick={() => navigate('/admin/orders/manual')}
+      >
+        <Plus size={16} strokeWidth={2.5} />
+        Create Manual Order
+      </button>
+
+      <AdminBottomNav />
+
+      {actionsOrder && (
+        <OrderActionsSheet
+          orderId={actionsOrder.id}
+          orderNumber={actionsOrder.orderNumber}
+          customerPhone={undefined}
+          onClose={() => setActionsOrder(null)}
+          onNavigate={(path) => {
+            setActionsOrder(null);
+            navigate(path);
+          }}
+        />
+      )}
+    </div>
+  );
+}

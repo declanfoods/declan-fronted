@@ -1,0 +1,75 @@
+import { NavLink } from 'react-router-dom';
+import { Home, Package, Users, ClipboardList, MoreHorizontal } from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
+import { usePendingOrdersCount } from '../../../features/admin/orders/queries';
+import { Badge } from '../../../shared/ui/Badge';
+
+
+type Tab = {
+  to: string;
+  label: string;
+  icon: LucideIcon;
+  end?: boolean;
+  badge?: number;
+};
+
+/*
+  Analytics was swapped out for Orders — Orders is where an admin actually
+  spends the day, and Analytics is still reachable from the drawer.
+*/
+const BASE_TABS: Omit<Tab, 'badge'>[] = [
+  { to: '/admin', label: 'Home', icon: Home, end: true },
+  { to: '/admin/products', label: 'Inventory', icon: Package },
+  { to: '/admin/users', label: 'Users', icon: Users },
+  { to: '/admin/orders', label: 'Orders', icon: ClipboardList },
+  { to: '/admin/more', label: 'More', icon: MoreHorizontal },
+];
+
+
+
+export default function AdminBottomNav() {
+  const pendingCount = usePendingOrdersCount();
+
+  const tabs: Tab[] = BASE_TABS.map((tab) =>
+    tab.to === "/admin/orders" ? { ...tab, badge: pendingCount, } : tab)
+  return (
+    <nav className="sticky bottom-0 z-30 border-t border-primary/10 bg-white">
+      <ul className="mx-auto grid max-w-2xl grid-cols-5">
+        {tabs.map((tab) => {
+          const Icon = tab.icon;
+          return (
+            <li key={tab.to}>
+              <NavLink
+                to={tab.to}
+                end={tab.end}
+                className={({ isActive }) =>
+                  `flex flex-col items-center justify-center gap-1 py-2.5 text-[11px] font-semibold transition-colors ${
+                    isActive ? 'text-primary' : 'text-gray-400 hover:text-primary'
+                  }`
+                }
+              >
+                {({ isActive }) =>
+                  isActive ? (
+                    <span className="relative flex flex-col items-center gap-1 rounded-2xl bg-primary px-4 py-1.5 text-white">
+                      <Icon size={18} strokeWidth={2.2} />
+                      <Badge count={tab.badge ?? 0} />
+                      <span>{tab.label}</span>
+                    </span>
+                  ) : (
+                    <>
+                      <span className="relative inline-flex items-center justify-center">
+                        <Icon size={20} strokeWidth={2} />
+                        <Badge count={tab.badge ?? 0} />
+                      </span>
+                      <span>{tab.label}</span>
+                    </>
+                  )
+                }
+              </NavLink>
+            </li>
+          );
+        })}
+      </ul>
+    </nav>
+  );
+}
