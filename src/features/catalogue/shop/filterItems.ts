@@ -3,12 +3,12 @@ import type { ApiProduct, ProductCategory } from '../api/productApi';
 import type { PriceRangeKey, ProductFilterState } from '../filters';
 
 export const shopTabs = [
-  { key: 'all', label: 'ALL' },
-  { key: 'foodstuffs', label: 'FOODSTUFFS' },
-  { key: 'fast-food', label: 'FAST FOOD' },
-  { key: 'drinks', label: 'DRINKS' },
-  { key: 'snacks', label: 'SNACKS' },
-  { key: 'discount-packs', label: 'DISCOUNT PACKS' },
+  { key: 'all', label: 'All' },
+  { key: 'foodstuffs', label: 'Foodstuffs' },
+  { key: 'fast-food', label: 'Fast food' },
+  { key: 'drinks', label: 'Drinks' },
+  { key: 'snacks', label: 'Snacks' },
+  { key: 'discount-packs', label: 'Discount packs' },
 ] as const;
 
 export type ShopTab = (typeof shopTabs)[number]['key'];

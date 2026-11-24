@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { getApiErrorMessage } from '../../../app/lib/api-types';
-import SplashLoader from '../../../components/ui/SplashLoader';
+import SplashLoader from '../../../shared/ui/SplashLoader';
 import { CancelOrderModal } from '../components/CancelOrderModal';
 import OrderTrackingView from '../components/OrderTrackingView';
 import { orderStatusKey } from '../orderPresentation';

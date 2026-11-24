@@ -1,4 +1,4 @@
-import AdminImageUpload from '../../../../components/admin/AdminImageUpload';
+import AdminImageUpload from '../../components/AdminImageUpload';
 import type { RiderOnboardingFields } from '../onboardingForm';
 
 interface RiderPersonalDetailsProps extends RiderOnboardingFields {

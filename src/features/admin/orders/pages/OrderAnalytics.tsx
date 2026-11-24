@@ -12,7 +12,7 @@ import {
 
 } from 'lucide-react';
 import AdminBottomNav from '../../../../app/layouts/admin/AdminBottomNav';
-import { formatNaira } from '../../../../components/data/products';
+import { formatNaira } from '../../../../shared/formatters/formatNaira';
 import { getApiErrorMessage } from '../../../../app/lib/api-types';
 import { adminOrderApi } from '../api';
 import type {

@@ -2,7 +2,7 @@ import { useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getApiErrorMessage } from '../../app/lib/api-types';
 import { orderApi } from '../orders/api/orderApi';
-import { useToast } from '../../components/ui/Toast';
+import { useToast } from '../../shared/ui/Toast';
 import { refreshAccountCart } from '../cart/accountCart';
 import type { CartItem } from '../cart/api/cartApi';
 import { guestCart } from '../cart/guestCart';

@@ -2,7 +2,7 @@ import { NavLink } from 'react-router-dom';
 import { Home, Package, Users, ClipboardList, MoreHorizontal } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { usePendingOrdersCount } from '../../../features/admin/orders/queries';
-import { Badge } from '../../../components/ui/Badge';
+import { Badge } from '../../../shared/ui/Badge';
 
 
 type Tab = {

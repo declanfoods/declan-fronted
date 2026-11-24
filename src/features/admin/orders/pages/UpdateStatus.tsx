@@ -13,9 +13,9 @@ import {
 import { useAdminOrder, useMarkOrderProcessing } from '../queries';
 import { getApiErrorMessage } from '../../../../app/lib/api-types';
 
-import StatusPill from '../../../../components/admin/StatusPill';
+import StatusPill from '../../components/StatusPill';
 import MarkOrderProcessingModal from '../components/MarkOrderProcessingModal';
-import { useToast } from '../../../../components/ui/Toast';
+import { useToast } from '../../../../shared/ui/Toast';
 
 
 export default function UpdateStatus() {

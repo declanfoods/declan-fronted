@@ -3,9 +3,8 @@ import { createRoot } from 'react-dom/client';
 import { QueryClientProvider } from '@tanstack/react-query';
 import './index.css';
 import App from './app/App';
-// import { ToastProvider } from './components/ui/Toast.tsx';
 import { queryClient } from './app/lib/query-client';
-import { ToastProvider } from './components/ui/Toast.tsx';
+import { ToastProvider } from './shared/ui/Toast.tsx';
 
 
 /*

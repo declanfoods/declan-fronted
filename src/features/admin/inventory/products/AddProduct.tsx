@@ -4,7 +4,7 @@ import { ArrowLeft, HelpCircle, ChevronDown, Send } from 'lucide-react';
 import { adminProductApi } from '../api/adminProductApi';
 import { categoryApi } from '../../categories/api';
 import type { CategoryOption } from '../../categories/types';
-import AdminImageUpload from '../../../../components/admin/AdminImageUpload';
+import AdminImageUpload from '../../components/AdminImageUpload';
 
 export default function AddProduct() {
   const navigate = useNavigate();

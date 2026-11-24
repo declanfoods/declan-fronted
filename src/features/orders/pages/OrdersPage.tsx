@@ -5,8 +5,9 @@ import { LogIn } from 'lucide-react';
 import { getApiErrorMessage } from '../../../app/lib/api-types';
 import { isAuthenticated } from '../../auth/session';
 import AppLayout from '../../../app/layouts/customer/AppLayout';
-import SplashLoader from '../../../components/ui/SplashLoader';
-import { useToast } from '../../../components/ui/Toast';
+import PageIntro from '../../../app/layouts/customer/PageIntro';
+import SplashLoader from '../../../shared/ui/SplashLoader';
+import { useToast } from '../../../shared/ui/Toast';
 import { orderApi } from '../api/orderApi';
 import ActiveOrderCard from '../components/ActiveOrderCard';
 import PastOrderCard from '../components/PastOrderCard';
@@ -32,7 +33,7 @@ export default function OrdersPage() {
 
   if (!authenticated) {
     return (
-      <AppLayout title="My Orders">
+      <AppLayout title="My Orders" desktopNavigation className="lg:px-8 lg:pt-8">
         <div className="flex min-h-[60vh] flex-col items-center justify-center gap-4 px-8 text-center">
           <LogIn size={40} className="text-primary" />
           <p className="text-lg font-semibold text-ink">Login to view your orders</p>
@@ -53,7 +54,7 @@ export default function OrdersPage() {
   }
 
   if (active.isPending) {
-    return <AppLayout title="My Orders"><SplashLoader /></AppLayout>;
+    return <AppLayout title="My Orders" desktopNavigation className="lg:px-8 lg:pt-8"><SplashLoader /></AppLayout>;
   }
 
   const activeOrder = active.data;
@@ -61,86 +62,91 @@ export default function OrdersPage() {
   const totalPages = Math.max(page, history.data?.totalPages ?? 1);
 
   return (
-    <AppLayout title="My Orders">
-      <div className="mx-auto max-w-2xl">
-        <div className="mb-6">
-          <h2 className="text-2xl font-bold text-ink">Order History</h2>
-          <p className="text-sm text-ink-soft">Track current deliveries and reorder past favorites.</p>
+    <AppLayout title="My Orders" desktopNavigation className="lg:px-8 lg:pt-8">
+      <div className="mx-auto max-w-2xl lg:max-w-[76rem]">
+        <div className="mb-6 lg:mb-8">
+          <PageIntro
+            title="Order History"
+            description="Track current deliveries and reorder past favorites."
+            showIntroOnMobile
+          />
         </div>
 
-        <section className="mb-10">
-          <h3 className="mb-3 text-lg font-bold text-ink">Active Order</h3>
-          {active.isError ? (
-            <OrdersLoadError
-              message={getApiErrorMessage(active.error, 'Failed to load the active order.')}
-              onRetry={() => void active.refetch()}
-            />
-          ) : activeOrder ? (
-            <ActiveOrderCard
-              order={activeOrder}
-              onTrack={() => navigate(`/app/orders/${activeOrder.id}/tracking`)}
-            />
-          ) : (
-            <div className="rounded-3xl border-2 border-primary bg-white px-6 py-8 text-center shadow-sm">
-              <p className="text-sm text-ink-soft">No active orders right now.</p>
-              <button
-                type="button"
-                onClick={() => navigate('/app/shop')}
-                className="mt-4 rounded-full bg-primary px-8 py-3 text-sm font-semibold text-white hover:bg-primary-dark"
-              >
-                Start Shopping
-              </button>
-            </div>
-          )}
-        </section>
-
-        <section>
-          <h3 className="mb-3 text-lg font-bold text-ink">Past Orders</h3>
-          {history.isFetching ? (
-            <p className="animate-pulse py-6 text-center text-sm font-medium text-primary">Loading...</p>
-          ) : history.isError ? (
-            <OrdersLoadError
-              message={getApiErrorMessage(history.error, 'Failed to load past orders.')}
-              onRetry={() => void history.refetch()}
-            />
-          ) : pastOrders.length === 0 ? (
-            <p className="py-6 text-center text-sm text-ink-soft">No past orders yet.</p>
-          ) : (
-            <div className="flex flex-col gap-4">
-              {pastOrders.map((order) => (
-                <PastOrderCard
-                  key={order.id}
-                  order={order}
-                  disabled={reorder.isPending}
-                  adding={reorder.isPending && reorder.variables === order.id}
-                  onReorder={() => reorder.mutate(order.id)}
-                  onDetails={() => navigate(`/app/orders/${order.id}/tracking`)}
-                />
-              ))}
-            </div>
-          )}
-
-          {!history.isFetching && totalPages > 1 && (
-            <div className="mt-6 flex items-center justify-center gap-3">
-              {Array.from({ length: totalPages }, (_, index) => index + 1).map((pageNumber) => (
+        <div className="lg:grid lg:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)] lg:items-start lg:gap-8">
+          <section aria-labelledby="active-order" className="mb-10 min-w-0 lg:mb-0">
+            <h2 id="active-order" className="mb-3 text-lg font-bold text-ink lg:mb-5 lg:text-2xl lg:text-[#153526]">Active Order</h2>
+            {active.isError ? (
+              <OrdersLoadError
+                message={getApiErrorMessage(active.error, 'Failed to load the active order.')}
+                onRetry={() => void active.refetch()}
+              />
+            ) : activeOrder ? (
+              <ActiveOrderCard
+                order={activeOrder}
+                onTrack={() => navigate(`/app/orders/${activeOrder.id}/tracking`)}
+              />
+            ) : (
+              <div className="rounded-3xl border-2 border-primary bg-white px-6 py-8 text-center shadow-sm">
+                <p className="text-sm text-ink-soft">No active orders right now.</p>
                 <button
-                  key={pageNumber}
                   type="button"
-                  onClick={() => setPage(pageNumber)}
-                  aria-current={page === pageNumber ? 'page' : undefined}
-                  className={
-                    'flex h-8 w-8 items-center justify-center rounded-full border-2 text-sm font-bold transition-colors ' +
-                    (page === pageNumber
-                      ? 'border-primary bg-primary text-white'
-                      : 'border-primary bg-white text-primary hover:bg-primary/5')
-                  }
+                  onClick={() => navigate('/app/shop')}
+                  className="mt-4 rounded-full bg-primary px-8 py-3 text-sm font-semibold text-white hover:bg-primary-dark"
                 >
-                  {pageNumber}
+                  Start Shopping
                 </button>
-              ))}
-            </div>
-          )}
-        </section>
+              </div>
+            )}
+          </section>
+
+          <section aria-labelledby="past-orders" className="min-w-0">
+            <h2 id="past-orders" className="mb-3 text-lg font-bold text-ink lg:mb-5 lg:text-2xl lg:text-[#153526]">Past Orders</h2>
+            {history.isFetching ? (
+              <p className="animate-pulse py-6 text-center text-sm font-medium text-primary">Loading...</p>
+            ) : history.isError ? (
+              <OrdersLoadError
+                message={getApiErrorMessage(history.error, 'Failed to load past orders.')}
+                onRetry={() => void history.refetch()}
+              />
+            ) : pastOrders.length === 0 ? (
+              <p className="py-6 text-center text-sm text-ink-soft">No past orders yet.</p>
+            ) : (
+              <div className="flex flex-col gap-4">
+                {pastOrders.map((order) => (
+                  <PastOrderCard
+                    key={order.id}
+                    order={order}
+                    disabled={reorder.isPending}
+                    adding={reorder.isPending && reorder.variables === order.id}
+                    onReorder={() => reorder.mutate(order.id)}
+                    onDetails={() => navigate(`/app/orders/${order.id}/tracking`)}
+                  />
+                ))}
+              </div>
+            )}
+
+            {!history.isFetching && totalPages > 1 && (
+              <div className="mt-6 flex items-center justify-center gap-3">
+                {Array.from({ length: totalPages }, (_, index) => index + 1).map((pageNumber) => (
+                  <button
+                    key={pageNumber}
+                    type="button"
+                    onClick={() => setPage(pageNumber)}
+                    aria-current={page === pageNumber ? 'page' : undefined}
+                    className={
+                      'flex h-8 w-8 items-center justify-center rounded-full border-2 text-sm font-bold transition-colors ' +
+                      (page === pageNumber
+                        ? 'border-primary bg-primary text-white'
+                        : 'border-primary bg-white text-primary hover:bg-primary/5')
+                    }
+                  >
+                    {pageNumber}
+                  </button>
+                ))}
+              </div>
+            )}
+          </section>
+        </div>
       </div>
     </AppLayout>
   );

@@ -9,7 +9,7 @@ import {
   Users,
   LogIn,
 } from 'lucide-react';
-import SplashLoader from '../../../components/ui/SplashLoader';
+import SplashLoader from '../../../shared/ui/SplashLoader';
 import {
   useReferralCode,
   useReferralMetrics,
@@ -17,11 +17,37 @@ import {
   useReferralWallet,
 } from '../queries';
 import AppLayout from '../../../app/layouts/customer/AppLayout';
+import PageIntro from '../../../app/layouts/customer/PageIntro';
 import { isAuthenticated } from '../../auth/session';
 
 
 
 export default function HomeReferralOverview() {
+  const navigate = useNavigate();
+  if (!isAuthenticated()) {
+  return (
+    <AppLayout title="My Referrals" desktopNavigation className="lg:px-8 lg:pt-8">
+      <div className="flex min-h-[60vh] flex-col items-center justify-center gap-4 px-8 text-center">
+        <LogIn size={40} className="text-primary" />
+        <p className="text-lg font-semibold text-ink">Login to view your referrals</p>
+        <p className="text-sm text-ink-soft">
+          Track and manage your referral downlines, claim your rewards
+        </p>
+        <button
+          onClick={() => navigate('/login')}
+          className="rounded-full bg-primary px-8 py-3 text-sm font-semibold text-white hover:bg-primary-dark"
+        >
+          Login
+        </button>
+      </div>
+    </AppLayout>
+  );
+}
+
+  return <ReferralOverview />;
+}
+
+function ReferralOverview() {
   const navigate = useNavigate();
   const [copied, setCopied] = useState(false);
 
@@ -55,39 +81,21 @@ export default function HomeReferralOverview() {
 
   if (isLoading) {
     return (
-      <AppLayout title="My Referrals">
+      <AppLayout title="My Referrals" desktopNavigation className="lg:px-8 lg:pt-8">
         <SplashLoader />
       </AppLayout>
     );
   }
 
-  if (!isAuthenticated()) {
-  return (
-    <AppLayout title="My Orders">
-      <div className="flex min-h-[60vh] flex-col items-center justify-center gap-4 px-8 text-center">
-        <LogIn size={40} className="text-primary" />
-        <p className="text-lg font-semibold text-ink">Login to view your referrals</p>
-        <p className="text-sm text-ink-soft">
-          Track and manage your referral downlines, claim your rewards
-        </p>
-        <button
-          onClick={() => navigate('/login')}
-          className="rounded-full bg-primary px-8 py-3 text-sm font-semibold text-white hover:bg-primary-dark"
-        >
-          Login
-        </button>
-      </div>
-    </AppLayout>
-  );
-}
 
 
   return (
-    <AppLayout title="My Referrals">
+    <AppLayout title="My Referrals" desktopNavigation className="lg:px-8 lg:pt-8">
 
-      <div className="md:hidden space-y-4">
+      <div className="mx-auto max-w-[76rem] space-y-4 lg:grid lg:grid-cols-2 lg:items-start lg:gap-6 lg:space-y-0">
+        <div className="hidden lg:col-span-2 lg:block"><PageIntro title="My Referrals" description="Track your referrals and manage your rewards." /></div>
         {/* Wallet balance card */}
-        <div className="rounded-2xl bg-primary p-5 text-white">
+        <div className="rounded-2xl bg-primary p-5 text-white lg:bg-[#245b38]">
   <div className="flex items-center gap-2">
     <Wallet size={18} />
     <span className="text-sm font-medium">Wallet Balance</span>
@@ -122,8 +130,7 @@ export default function HomeReferralOverview() {
 
         <a
           href="/app/referrals"
-          target="_blank"
-          rel="noopener noreferrer"
+
           className="flex w-full items-center justify-between rounded-2xl border border-primary/20 bg-primary/5 p-4 transition-colors hover:bg-primary/10"
         >
           <div className="flex items-center gap-3">

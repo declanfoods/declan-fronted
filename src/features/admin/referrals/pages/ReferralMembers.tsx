@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, Search, Users, DollarSign, RefreshCw, Share2, Eye, Wallet, Copy } from 'lucide-react';
 import ReferralBottomNav from '../components/ReferralBottomNav';
-import RowActionsMenu, { type RowAction } from '../../../../components/admin/RowActionsMenu';
+import RowActionsMenu, { type RowAction } from '../../components/RowActionsMenu';
 import { useAdminReferrals } from '../queries';
 import { useDebounce } from '../../../../app/hooks/useDebounce';
 import { getApiErrorMessage } from '../../../../app/lib/api-types';

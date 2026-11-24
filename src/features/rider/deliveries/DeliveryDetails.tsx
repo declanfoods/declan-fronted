@@ -15,7 +15,7 @@ import {
 } from 'lucide-react';
 import RiderTopBar from '../components/RiderTopBar';
 import { advanceDelivery, useAssignedDelivery } from './queries';
-import { formatDate } from '../../../components/utils/util';
+import { formatDateTime } from '../../../shared/formatters/formatDateTime';
 
 const stages = [
   { key: 'ASSIGNED', label: 'Assigned' },
@@ -245,7 +245,7 @@ export default function DeliveryDetails() {
           </div>
           <div>
             <i className="text-gray-500">
-                Target delivery time: {formatDate(delivery.targetDeliveryTime.toString())}
+                Target delivery time: {formatDateTime(delivery.targetDeliveryTime.toString())}
             </i>
 
           </div>

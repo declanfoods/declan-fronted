@@ -7,7 +7,7 @@ import {
   type FoodPackDetailItem,
 } from '../api/adminFoodPackApi';
 import { adminProductApi, type AdminProduct } from '../api/adminProductApi';
-import AdminImageUpload from '../../../../components/admin/AdminImageUpload';
+import AdminImageUpload from '../../components/AdminImageUpload';
 
 export default function EditFoodPack() {
   const navigate = useNavigate();

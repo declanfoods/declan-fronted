@@ -69,14 +69,16 @@ export const productApi = {
   getPreviouslyPurchased: (signal?: AbortSignal) =>
     api.get<ApiResponse<{ products: ApiProduct[] }>>('/api/v1/products/previously-purchased', { signal }),
 
-  getProductById: (productId: string) =>
+  getProductById: (productId: string, signal?: AbortSignal) =>
     api.get<ApiResponse<{ product: ApiProduct }>>(
-      `/api/v1/products/${productId}`
+      `/api/v1/products/${productId}`,
+      { signal },
     ),
 
-  getRelatedProducts: (id: string) =>
+  getRelatedProducts: (id: string, signal?: AbortSignal) =>
     api.get<ApiResponse<{ products: ApiProduct[] }>>(
-      `/api/v1/products/${id}/related-products`
+      `/api/v1/products/${id}/related-products`,
+      { signal },
     ),
 
   reviewProduct: (id: string, data: ReviewPayload) =>

@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { CheckCircle2 } from 'lucide-react';
 import { getApiErrorMessage } from '../../../app/lib/api-types';
-import { useToast } from '../../../components/ui/Toast';
+import { useToast } from '../../../shared/ui/Toast';
 import { guestCheckoutApi } from '../api/guestCheckoutApi';
 
 const RESEND_COOLDOWN = 60;

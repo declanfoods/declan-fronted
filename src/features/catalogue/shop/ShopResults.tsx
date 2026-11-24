@@ -23,7 +23,7 @@ export default function ShopResults({
 }: ShopResultsProps) {
   return (
     <>
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-2 gap-4 lg:grid-cols-3 lg:gap-5 xl:grid-cols-4">
         {products.map((product) => <ProductCard key={product.id} product={product} />)}
         {foodPacks.map((pack) => <FoodPackCard key={pack.id} pack={pack} />)}
       </div>

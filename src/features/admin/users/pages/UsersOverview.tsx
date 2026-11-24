@@ -13,8 +13,8 @@ import {
   Mail,
 } from 'lucide-react';
 import AdminBottomNav from '../../../../app/layouts/admin/AdminBottomNav';
-import StatusPill from '../../../../components/admin/StatusPill';
-import RowActionsMenu, { type RowAction } from '../../../../components/admin/RowActionsMenu';
+import StatusPill from '../../components/StatusPill';
+import RowActionsMenu, { type RowAction } from '../../components/RowActionsMenu';
 import {
   useAdminUsers,
   useAdminUserMetrics,

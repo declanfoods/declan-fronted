@@ -1,7 +1,8 @@
 import { useNavigate } from 'react-router-dom';
 import AppLayout from '../../../app/layouts/customer/AppLayout';
-import Button from '../../../components/ui/Button';
-import SplashLoader from '../../../components/ui/SplashLoader';
+import PageIntro from '../../../app/layouts/customer/PageIntro';
+import Button from '../../../shared/ui/Button';
+import SplashLoader from '../../../shared/ui/SplashLoader';
 import CartItemRow from '../components/CartItemRow';
 import CartSummary from '../components/CartSummary';
 import { useMainCart } from '../useMainCart';
@@ -23,7 +24,7 @@ export default function CartPage() {
 
   if (loading) {
     return (
-      <AppLayout title="My Cart">
+      <AppLayout title="My Cart" desktopNavigation className="lg:px-8 lg:pt-8">
         <SplashLoader />
       </AppLayout>
     );
@@ -31,7 +32,7 @@ export default function CartPage() {
 
   if (error) {
     return (
-      <AppLayout title="My Cart">
+      <AppLayout title="My Cart" desktopNavigation className="lg:px-8 lg:pt-8">
         <div className="flex min-h-[60vh] flex-col items-center justify-center gap-4 px-8 text-center">
           <p className="text-lg font-semibold text-red-600">{error}</p>
           <button
@@ -52,11 +53,12 @@ export default function CartPage() {
   const busy = pendingItem !== null || clearing;
 
   return (
-    <AppLayout title="My Cart">
-      <div aria-hidden className="pointer-events-none absolute -right-10 top-40 h-24 w-24 rounded-full bg-blob-tan" />
-      <div aria-hidden className="pointer-events-none absolute -left-6 bottom-40 h-20 w-20 rounded-full bg-primary/20" />
+    <AppLayout title="My Cart" desktopNavigation className="lg:px-8 lg:pt-8">
+      <div aria-hidden className="pointer-events-none absolute -right-10 top-40 h-24 w-24 rounded-full bg-blob-tan lg:hidden" />
+      <div aria-hidden className="pointer-events-none absolute -left-6 bottom-40 h-20 w-20 rounded-full bg-primary/20 lg:hidden" />
 
-      <div className="relative mx-auto max-w-2xl">
+      <div className="relative mx-auto max-w-2xl lg:max-w-[76rem]">
+        <div className="mb-8 hidden lg:block"><PageIntro title="My Cart" description="Review your items before checkout." /></div>
         <div className="mb-6 flex items-center justify-between">
           <div>
             <h2 className="text-2xl font-bold text-ink">Your Order</h2>
@@ -95,8 +97,8 @@ export default function CartPage() {
             </button>
           </div>
         ) : (
-          <>
-            <div className="flex flex-col gap-4">
+          <div className="lg:grid lg:grid-cols-[minmax(0,1fr)_22rem] lg:items-start lg:gap-8">
+            <div className="flex min-w-0 flex-col gap-4">
               {items.map((item) => (
                 <CartItemRow
                   key={item.id}
@@ -109,6 +111,7 @@ export default function CartPage() {
               ))}
             </div>
 
+            <aside aria-label="Order summary" className="lg:sticky lg:top-6 lg:rounded-3xl lg:border lg:border-[#e3e9df] lg:bg-[#fafbf7] lg:p-6">
             <CartSummary items={items} subtotal={cart?.subTotal ?? 0} />
 
             <div className="mt-8">
@@ -121,7 +124,8 @@ export default function CartPage() {
                 Proceed to Checkout
               </Button>
             </div>
-          </>
+            </aside>
+          </div>
         )}
       </div>
     </AppLayout>

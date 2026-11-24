@@ -10,7 +10,7 @@ import {
   PiggyBank,
   RefreshCw,
 } from 'lucide-react';
-import StatusPill from '../../../../components/admin/StatusPill';
+import StatusPill from '../../components/StatusPill';
 import {
   useAdminUser,
   useAdminUserTransactions,

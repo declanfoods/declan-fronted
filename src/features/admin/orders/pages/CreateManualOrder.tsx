@@ -15,7 +15,7 @@ import {
 } from 'lucide-react';
 import { adminOrderApi, type AdminOrderStatus } from '../api';
 import { refreshAdminOrders } from '../queries';
-import { AdminProductPickerSheet, type OrderLine } from '../../../../components/admin/AdminProductPickerSheet';
+import { AdminProductPickerSheet, type OrderLine } from '../components/AdminProductPickerSheet';
 
 
 const ORDER_STATUSES: AdminOrderStatus[] = [

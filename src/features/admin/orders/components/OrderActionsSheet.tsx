@@ -19,7 +19,7 @@ import {
 import { adminOrderApi } from '../api';
 import { refreshAdminOrders } from '../queries';
 import { getApiErrorMessage } from '../../../../app/lib/api-types';
-import { useToast } from '../../../../components/ui/Toast';
+import { useToast } from '../../../../shared/ui/Toast';
 
 type OrderActionsSheetProps = {
   orderId: string;

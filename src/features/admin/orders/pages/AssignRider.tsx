@@ -13,7 +13,7 @@ import { refreshAdminOrders, useAdminOrder } from '../queries';
 import { getApiErrorMessage } from '../../../../app/lib/api-types';
 import type { DeliveryRider } from '../../riders/api';
 import { refreshAdminRiders, useAdminRiders } from '../../riders/queries';
-import { useToast } from '../../../../components/ui/Toast';
+import { useToast } from '../../../../shared/ui/Toast';
 import AssignRiderModal from '../components/AssignRiderModal';
 
 

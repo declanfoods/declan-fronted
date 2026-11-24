@@ -8,7 +8,7 @@ import ReferralOverview from '../../features/referrals/pages/Overview';
 import ReferralList from '../../features/referrals/pages/ReferralList';
 import RewardsGuide from '../../features/referrals/pages/RewardsGuide';
 import Withdraw from '../../features/referrals/pages/Withdraw';
-import SavedProducts from '../../components/ui/SavedProducts';
+import SavedProductsPage from '../../features/catalogue/saved/SavedProductsPage';
 import FoodPackDetailsPage from '../../features/catalogue/pages/FoodPackDetailsPage';
 import ProductDetailsPage from '../../features/catalogue/pages/ProductDetailsPage';
 import ShopPage from '../../features/catalogue/pages/ShopPage';
@@ -28,7 +28,7 @@ export const customerRoutes: RouteObject[] = [
   { path: '/app/checkout', element: <CheckoutPage /> },
   { path: '/app/reorder-cart', element: <ReorderCartPage /> },
   { path: '/app/profile', element: <ProfilePage /> },
-  { path: '/app/saved', element: <SavedProducts /> },
+  { path: '/app/saved', element: <SavedProductsPage /> },
   { path: '/app/orders', element: <OrdersPage /> },
   { path: '/app/orders/:orderId', element: <OrderDetailsPage /> },
   { path: '/app/orders/:orderId/tracking', element: <OrderTrackingPage /> },

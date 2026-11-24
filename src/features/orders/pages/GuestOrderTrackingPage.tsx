@@ -1,7 +1,7 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { getApiErrorMessage } from '../../../app/lib/api-types';
-import SplashLoader from '../../../components/ui/SplashLoader';
+import SplashLoader from '../../../shared/ui/SplashLoader';
 import { guestOrderApi, type GuestOrderLookup } from '../api/guestOrderApi';
 import type { OrderDetailsPayload } from '../api/orderApi';
 import OrderTrackingView from '../components/OrderTrackingView';

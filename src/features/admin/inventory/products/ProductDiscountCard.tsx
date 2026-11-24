@@ -3,7 +3,7 @@ import { Tag, X, Pencil, Loader2, Check } from 'lucide-react';
 import type { AdminProduct } from '../api/adminProductApi';
 import { adminDiscountApi } from '../api/adminDiscountApi';
 import { getEffectivePrice } from '../../../catalogue/pricing';
-import { formatNaira } from '../../../../components/data/products';
+import { formatNaira } from '../../../../shared/formatters/formatNaira';
 
 
 

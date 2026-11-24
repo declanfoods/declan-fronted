@@ -1,7 +1,7 @@
 import { useNavigate, useParams } from 'react-router-dom';
 import { ArrowLeft } from 'lucide-react';
 import AppLayout from '../../../app/layouts/customer/AppLayout';
-import SplashLoader from '../../../components/ui/SplashLoader';
+import SplashLoader from '../../../shared/ui/SplashLoader';
 import { formatNaira } from '../../../shared/formatters/formatNaira';
 import { formatOrderDate, isOrderDelivered, orderStatusLabel } from '../orderPresentation';
 import { useOrderDetails } from '../queries';

@@ -11,7 +11,7 @@ import {
 } from 'lucide-react';
 import AdminBottomNav from '../../../../app/layouts/admin/AdminBottomNav';
 import AdminDrawer from '../../../../app/layouts/admin/AdminDrawer';
-import Logo from '../../../../components/ui/Logo';
+import Logo from '../../../../shared/ui/Logo';
 import { getApiErrorMessage } from '../../../../app/lib/api-types';
 import { usePendingPayouts } from '../../referrals/payoutQueries';
 import RevenueCard from '../components/RevenueCard';

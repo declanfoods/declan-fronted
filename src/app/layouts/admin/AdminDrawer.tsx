@@ -24,7 +24,7 @@ import {
   Tag,
 } from 'lucide-react';
 import { logout } from '../../../features/auth/session';
-// Same asset the public site uses (see components/ui/Logo.tsx).
+// Same asset the public site uses (see shared/ui/Logo.tsx).
 import brandLogo from '../../../assets/brandlogo.png';
 
 

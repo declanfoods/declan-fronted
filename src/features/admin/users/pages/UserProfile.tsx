@@ -11,7 +11,7 @@
     RefreshCw,
     DollarSign,
   } from 'lucide-react';
-  import StatusPill from '../../../../components/admin/StatusPill';
+  import StatusPill from '../../components/StatusPill';
   import { useAdminUser, useSuspendUser, useUnsuspendUser } from '../queries';
   import { getApiErrorMessage } from '../../../../app/lib/api-types';
   import {

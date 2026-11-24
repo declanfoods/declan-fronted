@@ -1,3 +1,4 @@
+import DesktopNavigation from '../../../app/layouts/customer/DesktopNavigation';
 import { useCustomerProfile } from '../../account/queries';
 import { deriveDisplayName } from '../displayName';
 import { type ReactNode } from 'react';
@@ -91,7 +92,8 @@ export default function ReferralLayout({
   return (
     <div className="min-h-screen bg-white">
       {/* ─── DESKTOP HEADER ─── */}
-      <header className="hidden border-b border-gray-100 md:block">
+      <div className="hidden lg:block"><DesktopNavigation /></div>
+      <header className="hidden border-b border-gray-100 md:block lg:hidden">
         <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-4">
           <img src={logo} alt="Declan Foods" className="h-14 w-auto" />
           <h1 className="text-2xl font-bold text-primary">Referral Dashboard</h1>

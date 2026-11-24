@@ -5,7 +5,7 @@ import { Download, Eye, Wallet, History, Search, MessageCircle } from 'lucide-re
 import { useNavigate } from 'react-router-dom';
 import ReferralLayout from '../components/ReferralLayout';
 import DesktopShell from '../components/DesktopShell';
-import SplashLoader from '../../../components/ui/SplashLoader';
+import SplashLoader from '../../../shared/ui/SplashLoader';
 import {
   useReferralCode,
   useReferralMetrics,

@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { ShieldCheck } from 'lucide-react';
 import AuthLayout from '../components/AuthLayout';
 import AuthInput from '../components/AuthInput';
-import Logo from '../../../components/ui/Logo';
+import Logo from '../../../shared/ui/Logo';
 import { adminApi } from '../adminApi';
 import { readSignInResult } from '../response';
 import { saveSession } from '../session';

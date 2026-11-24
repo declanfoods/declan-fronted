@@ -5,7 +5,7 @@ import { adminProductApi, type AdminProduct } from '../api/adminProductApi';
 import { categoryApi } from '../../categories/api';
 import type { CategoryOption } from '../../categories/types';
 import ProductDiscountCard from './ProductDiscountCard';
-import AdminImageUpload from '../../../../components/admin/AdminImageUpload';
+import AdminImageUpload from '../../components/AdminImageUpload';
 import UpdateStockModal from './components/UpdateStockModal';
 
 type Visibility = 'Published' | 'Hidden' | 'Scheduled';

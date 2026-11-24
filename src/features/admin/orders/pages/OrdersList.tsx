@@ -13,7 +13,7 @@ import {
 } from 'lucide-react';
 
 import AdminBottomNav from '../../../../app/layouts/admin/AdminBottomNav';
-import StatusPill from '../../../../components/admin/StatusPill';
+import StatusPill from '../../components/StatusPill';
 import OrderActionsSheet from '../components/OrderActionsSheet';
 
 import {

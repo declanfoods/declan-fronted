@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 import { ArrowLeft } from 'lucide-react';
-import Container from '../../../components/layout/Container';
+import Container from '../../../shared/ui/Container';
 import type { Order, OrderTimelineEvent } from '../api/orderApi';
 import { getTrackingPayment, isOrderDelivered, orderStatusKey, orderStatusLabel } from '../orderPresentation';
 import OrderTimeline from './OrderTimeline';

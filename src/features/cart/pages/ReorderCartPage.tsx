@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Loader2, RotateCcw, LogIn } from 'lucide-react';
 import AppLayout from '../../../app/layouts/customer/AppLayout';
-import SplashLoader from '../../../components/ui/SplashLoader';
+import SplashLoader from '../../../shared/ui/SplashLoader';
 import { formatNaira } from '../../../shared/formatters/formatNaira';
 import { getApiErrorMessage } from '../../../app/lib/api-types';
 import ReorderCartItemRow from '../components/ReorderCartItemRow';
@@ -10,7 +10,7 @@ import { useReorderCart } from '../useReorderCart';
 import { orderApi } from '../../orders/api/orderApi';
 import { useCheckoutOptions } from '../../checkout/useCheckoutOptions';
 import { isAuthenticated } from '../../auth/session';
-import { useToast } from '../../../components/ui/Toast';
+import { useToast } from '../../../shared/ui/Toast';
 
 export default function ReorderCartPage() {
   const navigate = useNavigate();

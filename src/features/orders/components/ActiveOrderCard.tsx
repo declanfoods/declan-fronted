@@ -7,7 +7,7 @@ export default function ActiveOrderCard({ order, onTrack }: { order: Order; onTr
   const status = orderStatusKey(order.orderStatus);
 
   return (
-    <div className="rounded-3xl border-2 border-primary bg-white p-6 shadow-sm">
+    <div className="rounded-3xl border-2 border-primary bg-white p-6 shadow-sm lg:border lg:border-[#e3e9df] lg:bg-[#fafbf7]">
       {/* Order number + totals */}
       <div className="flex items-start justify-between">
         <span className="inline-flex rounded-full bg-primary px-4 py-1 text-sm font-bold text-white">

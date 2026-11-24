@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Menu, X } from 'lucide-react';
-import Logo from '../../../components/ui/Logo';
-import FloatingPillBar from '../../../components/ui/FloatingPillBar';
+import Logo from '../../../shared/ui/Logo';
+import FloatingPillBar from '../../../shared/ui/FloatingPillBar';
 import AppMenuDropdown from './AppMenuDropdown';
 import NotificationBell from '../../../features/notifications/components/NotificationBell';
 

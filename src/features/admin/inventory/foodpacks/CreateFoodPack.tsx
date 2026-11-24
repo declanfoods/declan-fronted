@@ -5,7 +5,7 @@ import { adminFoodPackApi } from '../api/adminFoodPackApi';
 import { adminProductApi, type AdminProduct } from '../api/adminProductApi';
 import { categoryApi } from '../../categories/api';
 import type { CategoryOption } from '../../categories/types';
-import AdminImageUpload from '../../../../components/admin/AdminImageUpload';
+import AdminImageUpload from '../../components/AdminImageUpload';
 
 type SelectedProduct = {
   productId: string;

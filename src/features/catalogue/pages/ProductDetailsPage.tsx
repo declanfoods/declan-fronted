@@ -1,30 +1,68 @@
-import { useState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { isAxiosError } from 'axios';
 import { useNavigate, useParams } from 'react-router-dom';
 import { ArrowLeft, ShoppingCart, Minus, Plus, Heart, Loader2, Star } from 'lucide-react';
-import SplashLoader from '../../../components/ui/SplashLoader';
+import SplashLoader from '../../../shared/ui/SplashLoader';
 import ProductCard from '../components/ProductCard';
 import { formatNaira } from '../../../shared/formatters/formatNaira';
-import { productApi, type ApiProduct } from '../api/productApi';
+import { productApi } from '../api/productApi';
 import { getEffectivePrice } from '../pricing';
 import { addProductToCart } from '../../cart/cartActions';
-import { savedApi } from '../../../app/lib/savedApi';
+import { useSavedProducts, useSaveProduct } from '../saved/queries';
+import { getApiErrorMessage } from '../../../app/lib/api-types';
 import { isAuthenticated } from '../../auth/session';
 
 export default function ProductDetailsPage() {
   const { id } = useParams<{ id: string }>();
-  const navigate = useNavigate();
 
-  const [product, setProduct] = useState<ApiProduct | null>(null);
-  const [related, setRelated] = useState<ApiProduct[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
+  return <ProductDetails key={id} id={id ?? ''} />;
+}
+
+function ProductDetails({ id }: { id: string }) {
+  const navigate = useNavigate();
+  const authenticated = isAuthenticated();
+
+  const productQuery = useQuery({
+    queryKey: ['catalogue', 'products', id],
+    enabled: Boolean(id),
+    retry: false,
+    queryFn: async ({ signal }) => {
+      try {
+        const { data } = await productApi.getProductById(id, signal);
+        if (data.success === false) throw new Error(data.message || 'Could not load the product.');
+        return data.data?.product ?? null;
+      } catch (error) {
+        if (isAxiosError(error) && error.response?.status === 404) return null;
+        throw error;
+      }
+    },
+  });
+  const product = productQuery.data;
+
+  const relatedQuery = useQuery({
+    queryKey: ['customer', 'catalogue', 'related-products', id],
+    enabled: authenticated && Boolean(product),
+    retry: false,
+    queryFn: async ({ signal }) => {
+      const { data } = await productApi.getRelatedProducts(id, signal);
+      return data.data?.products ?? [];
+    },
+  });
+  const related = authenticated ? relatedQuery.data ?? [] : [];
 
   const [qty, setQty] = useState(1);
   const [adding, setAdding] = useState(false);
   const [addedMsg, setAddedMsg] = useState('');
 
-  const [saving, setSaving] = useState(false);
-  const [saved, setSaved] = useState(false);
+  const savedProducts = useSavedProducts();
+  const saveProduct = useSaveProduct();
+  const saving = saveProduct.isPending;
+  const saved = savedProducts.data?.some((item) => item.product.id === id) ||
+    (saveProduct.isSuccess && saveProduct.variables === id);
+  const saveError = saveProduct.isError && saveProduct.variables === id
+    ? getApiErrorMessage(saveProduct.error, 'Could not save the product.')
+    : '';
 
   // Review form
   const [showReviewForm, setShowReviewForm] = useState(false);
@@ -34,38 +72,8 @@ export default function ProductDetailsPage() {
   const [reviewMsg, setReviewMsg] = useState('');
 
   useEffect(() => {
-    if (!id) return;
-    const fetchProduct = async () => {
-      setLoading(true);
-      setError('');
-      try {
-        const [productRes, relatedRes] = await Promise.allSettled([
-          productApi.getProductById(id),
-          productApi.getRelatedProducts(id),
-        ]);
-        if (productRes.status === 'fulfilled') {
-
-  setProduct(productRes.value.data.data.product)
-         }  else {
-          setError('Product not found.');
-        }
-       if (relatedRes.status === 'fulfilled'){
-  setRelated(relatedRes.value.data.data.products)
-       }
-      } catch {
-        setError('Failed to load product.');
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchProduct();
-    setQty(1);
-    setAddedMsg('');
-    setSaved(false);
-    setShowReviewForm(false);
-    setReviewMsg('');
     window.scrollTo({ top: 0 });
-  }, [id]);
+  }, []);
 
   const handleAddToCart = async () => {
     if (!product) return;
@@ -82,20 +90,13 @@ export default function ProductDetailsPage() {
     }
   };
 
-  const handleSave = async () => {
-    if (!product) return;
+  const handleSave = () => {
+    if (!product || saving || saved) return;
     if (!isAuthenticated()) {
       navigate('/login');
       return;
     }
-    setSaving(true);
-    try {
-      await savedApi.saveProduct(product.id);
-      setSaved(true);
-    } catch {
-    } finally {
-      setSaving(false);
-    }
+    saveProduct.mutate(product.id);
   };
 
   const handleReview = async (e: React.FormEvent) => {
@@ -122,14 +123,27 @@ export default function ProductDetailsPage() {
     }
   };
 
-  if (loading) {
+  if (id && productQuery.isPending) {
     return <SplashLoader />;
   }
 
-  if (error || !product) {
+  if (!product) {
     return (
       <div className="flex min-h-screen flex-col items-center justify-center gap-4 px-6 text-center">
-        <p className="text-lg font-semibold text-ink">{error || 'Product not found'}</p>
+        <p className="text-lg font-semibold text-ink">
+          {productQuery.isError
+            ? getApiErrorMessage(productQuery.error, 'Could not load the product.')
+            : 'Product not found'}
+        </p>
+        {productQuery.isError && (
+          <button
+            type="button"
+            onClick={() => void productQuery.refetch()}
+            className="text-sm font-semibold text-primary underline"
+          >
+            Try again
+          </button>
+        )}
         <button
           type="button"
           onClick={() => navigate('/app/shop')}
@@ -141,7 +155,7 @@ export default function ProductDetailsPage() {
     );
   }
 
-const image = product.imageUrls?.[0] ?? '';
+  const image = product.imageUrls?.[0] ?? '';
   return (
     <div className="min-h-screen bg-white">
       {/* Header + image */}
@@ -181,12 +195,15 @@ const image = product.imageUrls?.[0] ?? '';
           <button
             type="button"
             onClick={handleSave}
-            disabled={saving || saved}
+            disabled={saving || saved || (isAuthenticated() && savedProducts.isPending)}
+            aria-label={saved ? 'Product saved' : 'Save product'}
             className="ml-3 flex h-10 w-10 items-center justify-center rounded-full border-2 border-primary text-primary transition-colors hover:bg-primary/5 disabled:opacity-60"
           >
             <Heart size={20} fill={saved ? 'currentColor' : 'none'} />
           </button>
         </div>
+
+        {saveError && <p role="alert" className="mt-2 text-sm text-red-600">{saveError}</p>}
 
         {/* Rating */}
         <div className="mt-2 flex items-center gap-1 text-sm text-gray-600">

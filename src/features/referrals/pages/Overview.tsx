@@ -13,7 +13,7 @@ import {
 } from 'lucide-react';
 import ReferralLayout from '../components/ReferralLayout';
 import DesktopShell from '../components/DesktopShell';
-import SplashLoader from '../../../components/ui/SplashLoader';
+import SplashLoader from '../../../shared/ui/SplashLoader';
 import {
   useReferralCode,
   useReferralMetrics,

@@ -1,7 +1,7 @@
 import { Navigate, type RouteObject } from 'react-router-dom';
 import EmailVerification from '../../features/auth/pages/EmailVerification';
 import ForgotPassword from '../../features/auth/pages/ForgotPassword';
-import Home from '../../components/pages/user/Home';
+import HomePage from '../../features/marketing/pages/HomePage';
 import Login from '../../features/auth/pages/Login';
 import ResetPassword from '../../features/auth/pages/ResetPassword';
 import SignUp from '../../features/auth/pages/SignUp';
@@ -21,8 +21,8 @@ export const publicRoutes: RouteObject[] = [
   {
     element: <MarketingLayout />,
     children: [
-      { path: '/', element: <Home /> },
-      { path: '*', element: <Home /> },
+      { path: '/', element: <HomePage /> },
+      { path: '*', element: <HomePage /> },
     ],
   },
 ];

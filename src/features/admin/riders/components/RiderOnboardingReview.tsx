@@ -1,5 +1,5 @@
 import { CheckCircle2 } from 'lucide-react';
-import AdminImageUpload from '../../../../components/admin/AdminImageUpload';
+import AdminImageUpload from '../../components/AdminImageUpload';
 import type { RiderOnboardingFields } from '../onboardingForm';
 
 interface RiderOnboardingReviewProps extends RiderOnboardingFields {

@@ -6,7 +6,7 @@ import AuthBranding from '../components/AuthBranding';
 import { getApiErrorMessage } from '../../../app/lib/api-types';
 import { authApi } from '../api';
 import { assertAuthSuccess } from '../response';
-import { useToast } from '../../../components/ui/Toast';
+import { useToast } from '../../../shared/ui/Toast';
 
 export default function SignUp() {
   const navigate = useNavigate();

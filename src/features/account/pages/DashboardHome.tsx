@@ -1,7 +1,8 @@
 import { useState } from 'react';
-import { MapPin, RotateCcw, Search, Store } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { ArrowUpRight, MapPin, RotateCcw, Search, Store } from 'lucide-react';
+import { Link, useNavigate } from 'react-router-dom';
 import AppLayout from '../../../app/layouts/customer/AppLayout';
+import PageIntro from '../../../app/layouts/customer/PageIntro';
 import { isAuthenticated } from '../../auth/session';
 import ProductCard from '../../catalogue/components/ProductCard';
 import { useOrdersOverview } from '../../orders/queries';
@@ -41,8 +42,8 @@ export default function DashboardHome() {
   };
 
   return (
-    <AppLayout title="Home">
-      <div className="space-y-6">
+    <AppLayout title="Home" className="lg:px-8 lg:pt-8" desktopNavigation>
+      <div className="mx-auto max-w-[76rem] space-y-6 lg:space-y-8">
         {authenticated && failedQueries.length > 0 && (
           <div role="status" className="rounded-xl bg-red-50 p-4 text-sm text-red-600">
             Some dashboard information could not load.{' '}
@@ -56,69 +57,84 @@ export default function DashboardHome() {
           </div>
         )}
 
-        {/* Greeting + location */}
-        <div>
-          <h1 className="text-2xl font-bold text-primary">
-            {getGreeting()}, {firstName}
-          </h1>
-          <p className="mt-1 flex items-center gap-1 text-sm font-medium text-primary">
-            <MapPin size={16} strokeWidth={2} />
-            <span className="max-w-[250px] truncate">{addressLabel}</span>
-          </p>
-        </div>
+        <PageIntro
+          title={`${getGreeting()}, ${firstName}`}
+          showIntroOnMobile
+          description={(
+            <p className="flex items-center gap-2 font-medium">
+              <MapPin size={16} aria-hidden className="shrink-0" />
+              <span className="truncate">{addressLabel}</span>
+            </p>
+          )}
+        >
+          <form onSubmit={handleSearch} role="search">
+            <div className="flex items-center gap-2 rounded-full border border-muted bg-white px-4 py-3 shadow-sm lg:gap-3 lg:border-[#ccd9cc] lg:py-2 lg:pl-5 lg:pr-2 lg:shadow-none">
+              <Search size={18} aria-hidden className="shrink-0 text-primary" />
+              <input
+                type="search"
+                aria-label="Search your essentials"
+                value={query}
+                onChange={(event) => setQuery(event.target.value)}
+                placeholder="Search your essentials"
+                className="min-w-0 flex-1 bg-transparent text-sm text-ink outline-none placeholder:text-primary/70"
+              />
+              <button
+                type="submit"
+                disabled={!query.trim()}
+                className="hidden rounded-full bg-[#245b38] px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-[#153526] disabled:opacity-60 lg:block"
+              >
+                Search
+              </button>
+            </div>
+          </form>
+        </PageIntro>
 
-        {/* Search */}
-        <form onSubmit={handleSearch}>
-          <div className="flex items-center gap-2 rounded-full border border-muted bg-white px-4 py-3 shadow-sm">
-            <Search size={18} className="flex-shrink-0 text-primary" />
-            <input
-              type="text"
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder="Search your essentials"
-              className="flex-1 border-none bg-transparent text-sm text-ink outline-none placeholder:text-primary/70"
-            />
-          </div>
-        </form>
+        <div className="space-y-6 lg:grid lg:grid-cols-[minmax(0,1.7fr)_minmax(0,1fr)] lg:items-start lg:gap-6 lg:space-y-0">
+          <DashboardOrders
+            orders={orders.data ?? []}
+            loading={authenticated && orders.isPending}
+            failed={orders.isError}
+          />
 
-        <DashboardOrders
-          orders={orders.data ?? []}
-          loading={authenticated && orders.isPending}
-          failed={orders.isError}
-        />
-
-        {/* Quick actions */}
-        <div className="grid grid-cols-2 gap-4">
-          <button
-            type="button"
-            onClick={() => navigate('/app/shop')}
-            className="flex flex-col items-center justify-center gap-2 rounded-2xl bg-primary py-6 text-sm font-semibold text-white transition-colors hover:bg-primary-dark"
-          >
-            <Store size={22} strokeWidth={2} />
-            Shop Essentials
-          </button>
-          <button
-            type="button"
-            onClick={() => navigate('/app/orders')}
-            className="flex flex-col items-center justify-center gap-2 rounded-2xl border border-primary py-6 text-sm font-semibold text-primary transition-colors hover:bg-primary/5"
-          >
-            <RotateCcw size={22} strokeWidth={2} />
-            Reorder Last
-          </button>
+          <section aria-label="Shopping shortcuts" className="grid grid-cols-2 gap-4 lg:grid-cols-1">
+            <Link
+              to="/app/shop"
+              className="flex flex-col items-center justify-center gap-2 rounded-2xl bg-primary py-6 text-sm font-semibold text-white transition-colors hover:bg-primary-dark lg:flex-row lg:justify-start lg:gap-3 lg:bg-[#245b38] lg:px-6 lg:hover:bg-[#153526]"
+            >
+              <Store size={22} aria-hidden />
+              Shop Essentials
+              <ArrowUpRight size={18} aria-hidden className="ml-auto hidden lg:block" />
+            </Link>
+            <Link
+              to="/app/orders"
+              className="flex flex-col items-center justify-center gap-2 rounded-2xl border border-primary py-6 text-sm font-semibold text-primary transition-colors hover:bg-primary/5 lg:flex-row lg:justify-start lg:gap-3 lg:border-[#ccd9cc] lg:px-6 lg:text-[#245b38] lg:hover:bg-[#f3f5eb]"
+            >
+              <RotateCcw size={22} aria-hidden />
+              Reorder Last
+              <ArrowUpRight size={18} aria-hidden className="ml-auto hidden lg:block" />
+            </Link>
+          </section>
         </div>
 
         {buyAgainProducts.length > 0 && <BuyAgain products={buyAgainProducts} />}
 
-        {/* Featured essentials */}
-{essentials.length > 0 && (
-          <div>
-            <h2 className="mb-3 text-lg font-bold text-ink">Featured Essentials</h2>
-            <div className="grid grid-cols-2 gap-4">
-              {essentials.map((product) => (
-                <ProductCard key={product.id} product={product} />
-              ))}
+        {essentials.length > 0 && (
+          <section aria-labelledby="featured-essentials">
+            <div className="mb-3 lg:mb-5 lg:flex lg:items-center lg:justify-between lg:gap-4">
+              <h2 id="featured-essentials" className="text-lg font-bold text-ink lg:text-2xl lg:font-extrabold lg:tracking-tight lg:text-[#153526]">
+                Featured Essentials
+              </h2>
+              <Link
+                to="/app/shop"
+                className="hidden items-center gap-2 rounded-full border border-[#ccd9cc] px-5 py-3 text-sm font-semibold text-[#245b38] hover:bg-[#f3f5eb] lg:inline-flex"
+              >
+                Browse shop <ArrowUpRight size={16} aria-hidden />
+              </Link>
             </div>
-          </div>
+            <div className="grid grid-cols-2 gap-4 lg:grid-cols-3 lg:gap-5 xl:grid-cols-4">
+              {essentials.map((product) => <ProductCard key={product.id} product={product} />)}
+            </div>
+          </section>
         )}
       </div>
     </AppLayout>

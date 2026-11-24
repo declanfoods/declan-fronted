@@ -2,7 +2,8 @@ import { useNavigate } from 'react-router-dom';
 import { LogIn, LogOut } from 'lucide-react';
 
 import AppLayout from '../../../app/layouts/customer/AppLayout';
-import SplashLoader from '../../../components/ui/SplashLoader';
+import PageIntro from '../../../app/layouts/customer/PageIntro';
+import SplashLoader from '../../../shared/ui/SplashLoader';
 
 import { userAvatarUrl } from '../api/userApi';
 import { getApiErrorMessage } from '../../../app/lib/api-types';
@@ -31,7 +32,7 @@ export default function ProfilePage() {
 
   if (authenticated && profileQuery.isPending) {
     return (
-      <AppLayout title="My Profile">
+      <AppLayout title="My Profile" desktopNavigation className="lg:px-8 lg:pt-8">
         <SplashLoader />
       </AppLayout>
     );
@@ -41,7 +42,7 @@ export default function ProfilePage() {
 
   if (!authenticated) {
     return (
-      <AppLayout title="My Profile">
+      <AppLayout title="My Profile" desktopNavigation className="lg:px-8 lg:pt-8">
         <div className="flex min-h-[60vh] flex-col items-center justify-center gap-4 px-8 text-center">
           <LogIn
             size={40}
@@ -73,7 +74,7 @@ export default function ProfilePage() {
 
   if (!profile) {
     return (
-      <AppLayout title="My Profile">
+      <AppLayout title="My Profile" desktopNavigation className="lg:px-8 lg:pt-8">
         <div className="flex min-h-[60vh] flex-col items-center justify-center gap-4 px-8 text-center">
           <p className="text-lg font-semibold text-red-600">
             {getApiErrorMessage(profileQuery.error, 'Failed to load profile.')}
@@ -94,22 +95,24 @@ export default function ProfilePage() {
   // Main
 
   return (
-    <AppLayout title="My Profile">
-      <div className="relative mx-auto max-w-2xl">
+    <AppLayout title="My Profile" desktopNavigation className="lg:px-8 lg:pt-8">
+      <div className="relative mx-auto max-w-2xl lg:max-w-[76rem]">
+        <div className="mb-8 hidden lg:block"><PageIntro title="My Profile" description="Manage your account and delivery addresses." /></div>
 
         {/* Decorative blobs */}
 
         <div
           aria-hidden
-          className="pointer-events-none absolute -right-10 -top-6 h-28 w-28 rounded-full bg-blob-tan"
+          className="pointer-events-none absolute -right-10 -top-6 h-28 w-28 rounded-full bg-blob-tan lg:hidden"
         />
 
         <div
           aria-hidden
-          className="pointer-events-none absolute -left-6 bottom-20 h-24 w-24 rounded-full bg-primary/20"
+          className="pointer-events-none absolute -left-6 bottom-20 h-24 w-24 rounded-full bg-primary/20 lg:hidden"
         />
 
-        {/* Avatar */}
+        <div className="lg:grid lg:grid-cols-[20rem_minmax(0,1fr)] lg:items-start lg:gap-8">
+        <section aria-label="Account information" className="lg:rounded-3xl lg:border lg:border-[#e3e9df] lg:bg-[#fafbf7] lg:p-6">
 
         <ProfileAvatar
           key={profile.id}
@@ -172,9 +175,11 @@ export default function ProfilePage() {
           </div>
         </div>
 
+        </section>
+        <div className="min-w-0">
         {/* Orders */}
 
-        <div className="mt-6 flex flex-col gap-3">
+        <div className="mt-6 flex flex-col gap-3 lg:mt-0">
           <ProfileOrders />
           <ProfileReferrals />
         </div>
@@ -203,6 +208,8 @@ export default function ProfilePage() {
           Logout
         </button>
 
+        </div>
+        </div>
       </div>
     </AppLayout>
   );

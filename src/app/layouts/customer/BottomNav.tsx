@@ -3,7 +3,7 @@ import { Home, Store, ShoppingCart, Users, MoreHorizontal, ClipboardList, User, 
 import { useState } from 'react';
 import type { LucideIcon } from 'lucide-react';
 import { useCartCount } from '../../../features/cart/useCartCount';
-import { Badge } from '../../../components/ui/Badge';
+import { Badge } from '../../../shared/ui/Badge';
 
 type Tab = {
   to: string;
@@ -26,7 +26,7 @@ const moreItems = [
 
 const MORE_ROUTES = ['/app/orders', '/app/profile'];
 
-export default function BottomNav() {
+export default function BottomNav({ className = '' }: { className?: string }) {
   const [moreOpen, setMoreOpen] = useState(false);
   const location = useLocation();
   const moreIsActive = MORE_ROUTES.some((r) => location.pathname.startsWith(r));
@@ -41,14 +41,14 @@ export default function BottomNav() {
       {/* Backdrop */}
       {moreOpen && (
         <div
-          className="fixed inset-0 z-40 bg-black/30"
+          className={`fixed inset-0 z-40 bg-black/30 ${className}`}
           onClick={() => setMoreOpen(false)}
         />
       )}
 
       {/* More bottom sheet */}
       {moreOpen && (
-        <div className="fixed bottom-20 left-1/2 z-50 w-full max-w-sm -translate-x-1/2 rounded-2xl bg-white p-4 shadow-xl">
+        <div className={`fixed bottom-20 left-1/2 z-50 w-full max-w-sm -translate-x-1/2 rounded-2xl bg-white p-4 shadow-xl ${className}`}>
           <div className="mb-3 flex items-center justify-between">
             <span className="text-sm font-semibold text-gray-700">More</span>
             <button onClick={() => setMoreOpen(false)}>
@@ -77,7 +77,7 @@ export default function BottomNav() {
       )}
 
       {/* Bottom nav */}
-      <nav className="sticky bottom-0 z-30 border-t border-muted bg-white/95 backdrop-blur">
+      <nav className={`sticky bottom-0 z-30 border-t border-muted bg-white/95 backdrop-blur ${className}`}>
         <ul className="mx-auto grid max-w-2xl grid-cols-5">
           {tabs.map((tab) => {
             const Icon = tab.icon;

@@ -42,7 +42,7 @@ export default function PastOrderCard({ order, disabled, adding, onReorder, onDe
 
   return (
     <div
-      className="flex items-center gap-4 rounded-2xl border-2 border-primary bg-white p-4 shadow-sm"
+      className="flex items-center gap-4 rounded-2xl border-2 border-primary bg-white p-4 shadow-sm lg:border lg:border-[#e3e9df]"
     >
       {order.items?.[0]?.imageUrls?.[0] ? (
         <img
