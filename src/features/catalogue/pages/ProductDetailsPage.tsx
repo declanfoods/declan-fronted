@@ -1,9 +1,11 @@
 import { useEffect, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { isAxiosError } from 'axios';
-import { useNavigate, useParams } from 'react-router-dom';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 import { ArrowLeft, ShoppingCart, Minus, Plus, Heart, Loader2, Star } from 'lucide-react';
+import DesktopNavigation from '../../../app/layouts/customer/DesktopNavigation';
 import SplashLoader from '../../../shared/ui/SplashLoader';
+import MobileProductGallery from '../components/MobileProductGallery';
 import ProductCard from '../components/ProductCard';
 import { formatNaira } from '../../../shared/formatters/formatNaira';
 import { productApi } from '../api/productApi';
@@ -21,7 +23,6 @@ export default function ProductDetailsPage() {
 
 function ProductDetails({ id }: { id: string }) {
   const navigate = useNavigate();
-  const authenticated = isAuthenticated();
 
   const productQuery = useQuery({
     queryKey: ['catalogue', 'products', id],
@@ -40,16 +41,18 @@ function ProductDetails({ id }: { id: string }) {
   });
   const product = productQuery.data;
 
+  const categoryId = product?.category?.id;
   const relatedQuery = useQuery({
-    queryKey: ['customer', 'catalogue', 'related-products', id],
-    enabled: authenticated && Boolean(product),
+    queryKey: ['catalogue', 'related-products', categoryId],
+    enabled: Boolean(categoryId),
     retry: false,
     queryFn: async ({ signal }) => {
-      const { data } = await productApi.getRelatedProducts(id, signal);
+      const { data } = await productApi.getProducts({ category: categoryId, limit: 8 }, signal);
+      if (data.success === false) throw new Error(data.message || 'Could not load related products.');
       return data.data?.products ?? [];
     },
   });
-  const related = authenticated ? relatedQuery.data ?? [] : [];
+  const related = (relatedQuery.data ?? []).filter((item) => item.id !== id).slice(0, 4);
 
   const [qty, setQty] = useState(1);
   const [adding, setAdding] = useState(false);
@@ -155,39 +158,48 @@ function ProductDetails({ id }: { id: string }) {
     );
   }
 
-  const image = product.imageUrls?.[0] ?? '';
+  const images = (product.imageUrls ?? []).filter((url) => Boolean(url));
+  const image = images[0];
   return (
     <div className="min-h-screen bg-white">
+      <div className="hidden lg:block"><DesktopNavigation /></div>
+      <main className="lg:mx-auto lg:grid lg:max-w-7xl lg:grid-cols-2 lg:items-start lg:gap-x-10 lg:px-8 lg:pb-14 lg:pt-8">
+        <Link to="/app/shop" className="mb-5 hidden items-center gap-2 text-sm font-semibold text-[#245b38] hover:underline lg:col-span-2 lg:inline-flex">
+          <ArrowLeft size={16} aria-hidden /> Back to Shop
+        </Link>
       {/* Header + image */}
-      <div className="relative">
-        <div className="absolute inset-x-0 top-0 z-10 flex items-center justify-between bg-primary px-4 py-4">
-          <button type="button" onClick={() => navigate(-1)} aria-label="Go back" className="text-white">
+      <div className="relative lg:col-start-1 lg:row-start-2 lg:row-span-2 lg:overflow-hidden lg:rounded-[2rem] lg:bg-[#f3f5eb]">
+        <div className="flex items-center justify-between border-b border-[#e3e9df] bg-white px-4 py-3 lg:hidden">
+          <button type="button" onClick={() => navigate(-1)} aria-label="Go back" className="text-[#245b38]">
             <ArrowLeft size={24} strokeWidth={2} />
           </button>
-          <h1 className="text-base font-semibold text-white">Product Details</h1>
+          <h1 className="text-base font-semibold text-[#153526]">Product Details</h1>
           <button
             type="button"
             onClick={() => navigate('/app/cart')}
             aria-label="Cart"
-            className="relative text-white"
+            className="relative text-[#245b38]"
           >
             <ShoppingCart size={24} strokeWidth={2} />
           </button>
         </div>
+        <MobileProductGallery name={product.name} images={images} />
+        <div className="hidden lg:block">
         {image ? (
-          <img src={image} alt={product.name} className="h-64 w-full object-cover" />
+          <img src={image} alt={product.name} className="h-64 w-full object-cover lg:h-auto lg:aspect-square" />
         ) : (
-          <div className="flex h-64 w-full items-center justify-center bg-gray-100 text-5xl">
+          <div className="flex h-64 w-full items-center justify-center bg-gray-100 text-5xl lg:h-auto lg:aspect-square lg:bg-[#f3f5eb]">
             🛒
           </div>
         )}
+        </div>
       </div>
 
-      <div className="px-5 py-5">
+      <div className="min-w-0 px-5 py-5 lg:col-start-2 lg:row-start-2 lg:self-stretch lg:rounded-t-3xl lg:bg-[#fafbf7] lg:p-8">
         {/* Title + save */}
         <div className="flex items-start justify-between">
           <div className="flex-1">
-            <h2 className="text-2xl font-bold text-ink">{product.name}</h2>
+            <h2 className="text-2xl font-bold text-ink lg:text-4xl lg:font-extrabold lg:tracking-tight lg:text-[#153526]">{product.name}</h2>
             <p className="mt-1 text-sm text-gray-500">
               {product.category?.name ?? 'Product'}
             </p>
@@ -316,21 +328,27 @@ function ProductDetails({ id }: { id: string }) {
           )}
         </div>
 
-        {/* Related products */}
-        {related.length > 0 && (
-          <div className="mt-8">
-            <h3 className="mb-3 text-lg font-bold text-ink">Related Products</h3>
-            <div className="grid grid-cols-2 gap-4">
-              {related.map((p) => (
-                <ProductCard key={p.id} product={p} />
-              ))}
-            </div>
-          </div>
-        )}
       </div>
 
+      <section aria-labelledby="related-products" className="px-5 pb-6 pt-4 lg:col-span-2 lg:row-start-4 lg:mt-10 lg:px-0">
+        <h2 id="related-products" className="mb-4 text-lg font-bold text-ink lg:text-2xl lg:font-extrabold lg:text-[#153526]">Related Products</h2>
+        {categoryId && relatedQuery.isPending ? (
+          <p role="status" className="text-sm text-ink-soft">Loading related products…</p>
+        ) : relatedQuery.isError ? (
+          <button type="button" onClick={() => void relatedQuery.refetch()} className="text-sm font-semibold text-primary underline">
+            Retry related products
+          </button>
+        ) : related.length === 0 ? (
+          <p className="text-sm text-ink-soft">No other products in this category yet.</p>
+        ) : (
+          <div className="grid grid-cols-2 gap-4 lg:grid-cols-4 lg:gap-5">
+            {related.map((item) => <ProductCard key={item.id} product={item} />)}
+          </div>
+        )}
+      </section>
+
       {/* Sticky bottom bar */}
-      <div className="sticky bottom-0 border-t border-muted bg-white px-5 py-4">
+      <div className="sticky bottom-0 z-10 border-t border-muted bg-white px-5 py-4 lg:static lg:col-start-2 lg:row-start-3 lg:rounded-b-3xl lg:border-0 lg:bg-[#fafbf7] lg:px-8 lg:pb-8">
         {addedMsg && (
           <p className="mb-2 text-center text-sm font-medium text-primary">{addedMsg}</p>
         )}
@@ -370,6 +388,7 @@ function ProductDetails({ id }: { id: string }) {
           </button>
         </div>
       </div>
+      </main>
     </div>
   );
 }
