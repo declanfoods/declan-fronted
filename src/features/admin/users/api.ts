@@ -39,6 +39,33 @@ export interface AdminUserFilters {
   status?: AdminUserStatus;
 }
 
+export const adminUserExportColumns = [
+  { key: 'email', label: 'Email' },
+  { key: 'phoneNumber', label: 'Phone Number' },
+  { key: 'customerName', label: 'Customer Name' },
+  { key: 'customerLocation', label: 'Customer Location' },
+  { key: 'dateJoined', label: 'Date Joined' },
+  { key: 'suspended', label: 'Suspended' },
+  { key: 'whatsAppLink', label: 'WhatsApp Link' },
+  { key: 'completedOrderCount', label: 'Completed Orders' },
+  { key: 'cancelledOrderCount', label: 'Cancelled Orders' },
+  { key: 'referralCount', label: 'Referral Count' },
+  { key: 'hasReferrals', label: 'Has Referrals' },
+  { key: 'referralWalletBalance', label: 'Referral Wallet Balance' },
+  { key: 'totalOrderAmount', label: 'Total Order Amount' },
+] as const;
+
+export type AdminUserExportColumn = (typeof adminUserExportColumns)[number]['key'];
+export type AdminUserExportFormat = 'csv' | 'xlsx';
+
+export interface AdminUserExportRequest {
+  format: AdminUserExportFormat;
+  startDate?: string;
+  endDate?: string;
+  includeSuspended: boolean;
+  columns?: AdminUserExportColumn[];
+}
+
 export interface AdminUserFinancialOverview {
   referralWalleBalance: string; // sic — typo is in the real API response
   numberOfReferrals: number;
@@ -142,6 +169,12 @@ export const adminUserApi = {
       '/api/v1/admin/users',
       { params: filters }
     ),
+
+  downloadList: (body: AdminUserExportRequest) =>
+    api.post<Blob>('/api/v1/admin/users/download-list', body, {
+      responseType: 'blob',
+      validateStatus: (status) => status === 200,
+    }),
 
   /** GET /api/v1/admin/users/metrics — aggregate counts for the analytics screen. */
   getUserMetrics: () =>

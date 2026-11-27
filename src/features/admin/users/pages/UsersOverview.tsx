@@ -15,6 +15,7 @@ import {
 import AdminBottomNav from '../../../../app/layouts/admin/AdminBottomNav';
 import StatusPill from '../../components/StatusPill';
 import RowActionsMenu, { type RowAction } from '../../components/RowActionsMenu';
+import DownloadUsersDialog from '../components/DownloadUsersDialog';
 import {
   useAdminUsers,
   useAdminUserMetrics,
@@ -298,6 +299,10 @@ export default function UsersOverview() {
       </div>
 
       <main className="flex-1 space-y-4 px-5 pb-28 pt-5">
+        <div className="flex justify-end">
+          <DownloadUsersDialog />
+        </div>
+
         {/* Loading skeleton */}
         {usersQuery.isLoading &&
           Array.from({ length: 4 }).map((_, i) => (
